@@ -6,7 +6,7 @@ A native Mac app that turns a pull request into a map of the system it changes: 
 moves through them, and every hunk one click away. It runs on your own tools, the [GitHub CLI](https://cli.github.com)
 and [Claude Code](https://code.claude.com), so there's no Fathom account, server or API key.
 
-![A part clicked on the map, its code beside it](docs/brief.png)
+![A connection clicked on the map: the POST request, what goes and what comes back, the interfaces it carries, and its code](docs/connection.png)
 
 When an agent writes the code, the line-by-line is usually fine. What a reviewer still owns is understanding what the
 change does, how it moves through the system, and the architectural call nobody else will catch. Fathom shows that as
@@ -31,7 +31,7 @@ diagrams and leaves the judgement to you: no AI verdicts, no risk scores, labels
 A PR you've opened before opens instantly from disk. A new one shows its headline within seconds and draws its map
 as Claude writes it.
 
-![A flow playing through the map, its sequence diagram beside it](docs/changes.png)
+![A flow playing through the map, each step labelled with its data, its sequence diagram beside it](docs/flow.png)
 
 ## Install
 
