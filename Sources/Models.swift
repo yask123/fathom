@@ -261,6 +261,7 @@ struct Component: Identifiable, Sendable {
     var change: Change
     var files: [String]
     var summary: String   // a few words on what it is ("role")
+    var holds = ""        // the state or data it owns ("route, undoRoute")
 }
 
 struct Edge: Identifiable, Sendable {
@@ -269,6 +270,38 @@ struct Edge: Identifiable, Sendable {
     var to: String
     var label: String
     var change: Change
+    var how: How = .call
+    var via = ""          // the call, endpoint or event as written ("planner.interpret(query, context:)")
+    var sends = ""        // what travels along it
+    var returns = ""      // what comes back
+    var hunks: [String] = []
+
+    /// How one part reaches another; it sets the line the wire is drawn with.
+    enum How: String, Sendable, CaseIterable {
+        case call, async, http, event, read, write, render
+
+        var word: String {
+            switch self {
+            case .call: "call"
+            case .async: "async call"
+            case .http: "HTTP"
+            case .event: "event"
+            case .read: "reads"
+            case .write: "writes"
+            case .render: "renders"
+            }
+        }
+    }
+
+    /// What travels, in one line: "query, context → RouteIntent".
+    var payload: String {
+        switch (sends.isEmpty, returns.isEmpty) {
+        case (false, false): "\(sends) → \(returns)"
+        case (false, true): sends
+        case (true, false): "→ \(returns)"
+        case (true, true): ""
+        }
+    }
 }
 
 struct FlowStep: Sendable {
@@ -276,6 +309,7 @@ struct FlowStep: Sendable {
     var to: String
     var label: String
     var detail: String
+    var data = ""         // what travels on this step
 }
 
 struct Flow: Identifiable, Sendable {
@@ -306,7 +340,7 @@ struct SystemMap: Sendable {
         components = raw.map {
             Component(id: $0["id"].string, name: $0["name"].string, layer: $0["layer"].string, kind: $0["kind"].string,
                       change: Change(rawValue: $0["change"].string) ?? .unchanged, files: $0["files"].strings,
-                      summary: $0["role"].stringOrNil ?? $0["summary"].string)
+                      summary: $0["role"].stringOrNil ?? $0["summary"].string, holds: $0["holds"].string)
         }
         .filter { !$0.id.isEmpty && !$0.name.isEmpty }
         var seen = Set<String>()
@@ -318,13 +352,15 @@ struct SystemMap: Sendable {
             let from = e["from"].string, to = e["to"].string
             guard ids.contains(from), ids.contains(to), from != to else { return nil }
             return Edge(id: "\(from)>\(to)#\(i)", from: from, to: to, label: e["label"].string,
-                        change: Change(rawValue: e["change"].string) ?? .unchanged)
+                        change: Change(rawValue: e["change"].string) ?? .unchanged,
+                        how: Edge.How(rawValue: e["how"].string) ?? .call, via: e["via"].string,
+                        sends: e["sends"].string, returns: e["returns"].string, hunks: e["hunks"].strings)
         }
         flows = (partial ? [] : j["flows"].array).map { f in
             Flow(id: 0, title: f["title"].string, steps: f["steps"].array.compactMap { s in
                 let from = s["from"].string, to = s["to"].string
                 guard ids.contains(from), ids.contains(to) else { return nil }
-                return FlowStep(from: from, to: to, label: s["label"].string, detail: s["detail"].string)
+                return FlowStep(from: from, to: to, label: s["label"].string, detail: s["detail"].string, data: s["data"].string)
             })
         }
         .filter { !$0.steps.isEmpty }
@@ -334,6 +370,7 @@ struct SystemMap: Sendable {
 
     var isEmpty: Bool { components.isEmpty }
     func component(_ id: String) -> Component? { components.first { $0.id == id } }
+    func edge(_ id: String) -> Edge? { edges.first { $0.id == id } }
 }
 
 // MARK: - Review

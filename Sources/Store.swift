@@ -277,6 +277,7 @@ final class PRSession {
     var hoveredComponent: String?
     var hoveredFile: String?          // from the footprint or an interface card
     var selectedComponent: String?
+    var hoveredEdge: String?
     var panel: Panel?                 // what sits beside the map
     var playingFlow: Int?
     var flowStep = 0
@@ -855,7 +856,26 @@ final class PRSession {
     // MARK: The side panel
 
     enum Panel: Equatable {
-        case component(String), flow(Int), interfaces, footprint
+        case component(String), edge(String), flow(Int), interfaces, footprint
+    }
+
+    var selectedEdge: String? {
+        if case .edge(let id) = panel { return id }
+        return nil
+    }
+
+    /// Opens one connection beside the map: how it's called, what travels, and where in the code.
+    func selectEdge(_ id: String) {
+        guard map.edge(id) != nil else { return }
+        flowTimer?.cancel()
+        flowTimer = nil
+        flowRunning = false
+        withAnimation(Motion.spring) {
+            playingFlow = nil
+            selectedComponent = nil
+            panel = .edge(id)
+            tab = .brief
+        }
     }
 
     /// Opens a part's code beside the map.
@@ -1043,6 +1063,8 @@ final class PRSession {
                 try? await Task.sleep(for: .milliseconds(200))
             }
             if let s = env["FATHOM_SELECT"] { select(s) }
+            // FATHOM_EDGE=walkmodel>routeplanner opens that connection.
+            if let e = env["FATHOM_EDGE"], let edge = map.edges.first(where: { "\($0.from)>\($0.to)" == e }) { selectEdge(edge.id) }
             if let p = env["FATHOM_PANEL"] { toggle(p == "footprint" ? .footprint : .interfaces) }
             if let f = env["FATHOM_FLOW"], let n = Int(f), map.flows.indices.contains(n) {
                 toggleFlow(n)

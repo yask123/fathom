@@ -15,9 +15,14 @@ diagrams and leaves the judgement to you: no AI verdicts, no risk scores, labels
 - **The map.** One line on what the PR does, then the layers it cuts through, drawn as strata from the surface (screens,
   routes) down to the depths (stores, external APIs). New parts glow green, changed ones amber. **Before / After**
   shows how the architecture moved.
-- **Click a part** and its code opens beside the map: what it talks to, the interfaces it owns, and every hunk in its
-  files with a short note on each.
-- **Flows.** Play one and a pulse runs along the wires while its sequence diagram follows in the panel.
+- **Every wire says how and what.** Calls are solid, network requests dashed, events dotted, store reads and writes
+  dash-dotted, and the connections a PR changes carry a tag with what travels (`POST query, context → RouteIntent`).
+  Click a wire for the call as written, what goes and what comes back, the interfaces it carries, and the code where
+  it happens.
+- **Click a part** and its code opens beside the map: the state it holds, each connection with its call and payload,
+  the interfaces it owns, and every hunk in its files with a short note on each.
+- **Flows.** Play one and a pulse runs along the wires while its sequence diagram follows in the panel, each step
+  labelled with the data it carries.
 - **Interfaces** whose shape changes (endpoints, types, tables, config) and the **footprint** of the change.
 - **Changes**: the whole diff, regrouped into chapters marked *read*, *skim* or *skip*.
 - **Ask** (`⌘K`) with the repo at the PR's head in front of Claude; any `file:line` in the answer jumps into the diff.
@@ -100,7 +105,7 @@ so the download link above keeps pointing at the newest one.
 | Setup | `Setup.swift` reads the login shell's environment, checks `gh api user` and `claude auth status`, and reads `claude --help` so an older Claude Code gets only the flags it understands. GitHub sign-in is `gh auth login --web` with the one-time code shown in the app |
 | GitHub | `gh api graphql` for the inbox and PR details, `gh pr diff` for the diff, `gh api …/reviews` to post a review |
 | Outline | `claude -p --json-schema` over the diff with every hunk labelled (`f3h2`): headline, chapters, the interfaces whose shape changes, one note per hunk. Long prose and data files are trimmed to their first lines. Streams in, headline first |
-| Map | `claude -p` with read-only `Read Grep Glob` in a shallow checkout of the PR head (`git fetch --depth=1 --filter=blob:none pull/N/head`, one worktree per PR, the 12 most recent kept). It waits at most 1.5 s for the checkout, else draws from the diff alone; parts appear as they're written |
+| Map | layers; parts with the state they hold; connections with how they're made (call, async, http, event, read, write, render), the call as written, what's sent and returned, and the hunks that make them; flows with the data on each step. `claude -p` with read-only `Read Grep Glob` in a shallow checkout of the PR head (`git fetch --depth=1 --filter=blob:none pull/N/head`, one worktree per PR, the 12 most recent kept). It waits at most 1.5 s for the checkout, else draws from the diff alone; parts appear as they're written |
 | Cache | Claude's readings per PR commit in `soundings/`, each PR's details and diff in `prs/`, and the inbox in `state.json`, all under `~/Library/Application Support/Fathom`. The top of the inbox is fetched ahead in the background |
 
 Sources: `Setup.swift` (accounts), `Shell.swift` (child processes), `GitHub.swift`, `Diff.swift` (parser, noise
@@ -123,7 +128,7 @@ with them and captures its window):
 | `FATHOM_NO_AI=1` | don't call Claude |
 | `FATHOM_NO_CHECKOUT=1`, `FATHOM_NO_PREFETCH=1` | no checkout of the repo; no fetching ahead |
 | `FATHOM_TAB=changes`, `FATHOM_ERA=before`, `FATHOM_BY_FILE=1` | start on a view |
-| `FATHOM_SELECT=<component id>`, `FATHOM_PANEL=interfaces\|footprint` | open the side panel |
+| `FATHOM_SELECT=<component id>`, `FATHOM_EDGE=<from id>><to id>`, `FATHOM_PANEL=interfaces\|footprint` | open the side panel |
 | `FATHOM_FLOW=0`, `FATHOM_FLOW_STEP=3` | play a flow, stop at a step |
 | `FATHOM_SCROLL=line:f4h1:90`, `FATHOM_GO=f3h2` | jump in Changes |
 | `FATHOM_ASK="…"` (empty just opens it), `FATHOM_REVIEW=1` | ask a question, open the review sheet |

@@ -145,10 +145,19 @@ enum Analyst {
     - components: 4–14 boxes — types, modules, services, stores, endpoints, external APIs; not every file. Include \
     unchanged neighbours only when they explain a flow. name: at most 3 words, as in the code, no backticks. kind: the \
     closest fit. change. files: repo paths (empty for external services). role: at most 6 words, what it is ("Photo \
-    carousel view", "Daily request budget").
-    - edges: up to 18, directed from caller or sender to callee or receiver. label: at most 3 words ("fetch photos"). change.
+    carousel view", "Daily request budget"). holds: the state or data it owns, at most 5 words as named in the code \
+    ("route, places, undoRoute"); empty if none.
+    - edges: up to 18, directed from caller or sender to callee or receiver. label: at most 3 words ("fetch photos"). \
+    how: call (a plain function or method call), async (an awaited call or a callback), http (a network request), \
+    event (a notification, publish, delegate or observer), read or write (to a store, cache, file or shared state), \
+    render (a view showing another view or binding to it). via: the call, endpoint or event as written in the code, \
+    at most 6 words ("planner.interpret(query, context:)", "POST /api/explore-v1"); empty if you can't see it. \
+    sends: what travels along it, at most 5 words, using type and field names ("query, context JSON"). returns: what \
+    comes back, at most 4 words ("RouteIntent"); empty if nothing. hunks: up to 3 hunk ids where this connection is \
+    made or changed; empty if none. change.
     - flows: 1–3 runtime paths this PR creates or changes. title: at most 4 words. steps: in order, each along an \
-    edge (from, to), label at most 4 words ("POST place", "cache miss").
+    edge (from, to), label at most 4 words ("POST place", "cache miss"), data: what travels on this step, at most \
+    4 words ("RouteIntent", "photo URLs").
     """
 
     static let mapSchema = """
@@ -156,13 +165,16 @@ enum Analyst {
      "required":["layers","components","edges","flows"],
      "properties":{
       "layers":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","name","role"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"role":{"type":"string"}}}},
-      "components":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","name","layer","kind","change","files","role"],"properties":{
-         "id":{"type":"string"},"name":{"type":"string"},"layer":{"type":"string"},
+      "components":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","name","layer","kind","change","files","role","holds"],"properties":{
+         "id":{"type":"string"},"name":{"type":"string"},"layer":{"type":"string"},"holds":{"type":"string"},
          "kind":{"type":"string","enum":["ui","api","service","state","store","external","job","config","library","test"]},
          "change":{"type":"string","enum":["added","modified","removed","unchanged"]},
          "files":{"type":"array","items":{"type":"string"}},"role":{"type":"string"}}}},
-      "edges":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["from","to","label","change"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"label":{"type":"string"},"change":{"type":"string","enum":["added","modified","removed","unchanged"]}}}},
-      "flows":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["title","steps"],"properties":{"title":{"type":"string"},"steps":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["from","to","label"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"label":{"type":"string"}}}}}}}
+      "edges":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["from","to","label","how","via","sends","returns","hunks","change"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"label":{"type":"string"},
+         "how":{"type":"string","enum":["call","async","http","event","read","write","render"]},
+         "via":{"type":"string"},"sends":{"type":"string"},"returns":{"type":"string"},"hunks":{"type":"array","items":{"type":"string"}},
+         "change":{"type":"string","enum":["added","modified","removed","unchanged"]}}}},
+      "flows":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["title","steps"],"properties":{"title":{"type":"string"},"steps":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["from","to","label","data"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"label":{"type":"string"},"data":{"type":"string"}}}}}}}
      }}
     """
 

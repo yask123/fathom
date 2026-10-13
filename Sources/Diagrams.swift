@@ -38,6 +38,17 @@ extension PRSession {
         return component(forPath: contract.file)
     }
 
+    /// The interfaces that travel along a connection: named in its call, or in what it sends or returns.
+    func contracts(on edge: Edge) -> [Contract] {
+        func norm(_ s: String) -> String { s.lowercased().filter { $0.isLetter || $0.isNumber } }
+        let hay = norm([edge.via, edge.sends, edge.returns].joined(separator: " "))
+        guard !hay.isEmpty else { return [] }
+        return brief.contracts.filter { c in
+            let n = norm(c.name)
+            return n.count >= 4 && hay.contains(n)
+        }
+    }
+
     /// Every component a file belongs to, changed ones first.
     func owners(ofPath path: String) -> [Component] {
         let all = map.components.filter { c in
@@ -168,7 +179,8 @@ struct SequenceDiagram: View {
                 ForEach(Array(flow.steps.enumerated()), id: \.offset) { k, step in
                     let x0 = x(step.from), x1 = x(step.to)
                     let on = active == k
-                    let labelW = min(StrataLayout.textWidth(step.label) * 0.9 + 30, geo.size.width - 8)
+                    let dataW = step.data.isEmpty ? 0 : WireTag.size(token: nil, text: step.data).width
+                    let labelW = min(StrataLayout.textWidth(step.label) * 0.9 + 30 + dataW, geo.size.width - 8)
                     let mid = step.from == step.to ? x0 + 14 + labelW / 2 : (x0 + x1) / 2
                     HStack(spacing: 5) {
                         Text("\(k + 1)")
@@ -180,6 +192,12 @@ struct SequenceDiagram: View {
                             .font(.system(size: 11, weight: on ? .semibold : .medium))
                             .foregroundStyle(on ? Color.text1 : Color.text2)
                             .lineLimit(1)
+                        if !step.data.isEmpty {
+                            Text(step.data)
+                                .font(.mono(9.5, .medium))
+                                .foregroundStyle(on ? Color.sonar : Color.calm)
+                                .lineLimit(1)
+                        }
                     }
                     .frame(width: labelW)
                     .position(x: min(max(mid, labelW / 2 + 2), geo.size.width - labelW / 2 - 2), y: rowY(k) - 11)

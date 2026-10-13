@@ -16,7 +16,7 @@ struct Sounding: Codable, Sendable {
     var version: Int?
 
     /// Bumped when the prompts change shape; older readings are read again.
-    static let current = 2
+    static let current = 3
 }
 
 /// Small state that survives relaunches.

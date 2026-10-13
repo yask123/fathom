@@ -170,6 +170,20 @@ extension PRSession {
         return rows
     }
 
+    /// A connection's code for the side panel: the hunks where it's made or changed, in diff order.
+    func edgeRows(_ edge: Edge) -> [DocRow] {
+        guard let diff, !edge.hunks.isEmpty else { return [] }
+        let notes = notesByHunk, comments = commentsByLine
+        let wanted = Set(edge.hunks)
+        var rows: [DocRow] = []
+        for f in diff.files where !f.isBinary {
+            for h in f.hunks where wanted.contains(h.id) {
+                rows += hunkRows(h, f, chapter: -2, notes: notes, comments: comments, inPanel: true)
+            }
+        }
+        return rows
+    }
+
     /// A part's code for the side panel: every hunk in its files, in diff order.
     func componentRows(_ id: String) -> [DocRow] {
         guard let diff, let c = map.component(id), !c.files.isEmpty else { return [] }

@@ -54,6 +54,7 @@ struct MapKey: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            lines
             HStack(spacing: 10) {
                 dot(.added)
                 dot(.modified)
@@ -62,6 +63,30 @@ struct MapKey: View {
             if session.map.components.contains(where: { $0.change == .added || $0.change == .removed }) {
                 EraSwitch(session: session)
             }
+        }
+    }
+
+    /// The line styles this map uses, when it uses more than plain calls.
+    @ViewBuilder private var lines: some View {
+        let kinds = Set(session.map.edges.map(\.how))
+        let shown: [(String, [CGFloat])] = [
+            ("call", Edge.How.call.dash),
+            ("HTTP", kinds.contains(.http) ? Edge.How.http.dash : nil),
+            ("event", kinds.contains(.event) ? Edge.How.event.dash : nil),
+            ("data", kinds.contains(.read) || kinds.contains(.write) ? Edge.How.read.dash : nil),
+        ].compactMap { name, dash in dash.map { (name, $0) } }
+        if shown.count > 1 {
+            HStack(spacing: 10) {
+                ForEach(shown, id: \.0) { name, dash in
+                    HStack(spacing: 5) {
+                        HLine()
+                            .stroke(Color.text2.opacity(0.8), style: StrokeStyle(lineWidth: 1.2, lineCap: .round, dash: dash))
+                            .frame(width: 16, height: 4)
+                        Text(name).font(.system(size: 10.5, weight: .medium)).foregroundStyle(Color.text3)
+                    }
+                }
+            }
+            .help("How parts reach each other. Click a wire or its tag to see the call and what travels.")
         }
     }
 
@@ -260,8 +285,8 @@ struct StrataLayout {
         }
     }
 
-    static let nodeHeight: CGFloat = 34
-    static let margin: CGFloat = 18
+    static let nodeHeight: CGFloat = 36
+    static let margin: CGFloat = 28
 
     var size: CGSize
     var bands: [Band] = []
@@ -316,7 +341,7 @@ struct StrataLayout {
         let margin = Self.margin
         let avail = max(size.width - margin * 2, 100)
         var lines: [[String]] = []
-        let minGap: CGFloat = 18
+        let minGap: CGFloat = 24
         for (b, r) in rows.enumerated() {
             var bandLines: [[String]] = [[]]
             var lw: CGFloat = 0
@@ -330,12 +355,12 @@ struct StrataLayout {
                 bandLines[bandLines.count - 1].append(id)
             }
             let band = bands[b].rect
-            let lineH = Self.nodeHeight + 14
-            let totalH = CGFloat(bandLines.count) * lineH - 14
+            let lineH = Self.nodeHeight + 18
+            let totalH = CGFloat(bandLines.count) * lineH - 18
             let top = band.midY + 8 - totalH / 2
             for (li, line) in bandLines.enumerated() where !line.isEmpty {
                 let total = line.reduce(0) { $0 + (width[$1] ?? 100) }
-                let gap = min((avail - total) / CGFloat(line.count + 1), 130)
+                let gap = min((avail - total) / CGFloat(line.count + 1), 150)
                 let groupW = total + gap * CGFloat(line.count - 1)
                 var x = margin + (avail - groupW) / 2
                 for id in line {
@@ -357,7 +382,7 @@ struct StrataLayout {
                     let others = (neighbours[id] ?? []).compactMap { nodes[$0] }.filter { $0.band != band }.map(\.rect.midX)
                     if !others.isEmpty { xs[i] += (others.reduce(0, +) / CGFloat(others.count) - xs[i]) * 0.45 }
                 }
-                Self.resolve(&xs, ws, gap: 22, lo: margin, hi: size.width - margin)
+                Self.resolve(&xs, ws, gap: 28, lo: margin, hi: size.width - margin)
                 for (i, id) in line.enumerated() { nodes[id]!.rect.origin.x = xs[i] - ws[i] / 2 }
             }
         }
@@ -484,6 +509,9 @@ struct StrataMap: View {
             let flowWires = flowWireIDs(layout)
             let weights = session.componentWeights
             ZStack(alignment: .topLeading) {
+                BlueprintGrid()
+                    .allowsHitTesting(false)
+
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapGesture { session.closePanel() }
@@ -491,29 +519,40 @@ struct StrataMap: View {
                 ForEach(layout.bands, id: \.layer.id) { band in
                     let c = Color.depth(band.index)
                     BandShape(index: band.index)
-                        .fill(LinearGradient(colors: [c.opacity(0.075), c.opacity(0.018)], startPoint: .top, endPoint: .bottom))
+                        .fill(LinearGradient(colors: [c.opacity(0.05), c.opacity(0.01)], startPoint: .top, endPoint: .bottom))
                         .overlay {
                             if band.index > 0 {
                                 BandShape(index: band.index, edgeOnly: true)
-                                    .stroke(LinearGradient(colors: [c.opacity(0), c.opacity(0.28), c.opacity(0)],
-                                                           startPoint: .leading, endPoint: .trailing), lineWidth: 0.75)
+                                    .stroke(c.opacity(0.26), style: StrokeStyle(lineWidth: 0.75, dash: [3, 5]))
                             }
                         }
                         .frame(width: geo.size.width, height: band.rect.height)
                         .offset(y: band.rect.minY)
                         .allowsHitTesting(false)
-                    Text(band.layer.name.uppercased())
-                        .font(.system(size: 9.5, weight: .bold))
-                        .tracking(1.3)
-                        .foregroundStyle(c.opacity(0.85))
-                        .lineLimit(1)
-                        .fixedSize()
-                        .help(band.layer.role)
-                        .offset(x: 16, y: band.rect.minY + 11)
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(String(format: "%02d", band.index + 1))
+                            .font(.mono(9.5, .semibold))
+                            .foregroundStyle(c.opacity(0.55))
+                        Text(band.layer.name.uppercased())
+                            .font(.system(size: 9.5, weight: .bold))
+                            .tracking(1.3)
+                            .foregroundStyle(c.opacity(0.9))
+                        if !band.layer.role.isEmpty {
+                            Text(band.layer.role)
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(Color.text3)
+                        }
+                    }
+                    .lineLimit(1)
+                    .fixedSize()
+                    .offset(x: 18, y: band.rect.minY + 12)
+                    .allowsHitTesting(false)
                 }
 
                 ForEach(layout.wires) { w in
-                    WireView(wire: w, look: look(w, focus: focus, flowWires: flowWires), drawn: drawn)
+                    WireView(wire: w, look: look(w, focus: focus, flowWires: flowWires), drawn: drawn) {
+                        session.selectEdge(w.id)
+                    }
                 }
 
                 if let pulse = pulse(layout) {
@@ -552,6 +591,9 @@ struct StrataMap: View {
 
     /// The components to keep bright; nil means everything.
     private func focusSet() -> Set<String>? {
+        if let id = session.hoveredEdge ?? session.selectedEdge, let e = session.map.edge(id) {
+            return [e.from, e.to]
+        }
         if let h = session.hoveredComponent ?? session.selectedComponent {
             var s: Set<String> = [h]
             for e in session.map.edges where e.from == h || e.to == h { s.insert(e.from); s.insert(e.to) }
@@ -596,19 +638,29 @@ struct StrataMap: View {
         let hidden = era == .before && (w.change == .added || endsAdded)
         let ghost = era == .after && (w.change == .removed || endsRemoved)
         let change: Change = era == .before ? (w.change == .removed ? .removed : .unchanged) : w.change
+        let how = session.map.edge(w.id)?.how ?? .call
         var l = WireLook(color: change == .unchanged ? .white : change.color,
-                         alpha: change == .unchanged ? 0.17 : 0.75,
-                         width: change == .unchanged ? 1.1 : 1.6,
+                         alpha: change == .unchanged ? 0.2 : 0.75,
+                         width: change == .unchanged ? 1.1 : 1.5,
                          glow: change != .unchanged && !ghost,
-                         dashed: ghost || w.change == .removed,
+                         dash: ghost || w.change == .removed ? [4, 4] : how.dash,
                          hidden: hidden)
+        if how == .render { l.alpha *= 0.7 }
         if ghost { l.alpha = 0.3 }
+        let chosen = session.selectedEdge.map { w.id == $0 } ?? false, pointed = session.hoveredEdge.map { w.id == $0 } ?? false
+        if chosen || pointed {
+            l.color = chosen ? .sonar : l.color
+            l.alpha = 1
+            l.width = 2.1
+            l.glow = true
+        }
         if flowWires.contains(w.id) {
             l.color = .sonar
             l.alpha = 0.55
             l.width = 1.8
         }
-        let focused = focus.map { $0.contains(w.from) && $0.contains(w.to) } ?? true
+        var focused = focus.map { $0.contains(w.from) && $0.contains(w.to) } ?? true
+        if let id = session.hoveredEdge ?? session.selectedEdge, !(chosen || pointed) { focused = focused && w.id == id }
         if !focused {
             l.alpha *= 0.22
             l.glow = false
@@ -619,21 +671,23 @@ struct StrataMap: View {
         return l
     }
 
-    /// Wire labels for the part you're on, and the step a flow is at.
+    /// What travels along the wires: on every changed connection at rest, on all of a part's connections when you're
+    /// on it, and on the connection you've picked. Placed where they collide with nothing; a tag that can't find room
+    /// waits for you to point at its part. While a flow plays, only its step speaks.
     @ViewBuilder
     private func edgeLabels(_ layout: StrataLayout, focus: Set<String>?) -> some View {
-        let anchor = session.hoveredComponent ?? session.selectedComponent
-        if session.playingFlow == nil, let anchor {
-            ForEach(layout.wires.filter { ($0.from == anchor || $0.to == anchor) && !$0.label.isEmpty && visible($0) }) { w in
-                Text(w.label)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(w.change == .unchanged ? Color.text2 : w.change.color.opacity(0.95))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(Color.ink.opacity(0.9)))
-                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.07), lineWidth: 0.5))
-                    .fixedSize()
-                    .position(labelPoint(w, layout, label: w.label, extra: 16))
+        if session.playingFlow == nil {
+            ForEach(tagPlacements(layout)) { tag in
+                WireTag(token: tag.token, text: tag.text, tint: tag.tint, emphasis: tag.emphasis)
+                    .position(tag.center)
+                    .onTapGesture { session.selectEdge(tag.id) }
+                    .onHover { h in
+                        guard !QA.noHover else { return }
+                        withAnimation(Motion.snappy) {
+                            session.hoveredEdge = h ? tag.id : (session.hoveredEdge == tag.id ? nil : session.hoveredEdge)
+                        }
+                    }
+                    .help(tag.help)
                     .transition(.opacity)
             }
         }
@@ -641,7 +695,7 @@ struct StrataMap: View {
            session.map.flows[f].steps.indices.contains(session.flowStep) {
             let step = session.map.flows[f].steps[session.flowStep]
             if let w = layout.wire(from: step.from, to: step.to) {
-                HStack(spacing: 5) {
+                HStack(spacing: 6) {
                     Text("\(session.flowStep + 1)")
                         .font(.mono(9.5, .bold))
                         .foregroundStyle(Color.ink)
@@ -650,18 +704,104 @@ struct StrataMap: View {
                     Text(step.label)
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(Color.text1)
+                    if !step.data.isEmpty {
+                        Text(step.data)
+                            .font(.mono(10, .medium))
+                            .foregroundStyle(Color.sonar)
+                    }
                 }
                 .padding(.leading, 3)
                 .padding(.trailing, 8)
                 .padding(.vertical, 3)
-                .background(Capsule().fill(Color.ink.opacity(0.92)))
-                .overlay(Capsule().strokeBorder(Color.sonar.opacity(0.45), lineWidth: 0.75))
+                .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color(hex: 0x080C13).opacity(0.95)))
+                .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Color.sonar.opacity(0.45), lineWidth: 0.75))
                 .fixedSize()
-                .position(labelPoint(w, layout, label: step.label, extra: 34))
+                .position(clearOfLayerLabels(labelPoint(w, layout, label: step.label + step.data, extra: 44),
+                                             width: StrataLayout.textWidth(step.label + step.data) * 0.9 + 44, layout))
                 .id("step\(session.flowStep)")
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                .allowsHitTesting(false)
             }
         }
+    }
+
+    /// The corner each layer writes its name in.
+    private func layerLabelRects(_ layout: StrataLayout) -> [CGRect] {
+        layout.bands.map { band in
+            let name = (band.layer.name.uppercased() as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 9.5, weight: .bold)]).width
+                + 1.3 * CGFloat(band.layer.name.count)
+            let role = (band.layer.role as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 10.5)]).width
+            return CGRect(x: 10, y: band.rect.minY + 4, width: (44 + name + role) * 1.12 + 12, height: 24)
+        }
+    }
+
+    /// Slides a label right until it no longer covers a layer's name.
+    private func clearOfLayerLabels(_ p: CGPoint, width: CGFloat, _ layout: StrataLayout) -> CGPoint {
+        var p = p
+        for r in layerLabelRects(layout) where CGRect(x: p.x - width / 2, y: p.y - 11, width: width, height: 22).intersects(r) {
+            p.x = min(r.maxX + width / 2 + 8, layout.size.width - width / 2 - 6)
+        }
+        return p
+    }
+
+    struct TagPlacement: Identifiable {
+        let id: String
+        let token: String?
+        let text: String
+        let tint: Color
+        let emphasis: Bool
+        let center: CGPoint
+        let help: String
+    }
+
+    private func tagPlacements(_ layout: StrataLayout) -> [TagPlacement] {
+        let picked = session.selectedEdge, pointed = session.hoveredEdge
+        let anchor = session.hoveredComponent ?? session.selectedComponent
+        // Who gets a tag, most wanted first.
+        var wanted: [Edge] = []
+        func add(_ e: Edge?) { if let e, visible(e), !wanted.contains(where: { $0.id == e.id }) { wanted.append(e) } }
+        add(picked.flatMap { session.map.edge($0) })
+        add(pointed.flatMap { session.map.edge($0) })
+        if let anchor {
+            session.map.edges.filter { $0.from == anchor || $0.to == anchor }.forEach(add)
+        } else if picked == nil {
+            // At rest: what the PR changes, the boundaries first (network, events, stores), then calls; never view wiring.
+            func rank(_ e: Edge) -> Int {
+                let kind = [.http, .event, .write, .read].contains(e.how) ? 0 : 2
+                return kind + (e.change == .added ? 0 : 1)
+            }
+            session.map.edges.filter { $0.change != .unchanged && $0.how != .render && !$0.tagText.isEmpty }
+                .enumerated().sorted { (rank($0.element), $0.offset) < (rank($1.element), $1.offset) }
+                .map(\.element).prefix(9).forEach(add)
+        }
+
+        var taken = layout.nodes.values.map { $0.rect.insetBy(dx: -4, dy: -3) }
+        taken += layerLabelRects(layout)   // and the layer names in each band's corner
+        var out: [TagPlacement] = []
+        for e in wanted {
+            guard let w = layout.wires.first(where: { $0.id == e.id }) else { continue }
+            let text = e.tagText.isEmpty ? e.label : e.tagText
+            guard !text.isEmpty else { continue }
+            let size = WireTag.size(token: e.how.token(via: e.via), text: text)
+            var spot: CGRect?
+            for t in [0.5, 0.4, 0.6, 0.3, 0.7, 0.22, 0.78] as [CGFloat] {
+                let p = w.point(t)
+                for dy in [0, -16, 16] as [CGFloat] {
+                    let r = CGRect(x: p.x - size.width / 2, y: p.y + dy - size.height / 2, width: size.width, height: size.height)
+                    guard r.minX > 4, r.maxX < layout.size.width - 4, r.minY > 22, r.maxY < layout.size.height - 4 else { continue }
+                    if !taken.contains(where: { $0.intersects(r) }) { spot = r; break }
+                }
+                if spot != nil { break }
+            }
+            guard let r = spot else { continue }
+            taken.append(r.insetBy(dx: -4, dy: -3))
+            let tint: Color = e.change == .unchanged ? .text2 : e.change.color
+            let ends = "\(session.map.component(e.from)?.name ?? e.from) → \(session.map.component(e.to)?.name ?? e.to)"
+            out.append(TagPlacement(id: e.id, token: e.how.token(via: e.via), text: text, tint: tint,
+                                    emphasis: e.id == picked || e.id == pointed, center: CGPoint(x: r.midX, y: r.midY),
+                                    help: [ends, e.via].filter { !$0.isEmpty }.joined(separator: "\n")))
+        }
+        return out
     }
 
     /// Where a wire's label goes: on the wire, unless the wire is a short hop between neighbours in a row — the
@@ -678,10 +818,11 @@ struct StrataMap: View {
         return p
     }
 
-    private func visible(_ w: StrataLayout.Wire) -> Bool {
-        if session.era == .before && w.change == .added { return false }
-        let from = session.map.component(w.from), to = session.map.component(w.to)
+    private func visible(_ e: Edge) -> Bool {
+        if session.era == .before && e.change == .added { return false }
+        let from = session.map.component(e.from), to = session.map.component(e.to)
         if session.era == .before && (from?.change == .added || to?.change == .added) { return false }
+        if session.era == .after && (e.change == .removed || from?.change == .removed || to?.change == .removed) { return false }
         return true
     }
 }
@@ -713,7 +854,7 @@ struct WireLook: Equatable {
     var alpha: Double
     var width: CGFloat
     var glow: Bool
-    var dashed: Bool
+    var dash: [CGFloat]
     var hidden: Bool
 }
 
@@ -774,22 +915,139 @@ struct WireView: View {
     let wire: StrataLayout.Wire
     let look: WireLook
     let drawn: Bool
+    var tap: (() -> Void)? = nil
 
     var body: some View {
         let shape = WireShape(wire)
         ZStack {
             shape
                 .trim(from: 0, to: drawn ? 1 : 0)
-                .stroke(look.color.opacity(look.glow ? look.alpha * 0.25 : 0), style: StrokeStyle(lineWidth: look.width + 5, lineCap: .round))
+                .stroke(look.color.opacity(look.glow ? look.alpha * 0.22 : 0), style: StrokeStyle(lineWidth: look.width + 5, lineCap: .round))
             shape
                 .trim(from: 0, to: drawn ? 1 : 0)
                 .stroke(look.color.opacity(look.alpha),
-                        style: StrokeStyle(lineWidth: look.width, lineCap: .round, dash: look.dashed ? [4, 4] : []))
+                        style: StrokeStyle(lineWidth: look.width, lineCap: .round, dash: look.dash))
             ArrowShape(wire: shape)
                 .fill(look.color.opacity(drawn ? look.alpha : 0))
         }
         .opacity(look.hidden ? 0 : 1)
-        .allowsHitTesting(false)
+        // Only the line itself takes a click, a little wider than it's drawn.
+        .contentShape(shape.stroke(style: StrokeStyle(lineWidth: 12, lineCap: .round)))
+        .onTapGesture { tap?() }
+        .allowsHitTesting(tap != nil && !look.hidden)
+    }
+}
+
+/// A connection's tag on the map: how it's called, as a token, and what travels.
+struct WireTag: View {
+    let token: String?
+    let text: String
+    let tint: Color
+    let emphasis: Bool
+
+    static let height: CGFloat = 19
+    static func size(token: String?, text: String) -> CGSize {
+        let t = (text as NSString).size(withAttributes: [.font: NSFont.monospacedSystemFont(ofSize: 9.5, weight: .medium)]).width
+        let k = token.map { ($0 as NSString).size(withAttributes: [.font: NSFont.monospacedSystemFont(ofSize: 8, weight: .bold)]).width + 6 } ?? 0
+        return CGSize(width: ceil(t + k + 14), height: height)
+    }
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if let token {
+                Text(token)
+                    .font(.mono(8, .bold))
+                    .foregroundStyle(Color.calm)
+            }
+            Text(text)
+                .font(.mono(9.5, .medium))
+                .foregroundStyle(tint)
+        }
+        .lineLimit(1)
+        .fixedSize()
+        .padding(.horizontal, 7)
+        .frame(height: Self.height)
+        .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color(hex: 0x080C13).opacity(0.94)))
+        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous)
+            .strokeBorder(emphasis ? Color.sonar.opacity(0.75) : Color.white.opacity(0.09), lineWidth: emphasis ? 1 : 0.6))
+        .contentShape(Rectangle())
+    }
+}
+
+extension Edge.How {
+    /// The line a wire is drawn with: calls solid, network requests dashed, events dotted, data access dash-dot.
+    var dash: [CGFloat] {
+        switch self {
+        case .call, .async, .render: []
+        case .http: [6, 4]
+        case .event: [1, 4]
+        case .read, .write: [8, 3, 1.5, 3]
+        }
+    }
+
+    /// A short token on the tag; a plain call needs none. HTTP shows its method when the call names one.
+    func token(via: String) -> String? {
+        switch self {
+        case .call: return nil
+        case .async: return "AWAIT"
+        case .http:
+            let method = via.split(separator: " ").first.map { $0.uppercased() } ?? ""
+            return ["GET", "POST", "PUT", "PATCH", "DELETE"].contains(method) ? method : "HTTP"
+        case .event: return "EVENT"
+        case .read: return "READ"
+        case .write: return "WRITE"
+        case .render: return "VIEW"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .call: "arrow.right"
+        case .async: "arrow.triangle.2.circlepath"
+        case .http: "network"
+        case .event: "bolt"
+        case .read: "arrow.down.doc"
+        case .write: "square.and.arrow.down"
+        case .render: "macwindow"
+        }
+    }
+}
+
+extension Edge {
+    /// What a tag says: what travels, shortened to fit on a wire.
+    var tagText: String {
+        let limit = 40
+        guard payload.count > limit else { return payload }
+        // Keep what comes back whole; shorten what goes.
+        if !returns.isEmpty && !sends.isEmpty && returns.count < limit - 12 {
+            return String(sends.prefix(limit - returns.count - 4)).trimmingCharacters(in: .whitespaces) + "… → " + returns
+        }
+        return String(payload.prefix(limit - 1)) + "…"
+    }
+}
+
+/// Faint graph paper behind the map, so it reads like a drawing.
+struct BlueprintGrid: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let minor: CGFloat = 24
+            var fine = Path(), bold = Path()
+            var x: CGFloat = 0, i = 0
+            while x <= size.width {
+                let r = CGRect(x: x, y: 0, width: 0.5, height: size.height)
+                if i % 5 == 0 { bold.addRect(r) } else { fine.addRect(r) }
+                x += minor; i += 1
+            }
+            var y: CGFloat = 0
+            i = 0
+            while y <= size.height {
+                let r = CGRect(x: 0, y: y, width: size.width, height: 0.5)
+                if i % 5 == 0 { bold.addRect(r) } else { fine.addRect(r) }
+                y += minor; i += 1
+            }
+            ctx.fill(fine, with: .color(Color.white.opacity(0.022)))
+            ctx.fill(bold, with: .color(Color.white.opacity(0.045)))
+        }
     }
 }
 
