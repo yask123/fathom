@@ -30,8 +30,9 @@ as Claude writes it.
 
 ## Install
 
-1. Download **Fathom.dmg** from the [latest release](https://github.com/yask123/fathom/releases/latest) and drag
-   Fathom into Applications. It's signed and notarized by Apple. Needs macOS 26 or later (Apple silicon or Intel).
+1. Download [**Fathom.dmg**](https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg) (or pick a version
+   from [Releases](https://github.com/yask123/fathom/releases)) and drag Fathom into Applications. It's signed and
+   notarized by Apple. Needs macOS 26 or later (Apple silicon or Intel).
 2. Open it. The first screen checks the two tools Fathom runs on and walks you through what's missing:
    - **GitHub CLI**: `brew install gh` ([other ways](https://cli.github.com)). Then press **Sign In to GitHub** in
      Fathom: it shows a one-time code, opens github.com, and finishes by itself. Already signed in with `gh auth login`?
@@ -87,8 +88,10 @@ Needs the Xcode 27 command line tools. No Xcode project; `swiftc` builds the app
 FATHOM_ARCHS="arm64 x86_64" ./build.sh   # universal
 ```
 
-`scripts/release.sh <version> <build>` makes the notarized DMG. It needs a Developer ID identity and a `notarytool`
-profile, named by `FATHOM_SIGN_ID` and `FATHOM_NOTARY_PROFILE`.
+`scripts/release.sh <version> <build>` makes the notarized DMG in `dist/`. It needs a Developer ID identity and a
+`notarytool` profile, named by `FATHOM_SIGN_ID` and `FATHOM_NOTARY_PROFILE`, and the Mac unlocked while it runs (macOS
+keeps the notary credentials out of reach while the screen is locked). Upload the DMG to the release as `Fathom.dmg`
+so the download link above keeps pointing at the newest one.
 
 ## How it works
 
