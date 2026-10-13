@@ -37,7 +37,7 @@ as Claude writes it.
      Fathom: it shows a one-time code, opens github.com, and finishes by itself. Already signed in with `gh auth login`?
      Nothing to do.
    - **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash` ([install guide](https://code.claude.com/docs/en/setup)).
-     Then press **Sign In in Terminal**, or run `claude auth login` yourself. Readings use your Claude plan.
+     Then press **Open Terminal to Sign In**, or run `claude auth login` yourself. Readings use your Claude plan.
 
 You can come back to this any time in **Settings** (`⌘,`), along with the model (Opus or Sonnet) and whether to read
 new review requests in the background (off by default).
@@ -115,7 +115,8 @@ with them and captures its window):
 |---|---|
 | `FATHOM_OPEN=owner/repo#123` | open a PR on launch |
 | `FATHOM_HOME=/path` | use another data folder |
-| `FATHOM_SETUP=gh:signedOut,claude:missing` | show a setup state without touching the real tools |
+| `FATHOM_SETUP=gh:signedOut,claude:missing` | show a setup state without touching the real tools; add `signin`, with `GH_CONFIG_DIR` set to an empty folder, to try GitHub sign-in |
+| `FATHOM_SETTINGS=1` | open Settings on launch |
 | `FATHOM_NO_AI=1` | don't call Claude |
 | `FATHOM_NO_CHECKOUT=1`, `FATHOM_NO_PREFETCH=1` | no checkout of the repo; no fetching ahead |
 | `FATHOM_TAB=changes`, `FATHOM_ERA=before`, `FATHOM_BY_FILE=1` | start on a view |

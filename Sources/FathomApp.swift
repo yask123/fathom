@@ -55,6 +55,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
+    /// A GitHub sign-in still waiting for its code would otherwise keep polling GitHub after Fathom quits.
+    func applicationWillTerminate(_ notification: Notification) {
+        MainActor.assumeIsolated { store?.setup.signIn?.cancel() }
+    }
+
     /// Back from Terminal or a browser after installing or signing in: look again.
     func applicationDidBecomeActive(_ notification: Notification) {
         Task { @MainActor in

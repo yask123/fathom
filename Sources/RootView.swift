@@ -4,6 +4,7 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AppStore.self) private var store
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         HStack(spacing: 0) {
@@ -29,6 +30,13 @@ struct RootView: View {
         .ignoresSafeArea(.container, edges: .top)
         .containerBackground(for: .window) { DepthBackdrop() }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { store.windowWidth = $0 }
+        .task {
+            // FATHOM_SETTINGS=1 opens Settings on launch, for screenshots.
+            if store.env["FATHOM_SETTINGS"] == "1" {
+                try? await Task.sleep(for: .seconds(1))
+                openSettings()
+            }
+        }
     }
 }
 
@@ -81,6 +89,12 @@ struct Sidebar: View {
                         Text(error)
                             .font(.system(size: 11.5))
                             .foregroundStyle(Color.changed)
+                            .padding(.horizontal, 8)
+                    } else if store.viewer == nil && store.setup.checked && !store.hasGH {
+                        Text("Pull requests waiting for you, and your own, show up here once GitHub is connected.")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Color.text3)
+                            .fixedSize(horizontal: false, vertical: true)
                             .padding(.horizontal, 8)
                     }
                     InboxSection(title: "Waiting for you", items: store.forYou,
@@ -269,15 +283,11 @@ struct SidebarFooter: View {
                         .foregroundStyle(Color.text3)
                 }
             } else if store.setup.checked && !store.hasGH {
-                Image(systemName: "person.crop.circle.badge.questionmark")
-                    .foregroundStyle(Color.text3)
-                Text("GitHub not connected")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Color.text3)
                 SettingsLink {
-                    Text("Set Up")
-                        .font(.system(size: 11.5, weight: .semibold))
+                    Label("Connect GitHub", systemImage: "person.crop.circle.badge.plus")
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Color.sonar)
+                        .lineLimit(1)
                 }
                 .buttonStyle(.plain)
             } else {

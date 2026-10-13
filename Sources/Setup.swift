@@ -60,6 +60,9 @@ final class Setup {
             checked = true
         }
         if ghReady && !wasReady && !firstCheck { onGitHubReady?() }
+        if firstCheck, github == .signedOut, ProcessInfo.processInfo.environment["FATHOM_SETUP"]?.contains("signin") == true {
+            signInToGitHub()
+        }
     }
 
     func signInToGitHub() {
@@ -126,7 +129,8 @@ final class Setup {
         return .ready("Claude Code \(version)")
     }
 
-    /// FATHOM_SETUP=gh:signedOut,claude:missing shows a state without breaking the real tools, for screenshots.
+    /// FATHOM_SETUP=gh:signedOut,claude:missing shows a state without breaking the real tools, for screenshots;
+    /// adding `signin` starts GitHub sign-in on launch when gh really is signed out (try it with GH_CONFIG_DIR=<empty dir>).
     private static func applyFakes(_ gh: inout GitHubState, _ claude: inout ClaudeState) {
         guard let spec = ProcessInfo.processInfo.environment["FATHOM_SETUP"] else { return }
         for part in spec.split(separator: ",") {
@@ -393,7 +397,7 @@ struct SetupRows: View {
             case .signedOut:
                 ToolRow(symbol: "sparkle", name: "Claude Code", status: "Installed, not signed in", tone: .attention,
                         detail: "Sign in once in Terminal. Fathom notices when you come back.") {
-                    Button("Sign In in Terminal") { setup.signInToClaude() }
+                    Button("Open Terminal to Sign In") { setup.signInToClaude() }
                         .buttonStyle(.glass)
                         .controlSize(.small)
                 }
