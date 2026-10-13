@@ -236,6 +236,9 @@ enum Claude {
             return "You've hit your Claude usage limit for now. Try again after it resets."
         }
         if m.contains("overloaded") { return "Claude is overloaded right now. Try again in a minute." }
+        if m.contains("model") && (m.contains("not found") || m.contains("not available") || m.contains("access") || m.contains("invalid")) {
+            return "Your Claude plan can't use this model. Switch to Sonnet in Settings (⌘,)."
+        }
         return String(message.prefix(300))
     }
 }
