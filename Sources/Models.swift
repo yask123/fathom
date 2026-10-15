@@ -163,6 +163,16 @@ struct PRDetail: Sendable {
     }
 }
 
+/// A repository in the switcher: its open pull requests, and how many wait for you.
+struct RepoInfo: Identifiable, Hashable, Codable, Sendable {
+    var slug: String
+    var open: Int
+    var pushedAt: Date?
+    var id: String { slug }
+    var owner: String { String(slug.split(separator: "/").first ?? "") }
+    var name: String { String(slug.split(separator: "/").last ?? "") }
+}
+
 struct Viewer: Sendable, Equatable, Codable {
     var login: String
     var name: String
@@ -247,130 +257,92 @@ struct ContractMember: Hashable, Sendable {
 
 // MARK: - The map
 
-struct Layer: Identifiable, Sendable {
-    var id: String
-    var name: String
-    var role: String
-}
+// MARK: - The story
 
-struct Component: Identifiable, Sendable {
-    var id: String
-    var name: String
-    var layer: String
-    var kind: String
-    var change: Change
-    var files: [String]
-    var summary: String   // a few words on what it is ("role")
-    var holds = ""        // the state or data it owns ("route, undoRoute")
-}
-
-struct Edge: Identifiable, Sendable {
-    var id: String
-    var from: String
-    var to: String
-    var label: String
-    var change: Change
-    var how: How = .call
-    var via = ""          // the call, endpoint or event as written ("planner.interpret(query, context:)")
-    var sends = ""        // what travels along it
-    var returns = ""      // what comes back
-    var hunks: [String] = []
-
-    /// How one part reaches another; it sets the line the wire is drawn with.
-    enum How: String, Sendable, CaseIterable {
-        case call, async, http, event, read, write, render
-
-        var word: String {
-            switch self {
-            case .call: "call"
-            case .async: "async call"
-            case .http: "HTTP"
-            case .event: "event"
-            case .read: "reads"
-            case .write: "writes"
-            case .render: "renders"
-            }
-        }
+/// A pull request told as a short illustrated story: the problem, the idea, how it works now, the choices made,
+/// and where to read. Each page is a sentence and a small diagram.
+struct Story: Sendable {
+    struct Step: Sendable, Hashable {
+        var from: String
+        var to: String
+        var does: String
+        var data: String
+        var isNew: Bool
     }
 
-    /// What travels, in one line: "query, context → RouteIntent".
-    var payload: String {
-        switch (sends.isEmpty, returns.isEmpty) {
-        case (false, false): "\(sends) → \(returns)"
-        case (false, true): sends
-        case (true, false): "→ \(returns)"
-        case (true, true): ""
-        }
+    struct Part: Sendable, Identifiable, Hashable {
+        var id: String
+        var name: String
+        var kind: String
+        var isNew: Bool
+        var role: String
     }
-}
 
-struct FlowStep: Sendable {
-    var from: String
-    var to: String
-    var label: String
-    var detail: String
-    var data = ""         // what travels on this step
-}
+    struct Link: Sendable, Hashable {
+        var from: String
+        var to: String
+        var label: String
+        var isNew: Bool
+    }
 
-struct Flow: Identifiable, Sendable {
-    var id: Int
-    var title: String
-    var steps: [FlowStep]
-}
+    struct Choice: Sendable, Identifiable, Hashable {
+        var id: Int
+        var title: String
+        var chose: String
+        var over: String
+        var why: String
+        var stated: Bool
+        var hunks: [String]
+    }
 
-struct SystemMap: Sendable {
-    var layers: [Layer] = []
-    var components: [Component] = []
-    var edges: [Edge] = []
-    var flows: [Flow] = []
+    struct Look: Sendable, Hashable {
+        var hunk: String
+        var why: String
+    }
+
+    var problemTitle = ""
+    var problemSteps: [Step] = []
+    var pain = ""
+    var painStep = -1
+    var ideaTitle = ""
+    var parts: [Part] = []
+    var links: [Link] = []
+    var solutionTitle = ""
+    var solutionSteps: [Step] = []
+    var choices: [Choice] = []
+    var look: [Look] = []
 
     init() {}
 
-    /// `partial` is for a map still being written: parts without a known layer yet, the part being written,
-    /// and the flows wait until they are complete.
-    init(_ j: J, partial: Bool = false) {
-        layers = j["layers"].array.map { Layer(id: $0["id"].string, name: $0["name"].string, role: $0["role"].string) }
-            .filter { !$0.id.isEmpty }
-        var raw = j["components"].array
-        if partial {
-            if !raw.isEmpty && j["edges"].array.isEmpty { raw.removeLast() }
-            let known = Set(layers.map(\.id))
-            raw = raw.filter { known.contains($0["layer"].string) }
+    init(_ j: J) {
+        func steps(_ a: [J]) -> [Step] {
+            a.map { Step(from: $0["from"].string, to: $0["to"].string, does: $0["does"].string, data: $0["data"].string,
+                         isNew: $0["new"].bool) }
+                .filter { !$0.from.isEmpty && !$0.to.isEmpty }
         }
-        components = raw.map {
-            Component(id: $0["id"].string, name: $0["name"].string, layer: $0["layer"].string, kind: $0["kind"].string,
-                      change: Change(rawValue: $0["change"].string) ?? .unchanged, files: $0["files"].strings,
-                      summary: $0["role"].stringOrNil ?? $0["summary"].string, holds: $0["holds"].string)
-        }
-        .filter { !$0.id.isEmpty && !$0.name.isEmpty }
-        var seen = Set<String>()
-        components = components.filter { seen.insert($0.id).inserted }
-        let ids = Set(components.map(\.id))
-        var rawEdges = j["edges"].array
-        if partial && j["flows"].array.isEmpty && !rawEdges.isEmpty { rawEdges.removeLast() }
-        edges = rawEdges.enumerated().compactMap { i, e in
-            let from = e["from"].string, to = e["to"].string
-            guard ids.contains(from), ids.contains(to), from != to else { return nil }
-            return Edge(id: "\(from)>\(to)#\(i)", from: from, to: to, label: e["label"].string,
-                        change: Change(rawValue: e["change"].string) ?? .unchanged,
-                        how: Edge.How(rawValue: e["how"].string) ?? .call, via: e["via"].string,
-                        sends: e["sends"].string, returns: e["returns"].string, hunks: e["hunks"].strings)
-        }
-        flows = (partial ? [] : j["flows"].array).map { f in
-            Flow(id: 0, title: f["title"].string, steps: f["steps"].array.compactMap { s in
-                let from = s["from"].string, to = s["to"].string
-                guard ids.contains(from), ids.contains(to) else { return nil }
-                return FlowStep(from: from, to: to, label: s["label"].string, detail: s["detail"].string, data: s["data"].string)
-            })
-        }
-        .filter { !$0.steps.isEmpty }
-        .enumerated()
-        .map { i, f in Flow(id: i, title: f.title, steps: f.steps) }
+        let p = j["problem"], i = j["idea"], s = j["solution"]
+        problemTitle = p["title"].string
+        problemSteps = steps(p["steps"].array)
+        pain = p["pain"].string
+        painStep = p["painStep"].exists ? p["painStep"].int : -1
+        ideaTitle = i["title"].string
+        parts = i["parts"].array.map {
+            Part(id: $0["id"].string, name: $0["name"].string, kind: $0["kind"].string, isNew: $0["new"].bool, role: $0["role"].string)
+        }.filter { !$0.id.isEmpty && !$0.name.isEmpty }
+        let ids = Set(parts.map(\.id))
+        links = i["links"].array.map {
+            Link(from: $0["from"].string, to: $0["to"].string, label: $0["label"].string, isNew: $0["new"].bool)
+        }.filter { ids.contains($0.from) && ids.contains($0.to) && $0.from != $0.to }
+        solutionTitle = s["title"].string
+        solutionSteps = steps(s["steps"].array)
+        choices = j["choices"].array.enumerated().map { n, c in
+            Choice(id: n, title: c["title"].string, chose: c["chose"].string, over: c["over"].string, why: c["why"].string,
+                   stated: c["stated"].bool, hunks: c["hunks"].strings)
+        }.filter { !$0.title.isEmpty }
+        look = j["look"].array.map { Look(hunk: $0["hunk"].string, why: $0["why"].string) }.filter { !$0.hunk.isEmpty }
     }
 
-    var isEmpty: Bool { components.isEmpty }
-    func component(_ id: String) -> Component? { components.first { $0.id == id } }
-    func edge(_ id: String) -> Edge? { edges.first { $0.id == id } }
+    var isEmpty: Bool { problemTitle.isEmpty && ideaTitle.isEmpty && solutionTitle.isEmpty }
 }
 
 // MARK: - Review

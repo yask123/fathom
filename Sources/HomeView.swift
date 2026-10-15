@@ -6,143 +6,87 @@ struct HomeView: View {
     @Environment(AppStore.self) private var store
 
     var body: some View {
-        ZStack {
-            StrataArt()
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
+        VStack(spacing: 0) {
+            Spacer(minLength: 60)
+            VStack(spacing: 12) {
+                FathomGlyph()
+                    .frame(width: 40, height: 40)
+                    .padding(.bottom, 4)
+                Text("Fathom")
+                    .font(.serif(52, .regular))
+                    .tracking(-1)
+                    .foregroundStyle(Color.text1)
+                Text("Pick a pull request on the left to read its story, or paste a link.")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color.text2)
+            }
+            LinkField()
+                .frame(maxWidth: 560)
+                .padding(.top, 30)
 
-            VStack(spacing: 0) {
-                Spacer(minLength: 60)
-                VStack(spacing: 14) {
-                    FathomGlyph()
-                        .frame(width: 46, height: 46)
-                        .padding(.bottom, 6)
-                    Text("Fathom")
-                        .font(.serif(62, .regular))
-                        .tracking(-1.2)
-                        .foregroundStyle(Color.text1)
-                    Text("Understand a pull request before you read it.")
-                        .font(.system(size: 16.5))
-                        .foregroundStyle(Color.text2)
-                }
-                LinkField()
+            if store.setup.needsAttention {
+                SetupCard()
+                    .padding(.top, 38)
+                    .transition(.opacity.combined(with: .offset(y: 8)))
+            } else if !store.forYou.isEmpty {
+                WaitingList()
                     .frame(maxWidth: 560)
-                    .padding(.top, 34)
-
-                if store.setup.needsAttention {
-                    SetupCard()
-                        .padding(.top, 38)
-                        .transition(.opacity.combined(with: .offset(y: 8)))
-                } else if !store.forYou.isEmpty || !store.yours.isEmpty {
-                    waiting
-                        .padding(.top, 38)
-                }
-                Spacer(minLength: 40)
+                    .padding(.top, 40)
             }
-            .padding(.horizontal, 40)
-            .animation(Motion.spring, value: store.setup.needsAttention)
+            Spacer(minLength: 60)
         }
+        .padding(.horizontal, 40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(Motion.spring, value: store.setup.needsAttention)
     }
-
-    private var waiting: some View {
-        let items = Array((store.forYou.isEmpty ? store.yours : store.forYou).prefix(3))
-        return VStack(spacing: 12) {
-            Eyebrow(store.forYou.isEmpty ? "Your open pull requests" : "Waiting for your review")
-            HStack(spacing: 12) {
-                ForEach(items) { pr in
-                    WaitingCard(pr: pr, sounded: store.isSounded(pr))
-                        .onTapGesture { store.open(pr.ref) }
-                }
-            }
-        }
-        .frame(maxWidth: 900)
-    }
-
 }
 
-struct WaitingCard: View {
+/// Everything waiting for your review, in any repository: the one list the sidebar can't show.
+struct WaitingList: View {
+    @Environment(AppStore.self) private var store
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Eyebrow("Waiting for your review")
+                .padding(.leading, 12)
+                .padding(.bottom, 4)
+            ForEach(store.forYou.prefix(6)) { pr in
+                WaitingRow(pr: pr) { store.open(pr.ref) }
+            }
+        }
+    }
+}
+
+struct WaitingRow: View {
     let pr: PRSummary
-    let sounded: Bool
+    let action: () -> Void
     @State private var hover = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 7) {
-                Avatar(url: pr.ownerAvatar, name: pr.ref.owner, size: 16)
-                Text(pr.ref.slug).font(.system(size: 11)).foregroundStyle(Color.text3).lineLimit(1)
-                Spacer(minLength: 0)
-                if sounded {
-                    Circle().fill(Color.sonar).frame(width: 5, height: 5)
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Circle().fill(Color.sonar).frame(width: 6, height: 6)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(pr.title)
+                        .font(.system(size: 13.5, weight: .medium))
+                        .foregroundStyle(Color.text1)
+                        .lineLimit(1)
+                    Text(verbatim: "\(pr.ref.slug) #\(pr.ref.number) · \(pr.author) · \(Fmt.ago(pr.updatedAt))")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Color.text3)
+                        .lineLimit(1)
                 }
+                Spacer(minLength: 8)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.text3.opacity(hover ? 1 : 0))
             }
-            Text(pr.title)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color.text1)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, minHeight: 38, alignment: .topLeading)
-            HStack(spacing: 7) {
-                Avatar(url: pr.authorAvatar, name: pr.author, size: 16)
-                Text(pr.author).font(.system(size: 11)).foregroundStyle(Color.text2)
-                Spacer(minLength: 0)
-                DiffStat(additions: pr.additions, deletions: pr.deletions, bar: true, size: 10.5)
-            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(hover ? 0.05 : 0)))
+            .contentShape(Rectangle())
         }
-        .padding(16)
-        .frame(width: 280)
-        .card(20, interactive: true)
-        .scaleEffect(hover ? 1.015 : 1)
+        .buttonStyle(.plain)
         .onHover { hover = QA.hover($0) }
-        .animation(Motion.snappy, value: hover)
-    }
-}
-
-/// Still strata across the bottom of the home screen; only the sonar ping at depth moves.
-struct StrataArt: View {
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width, h = geo.size.height
-            let top = h * 0.6
-            let depth = CGPoint(x: w * 0.5, y: top + 2.5 * (h - top) / 5)
-            ZStack(alignment: .topLeading) {
-                Canvas { ctx, size in
-                    for i in 0..<5 {
-                        let y0 = top + CGFloat(i) * (h - top) / 5
-                        func y(_ x: CGFloat) -> CGFloat {
-                            y0 + CGFloat(sin(Double(x) / (260 + Double(i) * 40) + Double(i) * 1.7)) * (6 + CGFloat(i) * 1.5)
-                        }
-                        var edge = Path()
-                        for s in 0...48 {
-                            let x = size.width * CGFloat(s) / 48
-                            if s == 0 { edge.move(to: CGPoint(x: x, y: y(x))) } else { edge.addLine(to: CGPoint(x: x, y: y(x))) }
-                        }
-                        var fill = edge
-                        fill.addLine(to: CGPoint(x: size.width, y: size.height))
-                        fill.addLine(to: CGPoint(x: 0, y: size.height))
-                        fill.closeSubpath()
-                        let c = Color.depth(i)
-                        ctx.fill(fill, with: .linearGradient(Gradient(colors: [c.opacity(0.07), c.opacity(0.015)]),
-                                                             startPoint: CGPoint(x: 0, y: y0), endPoint: CGPoint(x: 0, y: size.height)))
-                        ctx.stroke(edge, with: .color(c.opacity(0.16)), lineWidth: 1)
-                    }
-                    var line = Path()
-                    line.move(to: CGPoint(x: depth.x, y: top - 40))
-                    line.addLine(to: depth)
-                    ctx.stroke(line, with: .linearGradient(Gradient(colors: [Color.sonar.opacity(0), Color.sonar.opacity(0.5)]),
-                                                           startPoint: CGPoint(x: depth.x, y: top - 40), endPoint: depth),
-                               lineWidth: 1)
-                }
-                DepthPing()
-                    .frame(width: 160, height: 72)
-                    .position(depth)
-            }
-        }
-    }
-}
-
-/// The ping at the bottom of the sounding line.
-struct DepthPing: View {
-    var body: some View {
-        PingView(rings: 2, period: 3.2, squash: 0.42, dot: 6, ringAlpha: 0.35)
     }
 }

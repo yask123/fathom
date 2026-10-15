@@ -170,30 +170,10 @@ extension PRSession {
         return rows
     }
 
-    /// A connection's code for the side panel: the hunks where it's made or changed, in diff order.
-    func edgeRows(_ edge: Edge) -> [DocRow] {
-        guard let diff, !edge.hunks.isEmpty else { return [] }
-        let notes = notesByHunk, comments = commentsByLine
-        let wanted = Set(edge.hunks)
-        var rows: [DocRow] = []
-        for f in diff.files where !f.isBinary {
-            for h in f.hunks where wanted.contains(h.id) {
-                rows += hunkRows(h, f, chapter: -2, notes: notes, comments: comments, inPanel: true)
-            }
-        }
-        return rows
-    }
-
-    /// A part's code for the side panel: every hunk in its files, in diff order.
-    func componentRows(_ id: String) -> [DocRow] {
-        guard let diff, let c = map.component(id), !c.files.isEmpty else { return [] }
-        let notes = notesByHunk, comments = commentsByLine
-        var rows: [DocRow] = []
-        for f in diff.files where f.noise == nil && !f.isBinary
-            && c.files.contains(where: { p in f.path == p || f.path.hasSuffix("/" + p) || p.hasSuffix("/" + f.path) }) {
-            for h in f.hunks { rows += hunkRows(h, f, chapter: -2, notes: notes, comments: comments, inPanel: true) }
-        }
-        return rows
+    /// One hunk's rows, for the story's "Where to look" page.
+    func lookRows(_ hunk: String) -> [DocRow] {
+        guard let diff, let h = diff.hunk(hunk), let f = diff.file(ofHunk: hunk) else { return [] }
+        return hunkRows(h, f, chapter: -2, notes: notesByHunk, comments: commentsByLine, inPanel: true)
     }
 }
 
@@ -539,11 +519,7 @@ struct DocRowView: View {
         case .chapter(let ch, let collapsed):
             ChapterHeader(session: session, chapter: ch, collapsed: collapsed)
         case .fileHeader(let f, let h):
-            FileHeader(file: f, hunk: h, ref: session.ref, head: session.detail?.headSha,
-                       components: inPanel ? [] : session.map.components.filter { c in session.components(forPaths: [f.path]).contains(c.id) },
-                       layers: session.map.layers) { id in
-                session.select(id)
-            }
+            FileHeader(file: f, hunk: h, ref: session.ref, head: session.detail?.headSha)
             .overlay { flashOverlay("hunk:\(h.id)") }
             .contextMenu {
                 Button("Ask Claude about this change") {
@@ -663,9 +639,6 @@ struct FileHeader: View {
     let hunk: Hunk
     let ref: PRRef
     let head: String?
-    var components: [Component] = []
-    var layers: [Layer] = []
-    var showOnMap: (String) -> Void = { _ in }
     @State private var hover = false
 
     var body: some View {
@@ -679,23 +652,6 @@ struct FileHeader: View {
                 Text(file.status == .added ? "new" : file.status == .deleted ? "deleted" : "renamed")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(file.status == .added ? Color.added : file.status == .deleted ? Color.removed : Color.calm)
-            }
-            if let c = components.first {
-                let depth = layers.firstIndex { $0.id == c.layer } ?? 0
-                Button {
-                    showOnMap(c.id)
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: Glyph.component(c.kind)).font(.system(size: 8.5, weight: .bold))
-                        Text(c.name).font(.system(size: 10.5, weight: .medium)).lineLimit(1)
-                    }
-                    .foregroundStyle(Color.depth(depth))
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(Color.depth(depth).opacity(0.1)))
-                }
-                .buttonStyle(.plain)
-                .help("Part of \(c.name) — show it on the map")
             }
             Spacer(minLength: 8)
             Text("L\(hunk.newStart)")

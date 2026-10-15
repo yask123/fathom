@@ -163,53 +163,6 @@ enum Glyph {
 // MARK: - Backdrop
 
 /// The window's water: still, deep, with a little light at the surface and grain.
-struct DepthBackdrop: View {
-    var body: some View {
-        MeshGradient(width: 3, height: 3,
-                     points: [
-                         SIMD2(0, 0), SIMD2(0.55, 0), SIMD2(1, 0),
-                         SIMD2(0, 0.45), SIMD2(0.6, 0.5), SIMD2(1, 0.4),
-                         SIMD2(0, 1), SIMD2(0.45, 1), SIMD2(1, 1),
-                     ],
-                     colors: [
-                         Color(hex: 0x0B2026), Color(hex: 0x0A1218), Color(hex: 0x0B0F17),
-                         Color(hex: 0x081118), Color(hex: 0x080B11), Color(hex: 0x0C0E1A),
-                         Color(hex: 0x07090E), Color(hex: 0x0B0B17), Color(hex: 0x120F22),
-                     ])
-            .overlay {
-                Image(nsImage: Grain.image)
-                    .resizable(resizingMode: .tile)
-                    .opacity(0.07)
-                    .blendMode(.overlay)
-                    .allowsHitTesting(false)
-            }
-            .ignoresSafeArea()
-    }
-}
-
-/// A small tile of monochrome noise, made once.
-enum Grain {
-    static let image: NSImage = {
-        let w = 160, h = 160
-        var bytes = [UInt8](repeating: 0, count: w * h * 4)
-        var seed: UInt64 = 0x9E37_79B9_7F4A_7C15
-        for i in 0..<(w * h) {
-            seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
-            let v = UInt8(truncatingIfNeeded: seed >> 56)
-            bytes[i * 4] = v
-            bytes[i * 4 + 1] = v
-            bytes[i * 4 + 2] = v
-            bytes[i * 4 + 3] = 255
-        }
-        let cg: CGImage? = bytes.withUnsafeMutableBytes { raw in
-            CGContext(data: raw.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
-                      space: CGColorSpaceCreateDeviceRGB(),
-                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)?.makeImage()
-        }
-        guard let cg else { return NSImage(size: NSSize(width: 1, height: 1)) }
-        return NSImage(cgImage: cg, size: NSSize(width: w / 2, height: h / 2))
-    }()
-}
 
 // MARK: - Small shared pieces
 

@@ -53,13 +53,20 @@ enum GitHub {
         var forYou: [PRSummary]
         var yours: [PRSummary]
         var reviewed: [PRSummary]
+        var repos: [RepoInfo]
     }
 
     static func inbox() async throws -> Inbox {
         // `archived:false` hides some org PRs from GraphQL search, so it's left out on purpose.
         let query = prFragment + """
         query {
-          viewer { login name avatarUrl }
+          viewer {
+            login name avatarUrl
+            repositories(first: 40, orderBy: {field: PUSHED_AT, direction: DESC}, isArchived: false,
+                         ownerAffiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER]) {
+              nodes { nameWithOwner pushedAt pullRequests(states: OPEN) { totalCount } }
+            }
+          }
           forYou: search(query: "is:pr is:open review-requested:@me sort:updated-desc", type: ISSUE, first: 30) { nodes { ...pr } }
           yours: search(query: "is:pr is:open author:@me sort:updated-desc", type: ISSUE, first: 30) { nodes { ...pr } }
           reviewed: search(query: "is:pr is:open reviewed-by:@me -author:@me sort:updated-desc", type: ISSUE, first: 20) { nodes { ...pr } }
@@ -71,7 +78,26 @@ enum GitHub {
         let yours = d["yours"]["nodes"].array.compactMap(PRSummary.init)
         let seen = Set(forYou.map(\.id))
         let reviewed = d["reviewed"]["nodes"].array.compactMap(PRSummary.init).filter { !seen.contains($0.id) }
-        return Inbox(viewer: viewer, forYou: forYou, yours: yours, reviewed: reviewed)
+        let repos = d["viewer"]["repositories"]["nodes"].array.map {
+            RepoInfo(slug: $0["nameWithOwner"].string, open: $0["pullRequests"]["totalCount"].int, pushedAt: $0["pushedAt"].date)
+        }.filter { !$0.slug.isEmpty }
+        return Inbox(viewer: viewer, forYou: forYou, yours: yours, reviewed: reviewed, repos: repos)
+    }
+
+    /// A repository's open pull requests, most recently updated first.
+    static func pulls(_ slug: String) async throws -> [PRSummary] {
+        let parts = slug.split(separator: "/").map(String.init)
+        guard parts.count == 2 else { return [] }
+        let query = prFragment + """
+        query($owner: String!, $name: String!) {
+          repository(owner: $owner, name: $name) {
+            pullRequests(states: OPEN, first: 50, orderBy: {field: UPDATED_AT, direction: DESC}) { nodes { ...pr } }
+          }
+        }
+        """
+        let d = try await graphql(query, ["owner": parts[0], "name": parts[1]])
+        guard d["repository"].exists else { throw ShellError(message: "Couldn't find \(slug), or you don't have access to it") }
+        return d["repository"]["pullRequests"]["nodes"].array.compactMap(PRSummary.init)
     }
 
     // MARK: One pull request

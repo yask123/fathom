@@ -19,13 +19,7 @@ enum RunState: Equatable {
 enum PRTab: String, CaseIterable, Identifiable {
     case brief, changes
     var id: String { rawValue }
-    var title: String { self == .brief ? "Map" : "Changes" }
-}
-
-enum Era: String, CaseIterable, Identifiable {
-    case before, after
-    var id: String { rawValue }
-    var title: String { self == .before ? "Before" : "After" }
+    var title: String { self == .brief ? "Story" : "Changes" }
 }
 
 @MainActor
@@ -36,6 +30,13 @@ final class AppStore {
     var yours: [PRSummary] = []
     var reviewed: [PRSummary] = []
     var recents: [PRSummary] = []
+    var viewerRepos: [RepoInfo] = []
+    /// The repository open in the sidebar, and its open pull requests.
+    var repo: String? { didSet { state.repo = repo; persist() } }
+    var repoPulls: [PRSummary] = []
+    var repoLoading = false
+    var repoError: String?
+    var pullFilter: PullFilter = .all
     var inboxLoading = false
     var inboxError: String?
     var session: PRSession?
@@ -63,12 +64,15 @@ final class AppStore {
         ping = state.ping
         autoRead = state.autoRead
         recents = state.recents
+        repo = state.repo
+        if let r = state.repo { repoPulls = state.repoPulls[r] ?? [] }
         if let inbox = state.inbox {
             // Last session's inbox, shown at once while GitHub is asked again.
             viewer = inbox.viewer
             forYou = inbox.forYou
             yours = inbox.yours
             reviewed = inbox.reviewed
+            viewerRepos = inbox.repos ?? []
         }
         sounded = Library.soundedKeys()
         if env["FATHOM_SIDEBAR"] == "0" { sidebarShown = false }
@@ -102,11 +106,16 @@ final class AppStore {
                 forYou = inbox.forYou
                 yours = inbox.yours
                 reviewed = inbox.reviewed
+                viewerRepos = inbox.repos
                 inboxError = nil
             }
             NSApp.dockTile.badgeLabel = inbox.forYou.isEmpty ? nil : String(inbox.forYou.count)
-            state.inbox = CachedInbox(viewer: inbox.viewer, forYou: inbox.forYou, yours: inbox.yours, reviewed: inbox.reviewed)
+            state.inbox = CachedInbox(viewer: inbox.viewer, forYou: inbox.forYou, yours: inbox.yours, reviewed: inbox.reviewed,
+                                      repos: inbox.repos)
             persist()
+            // The first time, open the repository with the most waiting for you.
+            if repo == nil, let first = repos.first { repo = first.slug }
+            await refreshRepo()
             readAhead()
             prefetch()
         } catch {
@@ -116,7 +125,79 @@ final class AppStore {
         }
     }
 
+    enum PullFilter: String, CaseIterable, Identifiable {
+        case forYou, all, mine
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .forYou: "For you"
+            case .all: "Open"
+            case .mine: "Yours"
+            }
+        }
+    }
+
+    /// Every repository worth switching to: ones with PRs waiting for you first, then yours by recent pushes,
+    /// then any you've opened a PR in.
+    var repos: [RepoInfo] {
+        var bySlug: [String: RepoInfo] = [:]
+        var order: [String] = []
+        func add(_ slug: String, open: Int? = nil, pushed: Date? = nil) {
+            if bySlug[slug] == nil {
+                bySlug[slug] = RepoInfo(slug: slug, open: open ?? 0, pushedAt: pushed)
+                order.append(slug)
+            } else if let open { bySlug[slug]!.open = max(bySlug[slug]!.open, open) }
+        }
+        for r in viewerRepos where r.open > 0 { add(r.slug, open: r.open, pushed: r.pushedAt) }
+        for pr in forYou + yours + reviewed + recents { add(pr.ref.slug) }
+        if let repo { add(repo) }
+        let waiting = Dictionary(grouping: forYou, by: \.ref.slug).mapValues(\.count)
+        return order.compactMap { bySlug[$0] }.sorted { (waiting[$0.slug] ?? 0, $0.open) > (waiting[$1.slug] ?? 0, $1.open) }
+    }
+
+    func waiting(in slug: String) -> Int { forYou.filter { $0.ref.slug == slug }.count }
+
+    /// The sidebar's list: the repository's open PRs, narrowed by the filter.
+    var shownPulls: [PRSummary] {
+        let mine = viewer?.login ?? ""
+        let requested = Set(forYou.map(\.id))
+        switch pullFilter {
+        case .all: return repoPulls
+        case .forYou: return repoPulls.filter { requested.contains($0.id) }
+        case .mine: return repoPulls.filter { $0.author == mine }
+        }
+    }
+
+    func isRequested(_ pr: PRSummary) -> Bool { forYou.contains { $0.id == pr.id } }
+
+    func selectRepo(_ slug: String) {
+        guard slug != repo else { return }
+        repo = slug
+        repoPulls = state.repoPulls[slug] ?? []
+        repoError = nil
+        Task { await refreshRepo() }
+    }
+
+    func refreshRepo() async {
+        guard let slug = repo, hasGH else { return }
+        repoLoading = true
+        defer { repoLoading = false }
+        do {
+            let pulls = try await GitHub.pulls(slug)
+            guard slug == repo else { return }
+            withAnimation(Motion.soft) {
+                repoPulls = pulls
+                repoError = nil
+            }
+            state.repoPulls[slug] = pulls
+            persist()
+        } catch {
+            if slug == repo { repoError = error.localizedDescription }
+        }
+    }
+
     func open(_ ref: PRRef) {
+        if repo != ref.slug { selectRepo(ref.slug) }
         if session?.ref == ref { return }
         session?.stop()
         if ahead?.ref == ref, let s = ahead {
@@ -262,8 +343,8 @@ final class PRSession {
     // Claude
     var brief = Brief() { didSet { briefVersion &+= 1 } }
     var briefState: RunState = .idle
-    var map = SystemMap()
-    var mapState: RunState = .idle
+    var story = Story()
+    var storyState: RunState = .idle
     @ObservationIgnored var briefVersion = 0
     var checkoutState: RunState = .idle
     var checkout: URL?
@@ -273,16 +354,6 @@ final class PRSession {
 
     // Looking around
     var tab: PRTab = .brief
-    var era: Era = .after
-    var hoveredComponent: String?
-    var hoveredFile: String?          // from the footprint or an interface card
-    var selectedComponent: String?
-    var hoveredEdge: String?
-    var panel: Panel?                 // what sits beside the map
-    var playingFlow: Int?
-    var flowStep = 0
-    var flowStarted = Date()
-    var flowRunning = false
     var scrollTarget: String?
     var fileFilter: Set<String>?   // limit Changes to these files
     var filterLabel = ""
@@ -310,9 +381,8 @@ final class PRSession {
     @ObservationIgnored private var tasks: [Task<Void, Never>] = []
     @ObservationIgnored private var checkoutTask: Task<URL?, Never>?
     @ObservationIgnored private var soundTasks: [Task<Void, Never>] = []
-    @ObservationIgnored private var flowTimer: Task<Void, Never>?
     @ObservationIgnored private var briefJSON: Data?
-    @ObservationIgnored private var mapJSON: Data?
+    @ObservationIgnored private var storyJSON: Data?
 
     @ObservationIgnored var rowsCache: RowsCache?
     @ObservationIgnored private var colouringTask: Task<Void, Never>?
@@ -344,7 +414,6 @@ final class PRSession {
         tasks.removeAll()
         soundTasks.forEach { $0.cancel() }
         soundTasks.removeAll()
-        flowTimer?.cancel()
         checkoutTask?.cancel()
     }
 
@@ -464,23 +533,17 @@ final class PRSession {
         soundTasks.removeAll()
         colouringTask?.cancel()
         colouringTask = nil
-        flowTimer?.cancel()
-        flowTimer = nil
-        flowRunning = false
         checkoutTask?.cancel()
         checkoutTask = nil
         if let dir = checkout { Task { await Checkouts.shared.release(dir) } }
         checkout = nil
         checkoutState = .idle
         briefJSON = nil
-        mapJSON = nil
+        storyJSON = nil
         brief = Brief()
-        map = SystemMap()
+        story = Story()
         briefState = .idle
-        mapState = .idle
-        panel = nil
-        selectedComponent = nil
-        playingFlow = nil
+        storyState = .idle
         lines = [:]
         askSession = nil
         soundedAt = nil
@@ -494,45 +557,42 @@ final class PRSession {
 
     private func adopt(_ s: Sounding) {
         briefJSON = s.brief
-        mapJSON = s.map
+        storyJSON = s.story
         withAnimation(Motion.spring) {
             if let b = s.brief { brief = Brief(J(data: b)) }
-            if let m = s.map { map = SystemMap(J(data: m)) }
-            briefState = s.brief == nil ? .failed("No brief saved") : .done(s.briefSeconds ?? 0)
-            mapState = s.map == nil ? .failed("No map saved") : .done(s.mapSeconds ?? 0)
+            if let t = s.story { story = Story(J(data: t)) }
+            briefState = s.brief == nil ? .failed("No outline saved") : .done(s.briefSeconds ?? 0)
+            storyState = s.story == nil ? .failed("No story saved") : .done(s.storySeconds ?? 0)
         }
         soundedAt = s.createdAt
         soundedModel = s.model
     }
 
-    /// Runs both readings: the brief (diff only, fast to first word) and the map (explores the repo).
+    /// Runs both readings: the outline (diff only, fast; it groups the Changes) and the story (may look around the repo).
     func sound() {
         guard let detail, let diff else { return }
         guard Claude.executable != nil else {
-            briefState = .failed("Install Claude Code (claude.com/code) so Fathom can read PRs")
-            mapState = briefState
+            briefState = .failed("Install Claude Code so Fathom can read PRs. Open Settings (⌘,) to set it up.")
+            storyState = briefState
             return
         }
         briefJSON = nil
-        mapJSON = nil
+        storyJSON = nil
         brief = Brief()
-        map = SystemMap()
+        story = Story()
         activity = []
-        selectedComponent = nil
-        panel = nil
-        stopFlow()
         soundedAt = nil
         let prompt = Analyst.prompt(detail, diff)
         let model = self.model
         let started = Date()
         briefState = .running(started)
-        mapState = .running(started)
+        storyState = .running(started)
 
         // A second sounding replaces the first.
         soundTasks.forEach { $0.cancel() }
         soundTasks = [
             Task { await runBrief(prompt: prompt, model: model, started: started) },
-            Task { await runMap(prompt: prompt, model: model, started: started, detail: detail) },
+            Task { await runStory(prompt: prompt, model: model, started: started) },
         ]
     }
 
@@ -573,18 +633,17 @@ final class PRSession {
         settle()
     }
 
-    private func runMap(prompt: String, model: String, started: Date, detail: PRDetail) async {
-        // A checkout lets Claude see callers and neighbours; very large repos go without.
+    private func runStory(prompt: String, model: String, started: Date) async {
+        // A checkout lets Claude see how the changed code is called; the diff alone is enough to tell the story.
         var cwd = Library.root.appending(path: "scratch", directoryHint: .isDirectory)
         Library.ensure(cwd)
         var tools: [String] = []
-        // The diff is enough to draw the map; the checkout only adds neighbours. Wait for it briefly, never for a clone.
         if let checkout = ensureCheckout(), let dir = await Self.value(of: checkout, within: 1.5) {
             cwd = dir
             tools = ["Read", "Grep", "Glob"]
         }
         if Task.isCancelled { return }
-        let options = Claude.Options(model: model, effort: "medium", system: Analyst.mapSystem, schema: Analyst.mapSchema,
+        let options = Claude.Options(model: model, effort: "medium", system: Analyst.storySystem, schema: Analyst.storySchema,
                                      tools: tools, cwd: cwd)
         var lastPaint = Date.distantPast
         do {
@@ -593,22 +652,22 @@ final class PRSession {
                 case .activity(let a):
                     withAnimation(Motion.soft) { activity.append(a) }
                 case .structured(let text):
-                    // The map draws itself as Claude writes it: layers first, then parts arriving one by one.
+                    // Pages fill in as Claude writes them: the problem first.
                     guard Date().timeIntervalSince(lastPaint) > 0.25 else { continue }
                     lastPaint = Date()
                     if let obj = PartialJSON.parse(text) {
-                        let next = SystemMap(J(obj), partial: true)
-                        if !next.isEmpty { withAnimation(Motion.soft) { map = next } }
+                        let next = Story(J(obj))
+                        if !next.isEmpty { withAnimation(Motion.soft) { story = next } }
                     }
                 case .finished(let f):
                     if f.isError || f.structured == nil {
-                        failMap(f.isError ? f.message : "Claude didn't return a map")
+                        failStory(f.isError ? f.message : "Claude didn't return a story")
                     } else if let data = f.structured {
-                        mapJSON = data
-                        let next = SystemMap(J(data: data))
-                        withAnimation(.smooth(duration: 0.7)) {
-                            map = next
-                            mapState = .done(Date().timeIntervalSince(started))
+                        storyJSON = data
+                        let next = Story(J(data: data))
+                        withAnimation(.smooth(duration: 0.6)) {
+                            story = next
+                            storyState = .done(Date().timeIntervalSince(started))
                         }
                     }
                 default: break
@@ -616,17 +675,16 @@ final class PRSession {
             }
         } catch is CancellationError {
         } catch {
-            if !Task.isCancelled { failMap(error.localizedDescription) }
+            if !Task.isCancelled { failStory(error.localizedDescription) }
         }
-        if mapState.isRunning && !Task.isCancelled { failMap("Claude stopped before finishing the map") }
+        if storyState.isRunning && !Task.isCancelled { failStory("Claude stopped before finishing the story") }
         settle()
     }
 
-    /// A map that streamed in part and then failed is taken down, so the failure (and Read again) shows.
-    private func failMap(_ message: String) {
+    private func failStory(_ message: String) {
         withAnimation(Motion.soft) {
-            if mapJSON == nil { map = SystemMap() }
-            mapState = .failed(message)
+            if storyJSON == nil { story = Story() }
+            storyState = .failed(message)
         }
     }
 
@@ -645,18 +703,18 @@ final class PRSession {
 
     /// When both readings are over, keep what came back; a background reading then hands over to the next one.
     private func settle() {
-        guard !briefState.isRunning, !mapState.isRunning, !Task.isCancelled else { return }
-        if briefJSON != nil || mapJSON != nil { save() }
+        guard !briefState.isRunning, !storyState.isRunning, !Task.isCancelled else { return }
+        if briefJSON != nil || storyJSON != nil { save() }
         if background { onSounded?() }
     }
 
     private func save() {
         guard let detail else { return }
-        var briefSeconds: Double?, mapSeconds: Double?
+        var briefSeconds: Double?, storySeconds: Double?
         if case .done(let s) = briefState { briefSeconds = s }
-        if case .done(let s) = mapState { mapSeconds = s }
-        Library.saveSounding(Sounding(ref: ref, headSha: detail.headSha, model: model, brief: briefJSON, map: mapJSON,
-                                      briefSeconds: briefSeconds, mapSeconds: mapSeconds, createdAt: Date(),
+        if case .done(let s) = storyState { storySeconds = s }
+        Library.saveSounding(Sounding(ref: ref, headSha: detail.headSha, model: model, brief: briefJSON, map: nil, story: storyJSON,
+                                      briefSeconds: briefSeconds, mapSeconds: nil, storySeconds: storySeconds, createdAt: Date(),
                                       version: Sounding.current))
         soundedAt = Date()
         soundedModel = model
@@ -699,28 +757,7 @@ final class PRSession {
 
     // MARK: Derived
 
-    /// Components whose files appear in these hunks.
-    func components(forHunks hunks: [String]) -> Set<String> {
-        guard let diff else { return [] }
-        let paths = Set(hunks.compactMap { diff.file(ofHunk: $0)?.path })
-        return components(forPaths: paths)
-    }
-
-    func components(forPaths paths: Set<String>) -> Set<String> {
-        Set(map.components.filter { c in c.files.contains { f in paths.contains { $0 == f || $0.hasSuffix("/" + f) || f.hasSuffix("/" + $0) } } }.map(\.id))
-    }
-
-    /// What the map should light up right now, if anything.
-    var litComponents: Set<String>? {
-        if let f = playingFlow, map.flows.indices.contains(f) {
-            let steps = map.flows[f].steps.prefix(flowStep + 1)
-            return Set(steps.flatMap { [$0.from, $0.to] })
-        }
-        if let f = hoveredFile { return components(forPaths: [f]) }
-        return nil
-    }
-
-    var isSounding: Bool { briefState.isRunning || mapState.isRunning }
+    var isSounding: Bool { briefState.isRunning || storyState.isRunning }
 
     /// Lines worth reading vs. lines you can skip, from the chapters (or file noise before they arrive).
     var reading: (focus: Int, skim: Int, skip: Int) {
@@ -780,17 +817,6 @@ final class PRSession {
         scrollTarget = "chapter:\(id)"
     }
 
-    func filter(toComponent id: String) {
-        guard let c = map.component(id), let diff else { return }
-        let paths = Set(c.files.compactMap { diff.file(path: $0)?.path })
-        guard !paths.isEmpty else { return }
-        withAnimation(Motion.spring) {
-            fileFilter = paths
-            filterLabel = c.name
-            tab = .changes
-        }
-    }
-
     func clearFilter() {
         withAnimation(Motion.soft) {
             fileFilter = nil
@@ -803,134 +829,6 @@ final class PRSession {
             if reviewed.contains(chapter) { reviewed.remove(chapter) } else { reviewed.insert(chapter) }
         }
         store?.setReviewed(reviewKey, reviewed)
-    }
-
-    func play(_ flow: Int, after delay: Double = 0) {
-        flowTimer?.cancel()
-        let resume = playingFlow == flow
-        withAnimation(Motion.spring) {
-            if !resume { flowStep = 0 }
-            playingFlow = flow
-            selectedComponent = nil
-            if panel != .flow(flow) { panel = .flow(flow) }
-        }
-        // The first pulse waits for the map to settle after the panel opens.
-        flowStarted = Date().addingTimeInterval(delay)
-        flowRunning = true
-        flowTimer = Task { @MainActor in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(2.6))
-                guard !Task.isCancelled, let f = playingFlow, map.flows.indices.contains(f) else { return }
-                if flowStep + 1 < map.flows[f].steps.count {
-                    advanceFlow(1)
-                } else {
-                    try? await Task.sleep(for: .seconds(1.4))
-                    if !Task.isCancelled { withAnimation(Motion.soft) { flowStep = 0 }; flowStarted = Date() }
-                }
-            }
-        }
-    }
-
-    func advanceFlow(_ delta: Int) {
-        guard let f = playingFlow, map.flows.indices.contains(f) else { return }
-        let n = map.flows[f].steps.count
-        withAnimation(Motion.soft) { flowStep = (flowStep + delta + n) % n }
-        flowStarted = Date()
-    }
-
-    func pauseFlow() {
-        flowTimer?.cancel()
-        flowTimer = nil
-        flowRunning = false
-    }
-
-    var flowPaused: Bool { playingFlow != nil && !flowRunning }
-
-    func stopFlow() {
-        flowTimer?.cancel()
-        flowTimer = nil
-        flowRunning = false
-        withAnimation(Motion.soft) { playingFlow = nil }
-    }
-
-    // MARK: The side panel
-
-    enum Panel: Equatable {
-        case component(String), edge(String), flow(Int), interfaces, footprint
-    }
-
-    var selectedEdge: String? {
-        if case .edge(let id) = panel { return id }
-        return nil
-    }
-
-    /// Opens one connection beside the map: how it's called, what travels, and where in the code.
-    func selectEdge(_ id: String) {
-        guard map.edge(id) != nil else { return }
-        flowTimer?.cancel()
-        flowTimer = nil
-        flowRunning = false
-        withAnimation(Motion.spring) {
-            playingFlow = nil
-            selectedComponent = nil
-            panel = .edge(id)
-            tab = .brief
-        }
-    }
-
-    /// Opens a part's code beside the map.
-    func select(_ id: String) {
-        guard map.component(id) != nil else { return }
-        flowTimer?.cancel()
-        flowTimer = nil
-        flowRunning = false
-        withAnimation(Motion.spring) {
-            playingFlow = nil
-            selectedComponent = id
-            panel = .component(id)
-            tab = .brief
-        }
-    }
-
-    func closePanel() {
-        flowTimer?.cancel()
-        flowTimer = nil
-        flowRunning = false
-        withAnimation(Motion.spring) {
-            panel = nil
-            selectedComponent = nil
-            playingFlow = nil
-        }
-    }
-
-    func toggle(_ p: Panel) {
-        if panel == p { closePanel(); return }
-        flowTimer?.cancel()
-        flowTimer = nil
-        flowRunning = false
-        withAnimation(Motion.spring) {
-            playingFlow = nil
-            selectedComponent = nil
-            panel = p
-        }
-    }
-
-    func toggleFlow(_ i: Int) {
-        if panel == .flow(i) { closePanel(); return }
-        play(i, after: panel == nil ? 0.5 : 0.2)
-    }
-
-    func step(_ delta: Int, in flow: Int) {
-        if playingFlow != flow { play(flow) }
-        pauseFlow()
-        advanceFlow(delta)
-    }
-
-    func jump(toStep k: Int, in flow: Int) {
-        if playingFlow != flow { play(flow) }
-        pauseFlow()
-        withAnimation(Motion.soft) { flowStep = k }
-        flowStarted = Date()
     }
 
     // MARK: Review comments
@@ -1057,21 +955,9 @@ final class PRSession {
         tasks.append(Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(400))
             if env["FATHOM_TAB"] == "changes" { tab = .changes }
-            if let era = env["FATHOM_ERA"], let e = Era(rawValue: era) { self.era = e }
             if env["FATHOM_BY_FILE"] == "1" { byFile = true }
-            for _ in 0..<600 where map.isEmpty || brief.isEmpty {
+            for _ in 0..<600 where story.isEmpty || brief.isEmpty {
                 try? await Task.sleep(for: .milliseconds(200))
-            }
-            if let s = env["FATHOM_SELECT"] { select(s) }
-            // FATHOM_EDGE=walkmodel>routeplanner opens that connection.
-            if let e = env["FATHOM_EDGE"], let edge = map.edges.first(where: { "\($0.from)>\($0.to)" == e }) { selectEdge(edge.id) }
-            if let p = env["FATHOM_PANEL"] { toggle(p == "footprint" ? .footprint : .interfaces) }
-            if let f = env["FATHOM_FLOW"], let n = Int(f), map.flows.indices.contains(n) {
-                toggleFlow(n)
-                if let st = env["FATHOM_FLOW_STEP"], let k = Int(st) {
-                    try? await Task.sleep(for: .milliseconds(700))
-                    jump(toStep: k, in: n)
-                }
             }
             if let q = env["FATHOM_ASK"] {
                 if q.isEmpty { withAnimation(Motion.spring) { askOpen = true } } else { ask(q) }

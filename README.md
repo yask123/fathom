@@ -1,37 +1,32 @@
 # Fathom
 
-**Understand a pull request before you read it.**
+**Read a pull request as a story.**
 
-A native Mac app that turns a pull request into a map of the system it changes: which parts it touches, how a request
-moves through them, and every hunk one click away. It runs on your own tools, the [GitHub CLI](https://cli.github.com)
-and [Claude Code](https://code.claude.com), so there's no Fathom account, server or API key.
+When an agent writes the code and a bot checks it does what it says, reading the diff line by line is no longer the
+job. The job is understanding the move: what was wrong, the one idea that fixes it, how things flow now, the choices
+made along the way, and what changes for the rest of the system. Fathom tells you that, one page at a time, each page
+a sentence and a small diagram, with the code one click away. It runs on your own
+[GitHub CLI](https://cli.github.com) and [Claude Code](https://code.claude.com), so there's no Fathom account, server
+or API key.
 
-![A connection clicked on the map: the POST request, what goes and what comes back, the interfaces it carries, and its code](docs/connection.png)
+![The story of a pull request at a glance: the problem, the idea, how it works now, the choices, the promises that change, and where to read](docs/story.png)
 
-When an agent writes the code, the line-by-line is usually fine. What a reviewer still owns is understanding what the
-change does, how it moves through the system, and the architectural call nobody else will catch. Fathom shows that as
-diagrams and leaves the judgement to you: no AI verdicts, no risk scores, labels instead of paragraphs.
+- **Overview**: the whole PR in five sentences. Often that's enough to know what you're looking at.
+- **Problem**: how things went before, as a short sequence diagram, with the step where it hurt marked.
+- **Idea**: the key idea in a sentence, and the few parts that carry it, new ones glowing.
+- **Now**: the same story told again after the change, new steps in green and what travels on every arrow. Flip
+  to Before to compare.
+- **Choices**: the design decisions a staff engineer would want to know about: what was chosen, over what, and why,
+  marked when the PR says so and when it's inferred.
+- **Promises**: the interfaces whose shape changes (endpoints, types, tables, config), member by member.
+- **Code**: the two to four hunks to read if you read nothing else.
 
-- **The map.** One line on what the PR does, then the layers it cuts through, drawn as strata from the surface (screens,
-  routes) down to the depths (stores, external APIs). New parts glow green, changed ones amber. **Before / After**
-  shows how the architecture moved.
-- **Every wire says how and what.** Calls are solid, network requests dashed, events dotted, store reads and writes
-  dash-dotted, and the connections a PR changes carry a tag with what travels (`POST query, context → RouteIntent`).
-  Click a wire for the call as written, what goes and what comes back, the interfaces it carries, and the code where
-  it happens.
-- **Click a part** and its code opens beside the map: the state it holds, each connection with its call and payload,
-  the interfaces it owns, and every hunk in its files with a short note on each.
-- **Flows.** Play one and a pulse runs along the wires while its sequence diagram follows in the panel, each step
-  labelled with the data it carries.
-- **Interfaces** whose shape changes (endpoints, types, tables, config) and the **footprint** of the change.
-- **Changes**: the whole diff, regrouped into chapters marked *read*, *skim* or *skip*.
-- **Ask** (`⌘K`) with the repo at the PR's head in front of Claude; any `file:line` in the answer jumps into the diff.
-- **Review**: line comments and a summary, then Comment, Approve or Request changes, posted to GitHub as you.
+Around the story, the app stays out of the way: pick a repository, see its open pull requests (or only the ones
+waiting for you), pick one. **Changes** has the whole diff in chapters marked *read*, *skim* or *skip*; **Ask**
+(`⌘K`) puts the repo at the PR's head in front of Claude; **Review** posts line comments and a verdict to GitHub as
+you. A PR you've read before opens instantly; a new one's story fills in within half a minute.
 
-A PR you've opened before opens instantly from disk. A new one shows its headline within seconds and draws its map
-as Claude writes it.
-
-![A flow playing through the map, each step labelled with its data, its sequence diagram beside it](docs/flow.png)
+![How it works now: a sequence diagram from You to WalkingView, WalkModel, RoutePlanner and localQuestion, new steps in green with the data they carry](docs/now.png)
 
 ## Install
 
@@ -73,7 +68,8 @@ javascript:location.href='fathom://'+location.href
 
 | | |
 |---|---|
-| `⌘1` `⌘2` | Map, Changes |
+| `⌘1` `⌘2` | Story, Changes |
+| `←` `→` | turn the story's pages |
 | `⌘K` | Ask Claude about the PR |
 | `⌘↩` | Review |
 | `J` `K`, `N` `P`, `X` | next and previous change, next and previous chapter, mark a chapter understood |
@@ -103,21 +99,21 @@ so the download link above keeps pointing at the newest one.
 | | |
 |---|---|
 | Setup | `Setup.swift` reads the login shell's environment, checks `gh api user` and `claude auth status`, and reads `claude --help` so an older Claude Code gets only the flags it understands. GitHub sign-in is `gh auth login --web` with the one-time code shown in the app |
-| GitHub | `gh api graphql` for the inbox and PR details, `gh pr diff` for the diff, `gh api …/reviews` to post a review |
+| GitHub | `gh api graphql` for your repositories, a repository's open PRs, the inbox and PR details, `gh pr diff` for the diff, `gh api …/reviews` to post a review |
 | Outline | `claude -p --json-schema` over the diff with every hunk labelled (`f3h2`): headline, chapters, the interfaces whose shape changes, one note per hunk. Long prose and data files are trimmed to their first lines. Streams in, headline first |
-| Map | layers; parts with the state they hold; connections with how they're made (call, async, http, event, read, write, render), the call as written, what's sent and returned, and the hunks that make them; flows with the data on each step. `claude -p` with read-only `Read Grep Glob` in a shallow checkout of the PR head (`git fetch --depth=1 --filter=blob:none pull/N/head`, one worktree per PR, the 12 most recent kept). It waits at most 1.5 s for the checkout, else draws from the diff alone; parts appear as they're written |
+| Story | the problem as steps before (and where it hurt), the idea and the parts that carry it, the steps after with what travels, the choices (stated or inferred), and the hunks to read. `claude -p --json-schema` with read-only `Read Grep Glob` in a shallow checkout of the PR head (`git fetch --depth=1 --filter=blob:none pull/N/head`, one worktree per PR, the 12 most recent kept). It waits at most 1.5 s for the checkout, else tells it from the diff alone; pages fill in as they're written |
 | Cache | Claude's readings per PR commit in `soundings/`, each PR's details and diff in `prs/`, and the inbox in `state.json`, all under `~/Library/Application Support/Fathom`. The top of the inbox is fetched ahead in the background |
 
 Sources: `Setup.swift` (accounts), `Shell.swift` (child processes), `GitHub.swift`, `Diff.swift` (parser, noise
 rules), `Claude.swift` (CLI stream, partial JSON), `Analyst.swift` (prompts and schemas), `Library.swift` (caches,
-checkouts), `Store.swift` (state), and the views: `MapView.swift` and `StrataMap.swift` (the map, each band, wire and
-node its own view so layout changes glide), `Panels.swift` (the side panel), `ChangesView.swift`. The continuous
-motion (sonar, pings, a flow's pulse) is Core Animation in `CoreAnimated.swift`, so the app does no work per frame.
+checkouts), `Store.swift` (state), and the views: `Story.swift` (the pages, the sequence diagrams, the idea graph,
+the choice cards), `RootView.swift` (the repository and its pull requests), `ChangesView.swift`. The continuous motion
+(sonar, pings) is Core Animation in `CoreAnimated.swift`, so the app does no work per frame.
 
 ## QA switches
 
 Environment variables for screenshots and tests (`tools/shoot.sh out.png VAR=value …` launches a separate instance
-with them and captures its window):
+with them and captures its window; `SHOOT_QUIET=1` leaves it where it opens instead of pulling it to the front):
 
 | | |
 |---|---|
@@ -127,13 +123,12 @@ with them and captures its window):
 | `FATHOM_SETTINGS=1` | open Settings on launch |
 | `FATHOM_NO_AI=1` | don't call Claude |
 | `FATHOM_NO_CHECKOUT=1`, `FATHOM_NO_PREFETCH=1` | no checkout of the repo; no fetching ahead |
-| `FATHOM_TAB=changes`, `FATHOM_ERA=before`, `FATHOM_BY_FILE=1` | start on a view |
-| `FATHOM_SELECT=<component id>`, `FATHOM_EDGE=<from id>><to id>`, `FATHOM_PANEL=interfaces\|footprint` | open the side panel |
-| `FATHOM_FLOW=0`, `FATHOM_FLOW_STEP=3` | play a flow, stop at a step |
+| `FATHOM_TAB=changes`, `FATHOM_BY_FILE=1` | start on a view |
+| `FATHOM_PAGE=idea` | open the story on a page (overview, problem, idea, now, choices, promises, code) |
 | `FATHOM_SCROLL=line:f4h1:90`, `FATHOM_GO=f3h2` | jump in Changes |
 | `FATHOM_ASK="…"` (empty just opens it), `FATHOM_REVIEW=1` | ask a question, open the review sheet |
 | `FATHOM_WINDOW=1188x884`, `FATHOM_NO_HOVER=1` | size the window; ignore the pointer (clean screenshots) |
-| `FATHOM_SIDEBAR=0`, `FATHOM_MUTE=1` | hide the inbox, no sonar ping |
+| `FATHOM_SIDEBAR=0`, `FATHOM_MUTE=1` | hide the sidebar, no sonar ping |
 | `FATHOM_DUMP_PROMPT=/path` | write the reading prompt to a file |
 
 ## Website

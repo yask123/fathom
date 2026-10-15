@@ -10,10 +10,9 @@ struct RootView: View {
         HStack(spacing: 0) {
             if store.sidebarShown {
                 Sidebar()
-                    .frame(width: 286)
-                    .padding(.leading, 10)
-                    .padding(.vertical, 10)
+                    .frame(width: 312)
                     .transition(.move(edge: .leading).combined(with: .opacity))
+                Rectangle().fill(Color.white.opacity(0.07)).frame(width: 0.5)
             }
             ZStack {
                 if let session = store.session {
@@ -28,7 +27,7 @@ struct RootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .ignoresSafeArea(.container, edges: .top)
-        .containerBackground(for: .window) { DepthBackdrop() }
+        .containerBackground(for: .window) { Color(hex: 0x0A0D12) }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { store.windowWidth = $0 }
         .task {
             // FATHOM_SETTINGS=1 opens Settings on launch, for screenshots.
@@ -42,207 +41,303 @@ struct RootView: View {
 
 // MARK: - Sidebar
 
+/// Like a desktop Git client: one repository at a time, its open pull requests in a plain list.
 struct Sidebar: View {
     @Environment(AppStore.self) private var store
 
     var body: some View {
+        @Bindable var store = store
         VStack(alignment: .leading, spacing: 0) {
-            Color.clear.frame(height: 38)
+            Color.clear.frame(height: 40)
+            RepoSwitcher()
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
 
-            HStack(spacing: 9) {
-                FathomGlyph()
-                    .frame(width: 22, height: 22)
-                Text("Fathom")
-                    .font(.serif(23, .medium))
-                    .tracking(-0.2)
-                    .foregroundStyle(Color.text1)
-                Spacer()
-                Button {
-                    Task { await store.refreshInbox() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 11.5, weight: .semibold))
-                        .foregroundStyle(Color.text3)
-                        .rotationEffect(.degrees(store.inboxLoading ? 360 : 0))
-                        .animation(store.inboxLoading ? .linear(duration: 0.9).repeatForever(autoreverses: false) : .default,
-                                   value: store.inboxLoading)
-                        .frame(width: 26, height: 26)
+            HStack(spacing: 2) {
+                ForEach(AppStore.PullFilter.allCases) { f in
+                    let on = store.pullFilter == f
+                    let n = count(f)
+                    Button {
+                        withAnimation(Motion.snappy) { store.pullFilter = f }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Text(f.title)
+                            if n > 0 {
+                                Text("\(n)")
+                                    .font(.mono(10, .semibold))
+                                    .foregroundStyle(f == .forYou && n > 0 ? Color.sonar : Color.text3)
+                            }
+                        }
+                        .font(.system(size: 12, weight: on ? .semibold : .medium))
+                        .foregroundStyle(on ? Color.text1 : Color.text3)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 26)
+                        .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(on ? Color.white.opacity(0.09) : .clear))
                         .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-                .help("Refresh (⌘R)")
             }
-            .padding(.horizontal, 18)
-            .padding(.bottom, 14)
+            .padding(2)
+            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white.opacity(0.035)))
+            .padding(.horizontal, 12)
+            .padding(.bottom, 8)
 
-            if store.session != nil {
-                // On the home screen the big field does this.
-                LinkField(compact: true)
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 12)
-                    .transition(.opacity)
-            }
+            Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    if let error = store.inboxError {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if let error = store.repoError ?? store.inboxError {
                         Text(error)
                             .font(.system(size: 11.5))
                             .foregroundStyle(Color.changed)
-                            .padding(.horizontal, 8)
+                            .padding(14)
                     } else if store.viewer == nil && store.setup.checked && !store.hasGH {
-                        Text("Pull requests waiting for you, and your own, show up here once GitHub is connected.")
+                        Text("Pull requests show up here once GitHub is connected.")
                             .font(.system(size: 11.5))
                             .foregroundStyle(Color.text3)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 8)
+                            .padding(14)
                     }
-                    InboxSection(title: "Waiting for you", items: store.forYou,
-                                 empty: store.viewer == nil ? nil : "Nothing waiting on you.")
-                    InboxSection(title: "Yours", items: store.yours, empty: nil)
-                    InboxSection(title: "Reviewed, still open", items: store.reviewed, empty: nil)
-                    InboxSection(title: "Recent", items: recents, empty: nil)
+                    let pulls = store.shownPulls
+                    if pulls.isEmpty && store.repo != nil && store.repoError == nil && !store.repoLoading {
+                        Text(emptyText)
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.text3)
+                            .padding(14)
+                    }
+                    ForEach(pulls) { pr in
+                        PullRow(pr: pr, selected: store.session?.ref == pr.ref, requested: store.isRequested(pr),
+                                sounded: store.isSounded(pr), reading: store.readingAhead == pr.ref)
+                            .onTapGesture { store.open(pr.ref) }
+                            .contextMenu {
+                                Button("Open on GitHub") { NSWorkspace.shared.open(pr.ref.web) }
+                                Button("Copy Link") {
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString(pr.ref.web.absoluteString, forType: .string)
+                                }
+                            }
+                        Rectangle().fill(Color.white.opacity(0.04)).frame(height: 0.5).padding(.leading, 14)
+                    }
                 }
-                .padding(.horizontal, 8)
-                .padding(.top, 8)
-                .padding(.bottom, 14)
             }
             .scrollIndicators(.never)
-            .mask {
-                LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.03),
-                                       .init(color: .black, location: 0.95), .init(color: .clear, location: 1)],
-                               startPoint: .top, endPoint: .bottom)
-            }
+            .refreshable { await store.refreshRepo() }
 
             SidebarFooter()
         }
         .frame(maxHeight: .infinity, alignment: .top)
-        .card(24, tint: .sidebarTint)
+        .background(Color(hex: 0x0C1016))
     }
 
-    private var recents: [PRSummary] {
-        let shown = Set((store.forYou + store.yours + store.reviewed).map(\.id))
-        return store.recents.filter { !shown.contains($0.id) }
+    private func count(_ f: AppStore.PullFilter) -> Int {
+        let mine = store.viewer?.login ?? ""
+        switch f {
+        case .forYou: return store.repoPulls.filter { store.isRequested($0) }.count
+        case .all: return store.repoPulls.count
+        case .mine: return store.repoPulls.filter { $0.author == mine }.count
+        }
     }
-}
 
-struct InboxSection: View {
-    @Environment(AppStore.self) private var store
-    let title: String
-    let items: [PRSummary]
-    let empty: String?
-
-    var body: some View {
-        if !items.isEmpty || empty != nil {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Eyebrow(title)
-                    if !items.isEmpty {
-                        Text("\(items.count)")
-                            .font(.mono(10, .semibold))
-                            .foregroundStyle(Color.text3)
-                    }
-                }
-                .padding(.horizontal, 10)
-                .padding(.bottom, 4)
-                if items.isEmpty, let empty {
-                    Text(empty)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.text3)
-                        .padding(.horizontal, 10)
-                }
-                ForEach(items) { pr in
-                    InboxRow(pr: pr, selected: store.session?.ref == pr.ref, sounded: store.isSounded(pr),
-                             reading: store.readingAhead == pr.ref)
-                        .onTapGesture { store.open(pr.ref) }
-                        .contextMenu {
-                            Button("Open on GitHub") { NSWorkspace.shared.open(pr.ref.web) }
-                            Button("Copy Link") {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(pr.ref.web.absoluteString, forType: .string)
-                            }
-                            if title == "Recent" {
-                                Divider()
-                                Button("Remove from Recent") { store.forget(pr.ref) }
-                            }
-                        }
-                }
-            }
+    private var emptyText: String {
+        switch store.pullFilter {
+        case .forYou: "Nothing here is waiting for your review."
+        case .all: "No open pull requests."
+        case .mine: "You have no open pull requests here."
         }
     }
 }
 
-struct InboxRow: View {
+/// The current repository; click for the others, ones waiting on you first.
+struct RepoSwitcher: View {
+    @Environment(AppStore.self) private var store
+    @State private var open = false
+    @State private var hover = false
+
+    var body: some View {
+        Button { open.toggle() } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "folder")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.text3)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Repository")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Color.text3)
+                    Text(store.repo.map { String($0.split(separator: "/").last ?? "") } ?? "Choose a repository")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.text1)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                if store.repoLoading {
+                    ProgressView().controlSize(.mini)
+                }
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.text3)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white.opacity(hover || open ? 0.06 : 0.03)))
+            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 0.5))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = QA.hover($0) }
+        .popover(isPresented: $open, arrowEdge: .bottom) {
+            RepoList { slug in
+                store.selectRepo(slug)
+                open = false
+            }
+            .environment(store)
+        }
+    }
+}
+
+struct RepoList: View {
+    @Environment(AppStore.self) private var store
+    let pick: (String) -> Void
+    @State private var query = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        let repos = store.repos.filter { query.isEmpty || $0.slug.localizedCaseInsensitiveContains(query) }
+        VStack(alignment: .leading, spacing: 0) {
+            TextField("Filter, or type owner/repo", text: $query)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .focused($focused)
+                .padding(10)
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(0.05)))
+                .padding(10)
+                .onSubmit {
+                    if let first = repos.first { pick(first.slug) }
+                    else if query.split(separator: "/").count == 2 { pick(query.trimmingCharacters(in: .whitespaces)) }
+                }
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(repos) { r in
+                        RepoRow(repo: r, waiting: store.waiting(in: r.slug), current: r.slug == store.repo) { pick(r.slug) }
+                    }
+                    if repos.isEmpty && query.split(separator: "/").count == 2 {
+                        RepoRow(repo: RepoInfo(slug: query, open: 0), waiting: 0, current: false) { pick(query) }
+                    }
+                }
+                .padding(.horizontal, 6)
+                .padding(.bottom, 8)
+            }
+            .frame(maxHeight: 380)
+        }
+        .frame(width: 330)
+        .onAppear { focused = true }
+    }
+}
+
+struct RepoRow: View {
+    let repo: RepoInfo
+    let waiting: Int
+    let current: Bool
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(repo.name)
+                        .font(.system(size: 13, weight: current ? .semibold : .medium))
+                        .foregroundStyle(Color.text1)
+                    Text(repo.owner)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.text3)
+                }
+                Spacer()
+                if waiting > 0 {
+                    Text("\(waiting) for you")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(Color.sonar)
+                } else if repo.open > 0 {
+                    Text("\(repo.open) open")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Color.text3)
+                }
+                if current {
+                    Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.text2)
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.white.opacity(hover ? 0.06 : 0)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = QA.hover($0) }
+    }
+}
+
+/// One pull request in the list: what it's called, who and when, and whether it waits on you.
+struct PullRow: View {
     let pr: PRSummary
     let selected: Bool
+    let requested: Bool
     let sounded: Bool
     var reading = false
     @State private var hover = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Avatar(url: pr.authorAvatar, name: pr.author, size: 22)
-                .padding(.top, 1)
+            Circle()
+                .fill(requested ? Color.sonar : Color.clear)
+                .frame(width: 6, height: 6)
+                .padding(.top, 6)
+                .help(requested ? "Your review is requested" : "")
             VStack(alignment: .leading, spacing: 5) {
-                HStack(alignment: .firstTextBaseline, spacing: 5) {
-                    Text(pr.title)
-                        .font(.system(size: 12.5, weight: .medium))
-                        .foregroundStyle(Color.text1.opacity(selected ? 1 : 0.9))
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer(minLength: 0)
-                }
+                Text(pr.title)
+                    .font(.system(size: 13, weight: selected ? .semibold : .medium))
+                    .foregroundStyle(Color.text1.opacity(selected ? 1 : 0.88))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 6) {
-                    if let checks = pr.checks { ChecksDot(state: checks) }
-                    Text(verbatim: "\(pr.ref.repo) #\(pr.ref.number)")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color.text3)
-                        .lineLimit(1)
+                    Text(verbatim: "#\(pr.ref.number)")
+                        .font(.mono(10.5))
+                    Text("·")
+                    Avatar(url: pr.authorAvatar, name: pr.author, size: 13)
+                    Text(pr.author).lineLimit(1)
+                    Text("·")
+                    Text(Fmt.ago(pr.updatedAt))
                     if pr.isDraft {
-                        Text("Draft").font(.system(size: 9.5, weight: .semibold)).foregroundStyle(Color.text3)
+                        Text("Draft").font(.system(size: 9.5, weight: .semibold))
                             .padding(.horizontal, 5).padding(.vertical, 1)
                             .overlay(Capsule().strokeBorder(Color.text3.opacity(0.5), lineWidth: 0.5))
                     }
-                    Spacer(minLength: 4)
-                    DiffStat(additions: pr.additions, deletions: pr.deletions, bar: false, size: 10)
-                        .opacity(0.85)
-                    Text(Fmt.ago(pr.updatedAt))
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(Color.text3)
+                    Spacer(minLength: 0)
+                    if let checks = pr.checks { ChecksDot(state: checks) }
                 }
+                .font(.system(size: 11))
+                .foregroundStyle(Color.text3)
             }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-        .background {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(selected ? 0.075 : hover ? 0.035 : 0))
-        }
-        .overlay {
-            if selected {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color.sonar.opacity(0.28), lineWidth: 0.75)
-            }
-        }
-        .overlay(alignment: .topTrailing) {
             if reading {
-                SonarPip()
-                    .frame(width: 12, height: 12)
-                    .padding(5)
-                    .help("Fathom is reading this now")
+                SonarPip().frame(width: 12, height: 12).help("Fathom is reading this now")
             } else if sounded {
-                Circle().fill(Color.sonar.opacity(0.8)).frame(width: 5, height: 5)
-                    .padding(8)
+                Image(systemName: "book.closed")
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(Color.text3.opacity(0.8))
+                    .padding(.top, 3)
                     .help("Fathom has read this commit")
             }
         }
+        .padding(.leading, 10)
+        .padding(.trailing, 14)
+        .padding(.vertical, 11)
+        .background(selected ? Color.sonar.opacity(0.1) : Color.white.opacity(hover ? 0.03 : 0))
+        .overlay(alignment: .leading) {
+            if selected { Rectangle().fill(Color.sonar).frame(width: 2) }
+        }
         .contentShape(Rectangle())
         .onHover { hover = QA.hover($0) }
-        .animation(Motion.snappy, value: hover)
     }
 }
 
-/// Failing checks, quietly; passing and pending ones only when asked for (`always`).
 struct ChecksDot: View {
     let state: String
     var always = false

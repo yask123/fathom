@@ -126,56 +126,59 @@ enum Analyst {
      }}
     """
 
-    // MARK: The map
+    // MARK: The story
 
-    static let mapSystem = """
-    You are Fathom's cartographer. You draw the part of a system that a pull request touches as a layered diagram an \
-    engineer reads in seconds. Labels only: no sentences, no opinions, no review.
+    static let storySystem = """
+    You are Fathom's storyteller. An AI wrote this pull request and a bot has already checked that it does what it \
+    claims. A senior engineer now wants to understand it the way they'd understand a colleague's design: what was \
+    wrong, the one idea that fixes it, how things flow now, and the choices made along the way. You tell that as a \
+    short illustrated story: a sentence and a small diagram per page. Plain words, names as in the code, no \
+    opinions, no review, no praise, no risk talk.
 
-    The diff is in your prompt. When the current directory holds the repository at the PR's head commit, use Glob, \
-    Grep and Read to see how the changed code connects to the rest of the system — callers, entry points, stores, \
-    services, external APIs. At most about 6 lookups, only for what the diff doesn't show. Then answer.
+    The diff is in your prompt. When the current directory holds the repository at the PR's head commit, you may use \
+    Glob, Grep and Read to see how the changed code is called. At most about 4 lookups. Then answer.
 
-    Name things as the code does.
+    Every PR answers a problem. A bug fix: what went wrong. A feature: what you couldn't do before. A refactor: what \
+    made the code hard to change. Infra or tests: what was fragile or slow.
 
     Fields, in this order:
-    - layers: 2–5, top to bottom. Top is closest to the user or the entry point (screens, routes, CLI); bottom is \
-    storage, the OS or external services. name: at most 2 words, as this codebase would say ("SwiftUI views", \
-    "Next.js API"). role: at most 4 words.
-    - components: 4–14 boxes — types, modules, services, stores, endpoints, external APIs; not every file. Include \
-    unchanged neighbours only when they explain a flow. name: at most 3 words, as in the code, no backticks. kind: the \
-    closest fit. change. files: repo paths (empty for external services). role: at most 6 words, what it is ("Photo \
-    carousel view", "Daily request budget"). holds: the state or data it owns, at most 5 words as named in the code \
-    ("route, places, undoRoute"); empty if none.
-    - edges: up to 18, directed from caller or sender to callee or receiver. label: at most 3 words ("fetch photos"). \
-    how: call (a plain function or method call), async (an awaited call or a callback), http (a network request), \
-    event (a notification, publish, delegate or observer), read or write (to a store, cache, file or shared state), \
-    render (a view showing another view or binding to it). via: the call, endpoint or event as written in the code, \
-    at most 6 words ("planner.interpret(query, context:)", "POST /api/explore-v1"); empty if you can't see it. \
-    sends: what travels along it, at most 5 words, using type and field names ("query, context JSON"). returns: what \
-    comes back, at most 4 words ("RouteIntent"); empty if nothing. hunks: up to 3 hunk ids where this connection is \
-    made or changed; empty if none. change.
-    - flows: 1–3 runtime paths this PR creates or changes. title: at most 4 words. steps: in order, each along an \
-    edge (from, to), label at most 4 words ("POST place", "cache miss"), data: what travels on this step, at most \
-    4 words ("RouteIntent", "photo URLs").
+    - problem.title: the situation before, at most 12 words, in terms of what a user or caller experienced ("Asking \
+    a question mid-walk ended the walk"). Not the fix.
+    - problem.steps: 2–5 steps of how it went before, as a sequence: from and to are actors (a person like "You", or \
+    parts named as in the code), does is at most 6 words, data is what travels, at most 4 words, or empty.
+    - problem.pain: at most 8 words, what goes wrong or what's missing. painStep: the index of the step where it \
+    hurts, or -1 when the problem is that a step was missing.
+    - idea.title: the key idea of the solution, at most 14 words, the way you'd say it at a whiteboard ("Answer \
+    common questions on the phone; send only the rest to the server").
+    - idea.parts: 2–6 parts that carry the idea. id, name as in the code, kind, new (added by this PR), role at most \
+    5 words. idea.links: up to 7, from and to are part ids, label at most 4 words, new.
+    - solution.title: how it works now, at most 12 words.
+    - solution.steps: 2–7 steps, the same story as problem.steps told again after the change, with the same actor \
+    names where they're the same part. new marks a step this PR adds.
+    - choices: 1–4 design decisions a staff engineer would want to know about: where the PR chose one approach over \
+    a reasonable other. title at most 8 words; chose at most 12 words; over, the alternative it didn't take, at most \
+    10 words (empty if none is obvious); why at most 14 words; stated true when the PR description or a code comment \
+    says why, false when you infer it. hunks: 1–2 hunk ids where the choice lives.
+    - look: 2–4 hunks that carry the idea, the ones to read if you read nothing else, in reading order. why at most \
+    10 words.
     """
 
-    static let mapSchema = """
-    {"type":"object","additionalProperties":false,
-     "required":["layers","components","edges","flows"],
-     "properties":{
-      "layers":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","name","role"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"role":{"type":"string"}}}},
-      "components":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","name","layer","kind","change","files","role","holds"],"properties":{
-         "id":{"type":"string"},"name":{"type":"string"},"layer":{"type":"string"},"holds":{"type":"string"},
-         "kind":{"type":"string","enum":["ui","api","service","state","store","external","job","config","library","test"]},
-         "change":{"type":"string","enum":["added","modified","removed","unchanged"]},
-         "files":{"type":"array","items":{"type":"string"}},"role":{"type":"string"}}}},
-      "edges":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["from","to","label","how","via","sends","returns","hunks","change"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"label":{"type":"string"},
-         "how":{"type":"string","enum":["call","async","http","event","read","write","render"]},
-         "via":{"type":"string"},"sends":{"type":"string"},"returns":{"type":"string"},"hunks":{"type":"array","items":{"type":"string"}},
-         "change":{"type":"string","enum":["added","modified","removed","unchanged"]}}}},
-      "flows":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["title","steps"],"properties":{"title":{"type":"string"},"steps":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["from","to","label","data"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"label":{"type":"string"},"data":{"type":"string"}}}}}}}
-     }}
+    static let storySchema = """
+    {"type":"object","additionalProperties":false,"required":["problem","idea","solution","choices","look"],"properties":{
+     "problem":{"type":"object","additionalProperties":false,"required":["title","steps","pain","painStep"],"properties":{
+       "title":{"type":"string"},
+       "steps":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["from","to","does","data"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"does":{"type":"string"},"data":{"type":"string"}}}},
+       "pain":{"type":"string"},"painStep":{"type":"integer"}}},
+     "idea":{"type":"object","additionalProperties":false,"required":["title","parts","links"],"properties":{
+       "title":{"type":"string"},
+       "parts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","name","kind","new","role"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"kind":{"type":"string","enum":["ui","api","service","state","store","external","job","config","library","test"]},"new":{"type":"boolean"},"role":{"type":"string"}}}},
+       "links":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["from","to","label","new"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"label":{"type":"string"},"new":{"type":"boolean"}}}}}},
+     "solution":{"type":"object","additionalProperties":false,"required":["title","steps"],"properties":{
+       "title":{"type":"string"},
+       "steps":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["from","to","does","data","new"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"does":{"type":"string"},"data":{"type":"string"},"new":{"type":"boolean"}}}}}},
+     "choices":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["title","chose","over","why","stated","hunks"],"properties":{"title":{"type":"string"},"chose":{"type":"string"},"over":{"type":"string"},"why":{"type":"string"},"stated":{"type":"boolean"},"hunks":{"type":"array","items":{"type":"string"}}}}},
+     "look":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["hunk","why"],"properties":{"hunk":{"type":"string"},"why":{"type":"string"}}}}
+    }}
     """
 
     // MARK: Questions

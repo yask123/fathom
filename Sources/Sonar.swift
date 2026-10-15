@@ -12,7 +12,7 @@ struct SonarView: View {
                       tint: f.status == .added ? .added : f.status == .deleted ? .removed : .sonar)
         }
         let started: Date = {
-            if case .running(let d) = session.mapState { return d }
+            if case .running(let d) = session.storyState { return d }
             return Date()
         }()
         VStack(spacing: 0) {

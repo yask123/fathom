@@ -10,13 +10,15 @@ struct Sounding: Codable, Sendable {
     var model: String
     var brief: Data?
     var map: Data?
+    var story: Data?
     var briefSeconds: Double?
     var mapSeconds: Double?
+    var storySeconds: Double?
     var createdAt: Date
     var version: Int?
 
     /// Bumped when the prompts change shape; older readings are read again.
-    static let current = 3
+    static let current = 4
 }
 
 /// Small state that survives relaunches.
@@ -28,6 +30,8 @@ struct SavedState: Codable {
     var ping = true
     var autoRead = false
     var inbox: CachedInbox?
+    var repo: String?                             // the repository open in the sidebar
+    var repoPulls: [String: [PRSummary]] = [:]    // its open PRs as last seen, for an instant list
 
     init() {}
 
@@ -40,6 +44,8 @@ struct SavedState: Codable {
         ping = try c.decodeIfPresent(Bool.self, forKey: .ping) ?? true
         autoRead = try c.decodeIfPresent(Bool.self, forKey: .autoRead) ?? false
         inbox = try? c.decodeIfPresent(CachedInbox.self, forKey: .inbox)
+        repo = try? c.decodeIfPresent(String.self, forKey: .repo)
+        repoPulls = (try? c.decodeIfPresent([String: [PRSummary]].self, forKey: .repoPulls)) ?? [:]
     }
 }
 
@@ -49,6 +55,7 @@ struct CachedInbox: Codable {
     var forYou: [PRSummary]
     var yours: [PRSummary]
     var reviewed: [PRSummary]
+    var repos: [RepoInfo]?
 }
 
 /// A PR's details and diff as GitHub last served them.

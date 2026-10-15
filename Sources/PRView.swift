@@ -17,7 +17,7 @@ struct PRView: View {
                 } else {
                     // Both stay mounted so each keeps its place; the tab cross-fades between them.
                     let map = session.tab == .brief
-                    MapView(session: session)
+                    StoryView(session: session)
                         .opacity(map ? 1 : 0)
                         .allowsHitTesting(map)
                         .accessibilityHidden(!map)
@@ -39,14 +39,12 @@ struct PRView: View {
         }
         .animation(Motion.spring, value: session.askOpen)
         .background {
-            // Esc closes the newest thing first: the question box, then the side panel.
+            // Esc closes the newest thing first: the question box, then a filter on the changes.
             Button("") {
                 if session.askOpen {
                     withAnimation(Motion.spring) { session.askOpen = false }
-                } else if session.tab == .changes {
-                    if session.fileFilter != nil { session.clearFilter() }
-                } else if session.panel != nil || session.playingFlow != nil {
-                    session.closePanel()
+                } else if session.tab == .changes, session.fileFilter != nil {
+                    session.clearFilter()
                 }
             }
             .keyboardShortcut(.cancelAction)
@@ -145,7 +143,7 @@ struct ViewSwitch: View {
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
-                .help(tab == .brief ? "Map (⌘1)" : "Changes (⌘2)")
+                .help(tab == .brief ? "Story (⌘1)" : "Changes (⌘2)")
             }
         }
         .padding(3)

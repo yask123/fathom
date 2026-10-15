@@ -87,7 +87,7 @@ struct FathomCommands: Commands {
                 .keyboardShortcut("s", modifiers: [.command, .control])
         }
         CommandMenu("Pull Request") {
-            Button("Map") { withAnimation(Motion.spring) { store.session?.tab = .brief } }
+            Button("Story") { withAnimation(Motion.spring) { store.session?.tab = .brief } }
                 .keyboardShortcut("1")
             Button("Changes") { withAnimation(Motion.spring) { store.session?.tab = .changes } }
                 .keyboardShortcut("2")

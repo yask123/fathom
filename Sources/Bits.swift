@@ -1,97 +1,126 @@
-// The Map tab: one line of what the PR does, then the system map. Click a part and its code opens beside it;
-// play a flow and its steps do. Labels, not paragraphs.
+// Small pieces the story and the changes share: skeletons, the reading clock, markdown and interface cards.
 
 import SwiftUI
 
-struct MapView: View {
+// MARK: - Interfaces
+
+struct InterfaceCard: View {
     @Bindable var session: PRSession
+    let contract: Contract
+    var fill = false
+    @State private var hover = false
 
     var body: some View {
-        GeometryReader { geo in
-            VStack(alignment: .leading, spacing: 14) {
-                Headline(session: session)
-                    .padding(.horizontal, 4)
-                HStack(alignment: .top, spacing: 12) {
-                    MapCanvas(session: session)
-                    if let panel = session.panel {
-                        SidePanel(session: session, panel: panel)
-                            .frame(width: Self.panelWidth(geo.size.width))
-                            .transition(.move(edge: .trailing).combined(with: .opacity))
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.calm)
+                Text(contract.name)
+                    .font(.mono(12.5, .semibold))
+                    .foregroundStyle(Color.text1)
+                    .lineLimit(contract.name.contains(" ") ? 2 : 1)
+                    .minimumScaleFactor(0.72)
+                    .truncationMode(.middle)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 6)
+                ChangeTag(change: contract.change)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(Color.calm.opacity(0.08))
+
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(contract.members.prefix(8).enumerated()), id: \.offset) { _, m in
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        Text(sign(m.change))
+                            .font(.mono(11, .bold))
+                            .foregroundStyle(m.change == .unchanged ? Color.text3 : m.change.color)
+                            .frame(width: 10)
+                        Text(m.name)
+                            .font(.mono(11))
+                            .foregroundStyle(m.change == .unchanged ? Color.text3 : Color.text1.opacity(0.9))
+                            .strikethrough(m.change == .removed, color: Color.removed.opacity(0.6))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                     }
                 }
+                if contract.members.count > 8 {
+                    Text("+\(contract.members.count - 8) more")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Color.text3)
+                        .padding(.leading, 17)
+                }
+                if contract.members.isEmpty {
+                    Text(contract.change == .added ? "new" : contract.change == .removed ? "removed" : "changed")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Color.text3)
+                }
             }
-            .padding(.horizontal, 18)
-            .padding(.bottom, 16)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+
+            Text(contract.file)
+                .font(.mono(10.5))
+                .foregroundStyle(Color.text3)
+                .lineLimit(1)
+                .truncationMode(.head)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 10)
+        }
+        .frame(maxWidth: fill ? .infinity : 252, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(hex: 0x0B0F16).opacity(0.9)))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(hover ? Color.calm.opacity(0.55) : Color.white.opacity(0.08), lineWidth: 0.9)
+        }
+        .contentShape(Rectangle())
+        .onHover { hover = QA.hover($0) }
+        .onTapGesture { session.go(toFile: contract.file, containing: contract.name) }
+        .help("\(contract.file) — click to read it in Changes")
+        .animation(Motion.snappy, value: hover)
+    }
+
+    private var icon: String {
+        switch contract.kind {
+        case "endpoint": "network"
+        case "type": "curlybraces"
+        case "table": "tablecells"
+        case "event": "bolt.horizontal"
+        case "config": "slider.horizontal.3"
+        case "function": "function"
+        case "cli": "terminal"
+        default: "square.on.square"
         }
     }
 
-    static func panelWidth(_ width: CGFloat) -> CGFloat { min(max(width * 0.44, 430), 680) }
+    private func sign(_ c: Change) -> String {
+        switch c {
+        case .added: "+"
+        case .removed: "−"
+        case .modified: "~"
+        case .unchanged: "·"
+        }
+    }
 }
 
-/// What the PR does in one line, and a few quiet facts under it.
-struct Headline: View {
-    @Bindable var session: PRSession
+struct ChangeTag: View {
+    let change: Change
 
     var body: some View {
-        let b = session.brief
-        VStack(alignment: .leading, spacing: 7) {
-            if b.headline.isEmpty {
-                if let failure = session.briefState.failure {
-                    Failure(message: failure) { session.sound() }
-                } else {
-                    Skeleton(lines: [0.46], height: 24)
-                        .frame(maxWidth: 820)
-                }
-            } else {
-                Text(b.headline)
-                    .font(.serif(25))
-                    .tracking(-0.3)
-                    .foregroundStyle(Color.text1)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .textSelection(.enabled)
-                    .transition(.opacity)
-            }
-            facts
+        if change != .unchanged {
+            Text(change == .added ? "NEW" : change == .removed ? "GONE" : "CHANGED")
+                .font(.system(size: 8, weight: .heavy))
+                .tracking(0.6)
+                .foregroundStyle(Color.ink)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 2)
+                .background(Capsule().fill(change.color))
         }
-        .animation(Motion.soft, value: b.headline.isEmpty)
-    }
-
-    private var facts: some View {
-        HStack(spacing: 8) {
-            if !session.brief.kind.isEmpty {
-                Text(Glyph.kindWord(session.brief.kind))
-                dot
-            }
-            if let d = session.diff {
-                Text("\(d.files.count) file\(d.files.count == 1 ? "" : "s")")
-                dot
-                DiffStat(additions: d.additions, deletions: d.deletions, bar: false, size: 11.5)
-            }
-            if session.isSounding {
-                dot
-                ReadingClock(session: session)
-            } else if session.briefState.failure != nil && !session.brief.headline.isEmpty {
-                dot
-                Button("Outline incomplete · read again") { session.sound() }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Color.changed)
-            }
-            Spacer(minLength: 12)
-            if !session.map.isEmpty {
-                MapKey(session: session)
-                    .fixedSize()
-                    .transition(.opacity)
-            }
-        }
-        .font(.system(size: 12))
-        .foregroundStyle(Color.text3)
-    }
-
-    private var dot: some View {
-        Text("·").foregroundStyle(Color.text3.opacity(0.6))
     }
 }
+
 
 /// "Reading 0:12", with a small ping, while Claude works.
 struct ReadingClock: View {
@@ -109,7 +138,7 @@ struct ReadingClock: View {
 
     private var started: Date {
         if case .running(let d) = session.briefState { return d }
-        if case .running(let d) = session.mapState { return d }
+        if case .running(let d) = session.storyState { return d }
         return .now
     }
 }
@@ -239,4 +268,15 @@ private func parseMarkdown(_ text: String, base: Color, code: Color, size: CGFlo
         }
     }
     return a
+}
+
+// MARK: - Environment
+
+private struct InPanelKey: EnvironmentKey { static let defaultValue = false }
+extension EnvironmentValues {
+    /// Diff rows drawn inside the side panel drop what the panel already says (which part a file belongs to).
+    var inPanel: Bool {
+        get { self[InPanelKey.self] }
+        set { self[InPanelKey.self] = newValue }
+    }
 }
