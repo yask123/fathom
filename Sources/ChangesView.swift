@@ -589,7 +589,7 @@ struct RailRow: View {
             .help(done ? "Mark as not yet understood" : "Mark as understood (X)")
 
             Text(chapter.title)
-                .font(.system(size: 12.5, weight: current ? .semibold : .regular))
+                .font(.system(size: 12.5, weight: current ? .medium : .regular))
                 .foregroundStyle(done ? Color.text3 : current ? Color.text1 : Color.text1.opacity(0.85))
                 .lineLimit(1)
                 .truncationMode(.tail)
@@ -607,8 +607,8 @@ struct RailRow: View {
         .padding(.horizontal, 8)
         .frame(height: 32)
         .background {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.white.opacity(current ? 0.07 : hover ? 0.035 : 0))
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.white.opacity(current ? 0.06 : hover ? 0.03 : 0))
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
@@ -640,10 +640,9 @@ struct AttentionTag: View {
     var body: some View {
         HStack(spacing: 5) {
             AttentionDot(attention: attention)
-            Text(attention.word)
-                .font(.system(size: 9.5, weight: .bold))
-                .tracking(0.6)
-                .textCase(.uppercase)
+            Text(attention.word.lowercased())
+                .font(.smallCaps(12))
+                .tracking(1)
         }
         .foregroundStyle(attention == .skip ? Color.text3 : Color.sonar.opacity(attention == .focus ? 1 : 0.7))
     }
@@ -727,12 +726,12 @@ struct ChapterHeader: View {
         let done = session.reviewed.contains(chapter.id)
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(String(format: "%02d", chapter.number))
-                    .font(.mono(11, .semibold))
-                    .foregroundStyle(Color.text3.opacity(0.7))
+                Text("\(chapter.number)")
+                    .font(.serif(19))
+                    .foregroundStyle(Color.text3)
                 Text(chapter.title)
-                    .font(chapter.isFile ? .system(size: 17, weight: .semibold, design: .monospaced) : .serif(22))
-                    .tracking(chapter.isFile ? 0 : -0.2)
+                    .font(chapter.isFile ? .mono(15, .medium) : .serif(23))
+                    .tracking(chapter.isFile ? 0 : -0.1)
                     .foregroundStyle(collapsed ? Color.text2 : Color.text1)
                 Spacer()
                 Button {
@@ -817,7 +816,7 @@ struct FileHeader: View {
         .padding(.horizontal, 14)
         .frame(height: 32)
         .background {
-            UnevenRoundedRectangle(topLeadingRadius: 12, topTrailingRadius: 12, style: .continuous)
+            UnevenRoundedRectangle(topLeadingRadius: 5, topTrailingRadius: 5, style: .continuous)
                 .fill(Color.white.opacity(0.05))
         }
         .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 0.5) }
@@ -903,7 +902,7 @@ struct LineRow: View {
         .padding(.vertical, 1.5)
         .background(rowFill)
         .background(Color.white.opacity(0.03))
-        .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: last ? 12 : 0, bottomTrailingRadius: last ? 12 : 0, style: .continuous))
+        .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: last ? 5 : 0, bottomTrailingRadius: last ? 5 : 0, style: .continuous))
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = QA.hover(h) } }
     }
 
@@ -989,8 +988,8 @@ struct PendingCard: View {
             .opacity(hover ? 1 : 0)
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.sonar.opacity(0.055)))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.sonar.opacity(0.22), lineWidth: 0.75))
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.sonar.opacity(0.055)))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.sonar.opacity(0.22), lineWidth: 0.75))
         .onHover { hover = QA.hover($0) }
     }
 }
@@ -1027,9 +1026,9 @@ struct ThreadView: View {
                     folded
                 }
             }
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(hex: 0x0D1218)))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.75))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color(hex: 0x0D1218)))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.75))
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
     }
 
@@ -1278,9 +1277,9 @@ struct Composer: View {
             .padding(.vertical, 9)
             .background(Color.white.opacity(0.025))
         }
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(hex: 0x0E141B)))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color(hex: 0x0E141B)))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
             .strokeBorder(Color.sonar.opacity(focused ? 0.5 : 0.22), lineWidth: focused ? 1 : 0.75))
         .animation(Motion.snappy, value: focused)
         .onAppear {
@@ -1373,8 +1372,8 @@ struct MechanicalRow: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.025)))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.06), style: StrokeStyle(lineWidth: 0.75, dash: [4, 4])))
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.white.opacity(0.025)))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.white.opacity(0.06), style: StrokeStyle(lineWidth: 0.75, dash: [4, 4])))
         .padding(.top, 36)
     }
 }

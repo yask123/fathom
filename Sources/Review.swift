@@ -157,8 +157,8 @@ struct ReviewSheet: View {
                     .focused($summaryFocused)
             }
             .frame(height: 110)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.04)))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.75))
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.white.opacity(0.04)))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.75))
         }
     }
 
@@ -186,8 +186,8 @@ struct ReviewSheet: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(on ? tint.opacity(0.1) : Color.white.opacity(0.03)))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(on ? tint.opacity(0.5) : Color.white.opacity(0.07), lineWidth: 0.75))
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(on ? tint.opacity(0.1) : Color.white.opacity(0.03)))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(on ? tint.opacity(0.5) : Color.white.opacity(0.07), lineWidth: 0.75))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -271,8 +271,8 @@ struct PendingRow: View {
                 .onChange(of: text) { session.updateComment(comment.id, body: text) }
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.035)))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 0.5))
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.white.opacity(0.035)))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 0.5))
         .onHover { hover = QA.hover($0) }
         .onAppear { text = comment.body }
     }

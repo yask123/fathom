@@ -17,15 +17,16 @@ extension Color {
     static let ink3 = Color(hex: 0x141A25)
     static let hair = Color.white.opacity(0.08)
 
-    static let text1 = Color(hex: 0xEDF1F7)
-    static let text2 = Color(hex: 0xA9B2C1)
-    static let text3 = Color(hex: 0x6F7889)
+    static let text1 = Color(hex: 0xE8EBF0)
+    static let text2 = Color(hex: 0xA2AAB7)
+    static let text3 = Color(hex: 0x6C7483)
 
-    /// The one accent: the colour of a sonar return.
-    static let sonar = Color(hex: 0x62E6DC)
-    static let added = Color(hex: 0x5ED795)
-    static let changed = Color(hex: 0xF4B860)
-    static let removed = Color(hex: 0xF36F7F)
+    /// The one accent: the colour of a sonar return, kept quiet.
+    static let sonar = Color(hex: 0x6CCDC8)
+    // Meaning, in inks rather than neons: new, changed, removed.
+    static let added = Color(hex: 0x6DC59B)
+    static let changed = Color(hex: 0xD6AC6B)
+    static let removed = Color(hex: 0xDE7B7B)
     static let calm = Color(hex: 0x8EA4C8)
 
     static let cardTint = Color(hex: 0x0D121A, alpha: 0.5)
@@ -37,8 +38,21 @@ extension Color {
 }
 
 extension Font {
+    /// STIX Two, the face of scientific journals, for titles and the story's sentences, with old-style figures.
+    /// New York if it's missing.
     static func serif(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        .system(size: size, weight: weight, design: .serif)
+        Typeface.stix(size, weight: weight)
+    }
+    static func serifItalic(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        Typeface.stix(size, weight: weight, italic: true)
+    }
+    /// Small capitals, as in a book's running heads and a journal's "Fig. 1.": every letter small, spaced by the caller.
+    static func smallCaps(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        Typeface.stix(size, weight: weight, caps: .all)
+    }
+    /// A run-in head: a capital, then small capitals ("Problem." as in a structured abstract).
+    static func runIn(_ size: CGFloat) -> Font {
+        Typeface.stix(size, caps: .lower)
     }
     static func mono(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
         .system(size: size, weight: weight, design: .monospaced)
@@ -52,7 +66,40 @@ enum Motion {
     static let slow = Animation.smooth(duration: 0.9)
 }
 
-/// Small caps label above a section.
+enum Typeface {
+    static let hasSTIX = NSFont(name: "STIXTwoText", size: 12) != nil
+
+    enum Caps { case none, lower, all }
+
+    /// STIX Two Text with its OpenType features: old-style figures always, small capitals when asked.
+    static func stix(_ size: CGFloat, weight: Font.Weight = .regular, italic: Bool = false, caps: Caps = .none) -> Font {
+        guard hasSTIX else {
+            let f = Font.system(size: size, weight: weight, design: .serif)
+            return italic ? f.italic() : caps == .none ? f : f.smallCaps()
+        }
+        var traits: [NSFontDescriptor.TraitKey: Any] = [.weight: nsWeight(weight).rawValue]
+        if italic { traits[.symbolic] = NSFontDescriptor.SymbolicTraits.italic.rawValue }
+        var features: [[NSFontDescriptor.FeatureKey: Int]] = [
+            [.typeIdentifier: kNumberCaseType, .selectorIdentifier: kLowerCaseNumbersSelector],
+        ]
+        if caps != .none { features.append([.typeIdentifier: kLowerCaseType, .selectorIdentifier: kLowerCaseSmallCapsSelector]) }
+        if caps == .all { features.append([.typeIdentifier: kUpperCaseType, .selectorIdentifier: kUpperCaseSmallCapsSelector]) }
+        let descriptor = NSFontDescriptor(fontAttributes: [.family: "STIX Two Text", .traits: traits, .featureSettings: features])
+        guard let font = NSFont(descriptor: descriptor, size: size) else { return .system(size: size, design: .serif) }
+        return Font(font as CTFont)
+    }
+
+    private static func nsWeight(_ w: Font.Weight) -> NSFont.Weight {
+        switch w {
+        case .medium: .medium
+        case .semibold: .semibold
+        case .bold, .heavy, .black: .bold
+        default: .regular
+        }
+    }
+}
+
+/// A section label, set like a paper's: small monospaced capitals, spaced out.
 struct Eyebrow: View {
     let text: String
     var color: Color = .text3
@@ -63,10 +110,106 @@ struct Eyebrow: View {
     }
 
     var body: some View {
-        Text(text.uppercased())
-            .font(.system(size: 10.5, weight: .semibold))
-            .tracking(1.5)
+        Text(text)
+            .font(.smallCaps(12.5))
+            .tracking(1.1)
             .foregroundStyle(color)
+    }
+}
+
+/// A hairline rule.
+struct Rule: View {
+    var opacity = 0.08
+    var body: some View { Rectangle().fill(Color.white.opacity(opacity)).frame(height: 0.5) }
+}
+
+/// A figure on a faint engineering grid with registration marks at its corners, and a caption under it set the
+/// way journals set them: "Fig. 1." in small capitals, then the sentence.
+struct Figure<Content: View>: View {
+    let number: Int
+    let caption: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            content
+                .padding(.vertical, 26)
+                .padding(.horizontal, 22)
+                .frame(maxWidth: .infinity)
+                .background(GridPaper())
+                .overlay(Rectangle().strokeBorder(Color.white.opacity(0.045), lineWidth: 0.5))
+                .overlay(CropMarks())
+            if !caption.isEmpty {
+                (Text("Fig. \(number).").font(.smallCaps(14)).foregroundStyle(Color.text2)
+                 + Text("   " + caption).font(.serif(14.5)).foregroundStyle(Color.text3))
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: 760, alignment: .leading)
+            }
+        }
+    }
+}
+
+/// The small L-shaped marks a draughtsman puts at a plate's corners.
+struct CropMarks: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let l: CGFloat = 9, inset: CGFloat = -0.5
+            var p = Path()
+            for (x, y, dx, dy) in [(inset, inset, 1.0, 1.0), (size.width - inset, inset, -1.0, 1.0),
+                                   (inset, size.height - inset, 1.0, -1.0), (size.width - inset, size.height - inset, -1.0, -1.0)] {
+                p.move(to: CGPoint(x: x + dx * l, y: y)); p.addLine(to: CGPoint(x: x, y: y)); p.addLine(to: CGPoint(x: x, y: y + dy * l))
+            }
+            ctx.stroke(p, with: .color(.white.opacity(0.32)), lineWidth: 0.75)
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// A book's running head: where you are, in small capitals, over a hairline.
+struct RunningHead: View {
+    let left: String
+    let right: String
+
+    var body: some View {
+        VStack(spacing: 9) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(left).lineLimit(1)
+                Spacer(minLength: 20)
+                Text(right).lineLimit(1)
+            }
+            .font(.smallCaps(12))
+            .tracking(1.2)
+            .foregroundStyle(Color.text3)
+            Rule(opacity: 0.1)
+        }
+    }
+}
+
+/// The colour a figure's paper comes out as, for labels and parts that sit on it and mask the grid.
+extension Color {
+    static let paper = Color(hex: 0x0D1015)
+}
+
+/// Dots every 16 points, barely there: the paper the figures are drawn on.
+struct GridPaper: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let step: CGFloat = 16
+            var dots = Path()
+            var y = step
+            while y < size.height {
+                var x = step
+                while x < size.width {
+                    dots.addRect(CGRect(x: x, y: y, width: 1, height: 1))
+                    x += step
+                }
+                y += step
+            }
+            ctx.fill(dots, with: .color(.white.opacity(0.07)))
+        }
+        .background(Color.white.opacity(0.012))
+        .allowsHitTesting(false)
     }
 }
 
@@ -87,7 +230,7 @@ extension View {
 
 /// A flat, quiet card for anything that scrolls or redraws often (glass is kept for the chrome).
 struct Surface: View {
-    var radius: CGFloat = 22
+    var radius: CGFloat = 8
 
     var body: some View {
         RoundedRectangle(cornerRadius: radius, style: .continuous)

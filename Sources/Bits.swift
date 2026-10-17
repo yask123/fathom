@@ -28,7 +28,8 @@ struct InterfaceCard: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(Color.calm.opacity(0.08))
+            .background(Color.white.opacity(0.03))
+            .overlay(alignment: .bottom) { Rule() }
 
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(Array(contract.members.prefix(8).enumerated()), id: \.offset) { _, m in
@@ -69,11 +70,11 @@ struct InterfaceCard: View {
                 .padding(.bottom, 10)
         }
         .frame(maxWidth: fill ? .infinity : 252, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color(hex: 0x0B0F16).opacity(0.9)))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color(hex: 0x0B0F16).opacity(0.9)))
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(hover ? Color.calm.opacity(0.55) : Color.white.opacity(0.08), lineWidth: 0.9)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(hover ? Color.calm.opacity(0.55) : Color.white.opacity(0.1), lineWidth: 0.5)
         }
         .contentShape(Rectangle())
         .onHover { hover = QA.hover($0) }
@@ -110,13 +111,10 @@ struct ChangeTag: View {
 
     var body: some View {
         if change != .unchanged {
-            Text(change == .added ? "NEW" : change == .removed ? "GONE" : "CHANGED")
-                .font(.system(size: 8, weight: .heavy))
-                .tracking(0.6)
-                .foregroundStyle(Color.ink)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(Capsule().fill(change.color))
+            Text(change == .added ? "NEW" : change == .removed ? "REMOVED" : "CHANGED")
+                .font(.mono(9, .medium))
+                .tracking(1.2)
+                .foregroundStyle(change.color)
         }
     }
 }

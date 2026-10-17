@@ -91,12 +91,12 @@ struct TopBar: View {
             }
             HStack(alignment: .firstTextBaseline, spacing: 9) {
                 Text(session.detail?.title ?? session.ref.id)
-                    .font(.system(size: 14.5, weight: .semibold))
+                    .font(.system(size: 13.5, weight: .semibold))
                     .foregroundStyle(Color.text1)
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Text(verbatim: "\(session.ref.repo) #\(session.ref.number)")
-                    .font(.system(size: 12))
+                    .font(.mono(11))
                     .foregroundStyle(Color.text3)
                     .lineLimit(1)
                     .fixedSize()

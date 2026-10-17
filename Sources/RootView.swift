@@ -53,37 +53,37 @@ struct Sidebar: View {
                 .padding(.horizontal, 12)
                 .padding(.bottom, 12)
 
-            HStack(spacing: 2) {
+            HStack(spacing: 18) {
                 ForEach(AppStore.PullFilter.allCases) { f in
                     let on = store.pullFilter == f
                     let n = count(f)
                     Button {
                         withAnimation(Motion.snappy) { store.pullFilter = f }
                     } label: {
-                        HStack(spacing: 5) {
-                            Text(f.title)
-                            if n > 0 {
-                                Text("\(n)")
-                                    .font(.mono(10, .semibold))
-                                    .foregroundStyle(f == .forYou && n > 0 ? Color.sonar : Color.text3)
+                        VStack(spacing: 7) {
+                            HStack(spacing: 5) {
+                                Text(f.title)
+                                    .font(.system(size: 12, weight: on ? .medium : .regular))
+                                    .foregroundStyle(on ? Color.text1 : Color.text3)
+                                if n > 0 {
+                                    Text("\(n)")
+                                        .font(.mono(10, .medium))
+                                        .foregroundStyle(f == .forYou ? Color.sonar : Color.text3)
+                                }
                             }
+                            Rectangle().fill(on ? Color.text1.opacity(0.85) : .clear).frame(height: 1)
                         }
-                        .font(.system(size: 12, weight: on ? .semibold : .medium))
-                        .foregroundStyle(on ? Color.text1 : Color.text3)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 26)
-                        .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(on ? Color.white.opacity(0.09) : .clear))
+                        .fixedSize()
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
+                Spacer()
             }
-            .padding(2)
-            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white.opacity(0.035)))
-            .padding(.horizontal, 12)
-            .padding(.bottom, 8)
+            .padding(.horizontal, 16)
+            .padding(.top, 2)
 
-            Rectangle().fill(Color.white.opacity(0.06)).frame(height: 0.5)
+            Rule(opacity: 0.07)
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
@@ -156,13 +156,12 @@ struct RepoSwitcher: View {
     var body: some View {
         Button { open.toggle() } label: {
             HStack(spacing: 10) {
-                Image(systemName: "folder")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color.text3)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Repository")
-                        .font(.system(size: 10.5))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(store.repo.map { String($0.split(separator: "/").first ?? "") } ?? "Repository")
+                        .font(.mono(10, .medium))
+                        .tracking(0.6)
                         .foregroundStyle(Color.text3)
+                        .lineLimit(1)
                     Text(store.repo.map { String($0.split(separator: "/").last ?? "") } ?? "Choose a repository")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color.text1)
@@ -176,10 +175,10 @@ struct RepoSwitcher: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(Color.text3)
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 11)
             .padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white.opacity(hover || open ? 0.06 : 0.03)))
-            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 0.5))
+            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.white.opacity(hover || open ? 0.05 : 0.02)))
+            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Color.white.opacity(0.09), lineWidth: 0.5))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -293,8 +292,8 @@ struct PullRow: View {
                 .help(requested ? "Your review is requested" : "")
             VStack(alignment: .leading, spacing: 5) {
                 Text(pr.title)
-                    .font(.system(size: 13, weight: selected ? .semibold : .medium))
-                    .foregroundStyle(Color.text1.opacity(selected ? 1 : 0.88))
+                    .font(.system(size: 13, weight: selected ? .medium : .regular))
+                    .foregroundStyle(Color.text1.opacity(selected ? 1 : 0.86))
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 6) {
@@ -304,7 +303,7 @@ struct PullRow: View {
                     Avatar(url: pr.authorAvatar, name: pr.author, size: 13)
                     Text(pr.author).lineLimit(1)
                     Text("·")
-                    Text(Fmt.ago(pr.updatedAt))
+                    Text(Fmt.ago(pr.updatedAt)).font(.mono(10.5))
                     if pr.isDraft {
                         Text("Draft").font(.system(size: 9.5, weight: .semibold))
                             .padding(.horizontal, 5).padding(.vertical, 1)
@@ -329,9 +328,9 @@ struct PullRow: View {
         .padding(.leading, 10)
         .padding(.trailing, 14)
         .padding(.vertical, 11)
-        .background(selected ? Color.sonar.opacity(0.1) : Color.white.opacity(hover ? 0.03 : 0))
+        .background(Color.white.opacity(selected ? 0.05 : hover ? 0.025 : 0))
         .overlay(alignment: .leading) {
-            if selected { Rectangle().fill(Color.sonar).frame(width: 2) }
+            if selected { Rectangle().fill(Color.sonar).frame(width: 1.5) }
         }
         .contentShape(Rectangle())
         .onHover { hover = QA.hover($0) }
@@ -442,7 +441,7 @@ struct LinkField: View {
                 .foregroundStyle(focused ? Color.sonar : Color.text3)
             TextField(compact ? "Paste a pull request link" : "Paste a pull request link — or owner/repo#123", text: $text)
                 .textFieldStyle(.plain)
-                .font(.system(size: compact ? 12.5 : 16))
+                .font(.system(size: compact ? 12.5 : 14.5))
                 .foregroundStyle(Color.text1)
                 .focused($focused)
                 .textContentType(nil)
@@ -459,14 +458,15 @@ struct LinkField: View {
                 .transition(.scale.combined(with: .opacity))
             }
         }
-        .padding(.horizontal, compact ? 11 : 18)
-        .frame(height: compact ? 34 : 54)
+        .padding(.horizontal, compact ? 11 : 16)
+        .frame(height: compact ? 34 : 48)
         .background {
-            Capsule().fill(Color.black.opacity(focused ? 0.32 : 0.2))
+            RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.black.opacity(focused ? 0.3 : 0.18))
         }
         .overlay {
-            Capsule().strokeBorder(bad ? Color.removed.opacity(0.7) : focused ? Color.sonar.opacity(0.45) : Color.white.opacity(0.08),
-                                   lineWidth: focused || bad ? 1 : 0.5)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(bad ? Color.removed.opacity(0.7) : focused ? Color.sonar.opacity(0.45) : Color.white.opacity(0.1),
+                              lineWidth: focused || bad ? 1 : 0.5)
         }
         .offset(x: bad ? -4 : 0)
         .animation(Motion.snappy, value: focused)

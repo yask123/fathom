@@ -13,12 +13,12 @@ struct HomeView: View {
                     .frame(width: 40, height: 40)
                     .padding(.bottom, 4)
                 Text("Fathom")
-                    .font(.serif(52, .regular))
-                    .tracking(-1)
+                    .font(.serif(44))
+                    .tracking(-0.3)
                     .foregroundStyle(Color.text1)
                 Text("Pick a pull request on the left to read its story, or paste a link.")
-                    .font(.system(size: 15))
-                    .foregroundStyle(Color.text2)
+                    .font(.serifItalic(17))
+                    .foregroundStyle(Color.text3)
             }
             LinkField()
                 .frame(maxWidth: 560)
@@ -72,7 +72,7 @@ struct WaitingRow: View {
                         .foregroundStyle(Color.text1)
                         .lineLimit(1)
                     Text(verbatim: "\(pr.ref.slug) #\(pr.ref.number) · \(pr.author) · \(Fmt.ago(pr.updatedAt))")
-                        .font(.system(size: 11.5))
+                        .font(.mono(10.5))
                         .foregroundStyle(Color.text3)
                         .lineLimit(1)
                 }
@@ -83,7 +83,7 @@ struct WaitingRow: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(hover ? 0.05 : 0)))
+            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.white.opacity(hover ? 0.04 : 0)))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
