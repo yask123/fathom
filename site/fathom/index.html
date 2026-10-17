@@ -3,476 +3,616 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Fathom: Reading a Pull Request as a Story</title>
+<title>Fathom: Don’t Read the Diff</title>
 <meta name="description" content="Fathom is a Mac app that reads a GitHub pull request as a story, set like a short paper: what was wrong, the idea that fixes it, how it works now, and the choices it makes. Built for reviewing code that agents write.">
-<meta property="og:title" content="Fathom: Reading a Pull Request as a Story">
-<meta property="og:description" content="Don't read the diff. Fathom it. A Mac app that tells a pull request back as a short paper: the problem, the idea, how it works now, the choices it makes.">
-<meta property="og:image" content="https://yask.dev/fathom/assets/og-v8.jpg">
+<meta property="og:title" content="Fathom: Don’t read the diff. Fathom it.">
+<meta property="og:description" content="A Mac app that tells a pull request back as a short paper: the problem, the idea, how it works now, the choices it makes. Free and open source.">
+<meta property="og:image" content="https://yask.dev/fathom/assets/og-v9.jpg">
 <meta property="og:url" content="https://yask.dev/fathom">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://yask.dev/fathom/assets/og-v8.jpg">
+<meta name="twitter:image" content="https://yask.dev/fathom/assets/og-v9.jpg">
 <link rel="icon" type="image/png" href="/fathom/assets/favicon.png">
 <link rel="apple-touch-icon" href="/fathom/assets/apple-touch-icon.png">
 <link rel="preload" as="image" href="/fathom/assets/v7-overview.webp">
-<meta name="theme-color" content="#F5F2EA">
+<meta name="theme-color" content="#F3EEE3">
 <meta name="color-scheme" content="light">
 <script>
-  // The page is set on paper; the dark edition is there for whoever asks for it from the footer.
+  // Printed on paper; the night edition is there for whoever asks for it from the colophon.
   try { if (localStorage.getItem('fathom-theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {}
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400..700;1,400..700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..700;1,8..60,300..700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --paper: #F5F2EA; --plate: #ECE8DE; --ink: #16181D; --ink-2: #41444B; --ink-3: #74716B;
-  --rule: rgba(22, 24, 29, .15); --rule-2: rgba(22, 24, 29, .34);
-  --accent: #1E3A64; --new: #2E7A55; --hurt: #A63A3A;
-  --serif: 'STIX Two Text', 'STIX Two', 'Iowan Old Style', Charter, Georgia, serif;
-  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
-  --measure: 640px;
+  --paper: #F3EEE3; --plate: #E9E2D3; --ink: #14130F; --ink-2: #47443D; --ink-3: #85806F;
+  --rule: rgba(20, 19, 15, .16); --rule-2: rgba(20, 19, 15, .38);
+  --accent: #7A1F2B; --new: #2E6E4E; --hurt: #9B2C2C;
+  --display: 'Cormorant Garamond', 'Cormorant', Garamond, 'Times New Roman', serif;
+  --text: 'Source Serif 4', 'Source Serif Pro', 'Iowan Old Style', Georgia, serif;
+  --mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  --wide: 1200px;
 }
-/* The dark edition, chosen from the footer. */
+/* The night edition, chosen from the colophon. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --paper: #101216; --plate: #15181D; --ink: #E7E3D9; --ink-2: #BDB8AD; --ink-3: #8C887F;
-  --rule: rgba(231, 227, 217, .13); --rule-2: rgba(231, 227, 217, .3);
-  --accent: #A9BEDF; --new: #7CC7A0; --hurt: #E08A8A;
+  --paper: #121110; --plate: #1A1917; --ink: #ECE6DA; --ink-2: #C2BBAE; --ink-3: #8F887B;
+  --rule: rgba(236, 230, 218, .13); --rule-2: rgba(236, 230, 218, .32);
+  --accent: #D9939B; --new: #86C7A2; --hurt: #E08A8A;
 }
 
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 72px; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 70px; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 body {
   margin: 0; background: var(--paper); color: var(--ink);
-  font: 400 19px/1.58 var(--serif); font-variant-numeric: oldstyle-nums proportional-nums;
-  font-kerning: normal; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  font: 400 19.5px/1.62 var(--text); font-optical-sizing: auto;
+  font-variant-numeric: oldstyle-nums proportional-nums; font-kerning: normal;
+  text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; overflow-x: hidden;
 }
-::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
-a { color: inherit; text-decoration: underline; text-decoration-thickness: .5px; text-underline-offset: .18em; text-decoration-color: var(--rule-2); }
+::selection { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+a { color: inherit; text-decoration: underline; text-decoration-thickness: .5px; text-underline-offset: .2em; text-decoration-color: var(--rule-2); }
 a:hover { color: var(--accent); text-decoration-color: currentColor; }
-.sc { font-variant-caps: all-small-caps; letter-spacing: .07em; }
-.it { font-style: italic; }
-code, .mono { font: 400 .8em/1 var(--mono); letter-spacing: -.01em; font-variant-numeric: normal; }
-hr { border: 0; border-top: .5px solid var(--rule); margin: 0; }
+.sc { font-variant-caps: all-small-caps; letter-spacing: .1em; }
+code, .mono { font: 400 .78em/1 var(--mono); letter-spacing: -.01em; font-variant-numeric: normal; }
+.wrap { max-width: var(--wide); margin: 0 auto; padding: 0 40px; }
+.double { height: 5px; border-top: 2px solid var(--ink); border-bottom: .75px solid var(--ink); }
+.ornament { display: flex; align-items: center; justify-content: center; gap: 14px; color: var(--accent); margin: 0 auto; }
+.ornament::before, .ornament::after { content: ""; width: 56px; height: .75px; background: var(--rule-2); }
+.ornament i { width: 6px; height: 6px; transform: rotate(45deg); border: .9px solid currentColor; }
 
-/* The running head */
-.head {
-  position: sticky; top: 0; z-index: 10;
-  background: color-mix(in srgb, var(--paper) 90%, transparent);
-  -webkit-backdrop-filter: saturate(1.2) blur(10px); backdrop-filter: saturate(1.2) blur(10px);
-  border-bottom: .5px solid transparent; transition: border-color .3s;
-}
-.head.ruled { border-bottom-color: var(--rule); }
-.head .in { max-width: 1080px; margin: 0 auto; padding: 0 28px; height: 54px; display: flex; align-items: center; gap: 28px; }
-.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-size: 18px; }
-.brand img { width: 22px; height: 22px; border-radius: 5px; }
-.head nav { display: flex; gap: 22px; margin-left: auto; font-size: 16px; }
-.head nav a { text-decoration: none; color: var(--ink-3); }
-.head nav a:hover { color: var(--ink); }
-.head .dl { text-decoration: none; font-size: 16px; padding: 5px 12px 6px; border: .5px solid var(--rule-2); border-radius: 2px; }
-.head .dl:hover { border-color: var(--ink); color: var(--ink); }
+/* Masthead */
+.masthead { padding-top: 26px; }
+.masthead .row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 20px; padding-bottom: 14px; }
+.masthead .meta { font-size: 15px; color: var(--ink-2); font-variant-caps: all-small-caps; letter-spacing: .12em; }
+.masthead .meta.r { text-align: right; }
+.masthead .title { font: 500 clamp(26px, 3vw, 34px)/1 var(--display); letter-spacing: .14em; font-variant-caps: all-small-caps; text-decoration: none; display: inline-flex; align-items: center; gap: 14px; }
+.masthead .title img { width: 26px; height: 26px; border-radius: 6px; }
+.masthead nav { display: flex; justify-content: center; gap: 30px; padding: 11px 0 12px; border-bottom: .75px solid var(--rule); font-size: 15.5px; font-variant-caps: all-small-caps; letter-spacing: .12em; }
+.masthead nav a { text-decoration: none; color: var(--ink-2); }
+.masthead nav a:hover { color: var(--accent); }
 
-/* The page */
-.page { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
-.col { max-width: var(--measure); }
-@media (min-width: 1120px) { .col { margin-left: 60px; } }
+/* The bar that follows you once the masthead is gone */
+.bar { position: fixed; inset: 0 0 auto; z-index: 20; background: color-mix(in srgb, var(--paper) 92%, transparent);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-bottom: .75px solid var(--rule);
+  transform: translateY(-101%); transition: transform .35s ease; }
+.bar.on { transform: none; }
+.bar .wrap { height: 52px; display: flex; align-items: center; gap: 20px; }
+.bar .t { font: 500 21px/1 var(--display); letter-spacing: .14em; font-variant-caps: all-small-caps; text-decoration: none; }
+.bar .s { color: var(--ink-3); font-size: 15px; font-style: italic; }
+.bar .dl { margin-left: auto; }
+@media (prefers-reduced-motion: reduce) { .bar { transition: none; } }
 
-/* Title */
-.titleblock { text-align: center; padding: 76px 0 30px; }
-.kicker { color: var(--ink-3); font-size: 17px; text-wrap: balance; }
-h1, .subtitle, .authors, .fine, .final h2, .final p { text-wrap: balance; }
-h1 { margin: 22px auto 0; max-width: 860px; font: 400 clamp(40px, 6.4vw, 66px)/1.08 var(--serif); letter-spacing: -.012em; }
-.subtitle { margin: 20px auto 0; max-width: 680px; font-style: italic; font-size: clamp(19px, 2.2vw, 22px); line-height: 1.45; color: var(--ink-2); }
-.authors { margin: 30px 0 0; font-size: 17px; color: var(--ink-2); }
-.authors .sep { color: var(--ink-3); padding: 0 .5em; }
-.actions { margin: 34px 0 0; display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 14px 26px; }
-.btn {
-  display: inline-flex; align-items: baseline; gap: 10px; padding: 12px 22px 13px; border-radius: 2px;
-  background: var(--ink); color: var(--paper); text-decoration: none; font-size: 18px;
-  box-shadow: 0 1px 0 var(--rule-2);
-}
-.btn:hover { color: var(--paper); background: var(--accent); }
-.btn .arrow { font-size: 15px; }
-.fine { margin: 14px 0 0; font-size: 15px; color: var(--ink-3); }
+/* Buttons */
+.btn { display: inline-flex; align-items: baseline; gap: 12px; padding: 13px 24px 14px; background: var(--ink); color: var(--paper);
+  text-decoration: none; font: 500 17px/1 var(--text); letter-spacing: .02em; border-radius: 1px; }
+.btn:hover { background: var(--accent); color: var(--paper); }
+.btn.small { padding: 8px 14px 9px; font-size: 15px; }
+.btn .arrow { font-size: .9em; }
 
-/* Abstract */
-.abstract { max-width: 620px; margin: 44px auto 0; padding: 26px 0 24px; border-top: .5px solid var(--rule); border-bottom: .5px solid var(--rule); }
-.abstract h2 { margin: 0 0 8px; text-align: center; font: 400 17px/1 var(--serif); font-variant-caps: all-small-caps; letter-spacing: .14em; color: var(--ink-2); }
-.abstract p { margin: 0; font-size: 18px; line-height: 1.55; text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
-.keywords { margin: 12px 0 0 !important; font-size: 16px !important; color: var(--ink-3); text-align: left !important; }
-.keywords b { font-weight: 400; font-style: italic; color: var(--ink-2); }
+/* Cover story */
+.cover { padding: 64px 0 20px; }
+.kicker { color: var(--accent); font-size: 16px; font-variant-caps: all-small-caps; letter-spacing: .16em; }
+h1 { margin: 18px 0 0; font: 500 clamp(58px, 10.4vw, 142px)/.92 var(--display); letter-spacing: -.018em; font-variant-numeric: lining-nums; }
+h1 .l1 { display: block; text-wrap: balance; }
+.kicker, .dek, .byline, .fine, .sechead h2, .standfirst, .pull blockquote, .principle p.big, .finis h2 { text-wrap: balance; }
+h1 em { display: block; font-style: italic; font-weight: 500; color: var(--accent); letter-spacing: -.01em; }
+.cover .grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 64px; margin-top: 40px; padding-top: 30px; border-top: .75px solid var(--rule); }
+.dek { margin: 0; font: italic 400 clamp(21px, 2.1vw, 25px)/1.45 var(--text); color: var(--ink-2); }
+.byline { margin: 22px 0 0; font-size: 16px; color: var(--ink-2); }
+.byline .sc { color: var(--ink); }
+.actions { margin: 30px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 14px 26px; }
+.fine { margin: 14px 0 0; font-size: 14.5px; color: var(--ink-3); }
 
-/* Figures, as plates */
-figure { margin: 52px 0; clear: both; }
-.plate { position: relative; padding: 20px; background: var(--plate); }
+.issue h2 { margin: 0 0 6px; font: 400 15.5px/1 var(--text); font-variant-caps: all-small-caps; letter-spacing: .16em; color: var(--ink-2); }
+.issue ol { list-style: none; margin: 0; padding: 0; }
+.issue li a { display: grid; grid-template-columns: 46px 1fr; gap: 0 4px; padding: 13px 0; border-top: .75px solid var(--rule); text-decoration: none; }
+.issue li:last-child a { border-bottom: .75px solid var(--rule); }
+.issue .rn { font: 500 22px/1.1 var(--display); color: var(--accent); }
+.issue .t { font: 500 23px/1.15 var(--display); }
+.issue .d { grid-column: 2; font-size: 15px; font-style: italic; color: var(--ink-3); line-height: 1.4; margin-top: 3px; }
+.issue li a:hover .t { color: var(--accent); }
+
+/* Plates, with side captions */
+.plate-row { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 36px; margin: 70px 0; align-items: end; }
+.plate-row.top { align-items: start; }
+.plate { position: relative; padding: 22px; background: var(--plate); }
 .plate::before, .plate::after, .plate > .cm::before, .plate > .cm::after {
-  content: ""; position: absolute; width: 12px; height: 12px; border-color: var(--rule-2); border-style: solid; border-width: 0; pointer-events: none;
+  content: ""; position: absolute; width: 14px; height: 14px; border: 0 solid var(--rule-2); pointer-events: none;
 }
 .plate::before { left: -1px; top: -1px; border-left-width: .75px; border-top-width: .75px; }
 .plate::after { right: -1px; top: -1px; border-right-width: .75px; border-top-width: .75px; }
 .plate > .cm::before { left: -1px; bottom: -1px; border-left-width: .75px; border-bottom-width: .75px; }
 .plate > .cm::after { right: -1px; bottom: -1px; border-right-width: .75px; border-bottom-width: .75px; }
-.shot { position: relative; display: block; width: 100%; height: auto; border-radius: 6px; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .35), 0 14px 34px -18px rgba(0, 0, 0, .45); }
-figcaption { margin: 14px 0 0; max-width: 760px; font-size: 16.5px; line-height: 1.5; color: var(--ink-2); }
-figcaption .fig { font-variant-caps: all-small-caps; letter-spacing: .08em; color: var(--ink); margin-right: .45em; }
-
-/* Figure 1: one plate, four sub-figures */
+.shot { display: block; width: 100%; height: auto; border-radius: 6px; box-shadow: 0 0 0 .5px rgba(0, 0, 0, .35), 0 20px 44px -22px rgba(0, 0, 0, .5); }
+.cap { font-size: 15.5px; line-height: 1.5; color: var(--ink-2); }
+.cap .pl { display: block; margin-bottom: 8px; color: var(--ink); font: 500 17px/1 var(--display); font-variant-caps: all-small-caps; letter-spacing: .14em; }
+.cap .pl b { color: var(--accent); font-weight: 600; }
+.cap p { margin: 0; }
 .stack { position: relative; aspect-ratio: 2400 / 1500; }
-.stack .shot { position: absolute; inset: 0; opacity: 0; transition: opacity .6s ease; }
+.stack .shot { position: absolute; inset: 0; opacity: 0; transition: opacity .7s ease; }
 .stack .shot.on { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .stack .shot { transition: none; } }
-.subs { margin: 14px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px 22px; }
-.subs button {
-  appearance: none; background: none; border: 0; padding: 4px 0; cursor: pointer; font: inherit; font-size: 16.5px;
-  color: var(--ink-3); border-bottom: .75px solid transparent;
-}
+.subs { list-style: none; margin: 0 0 16px; padding: 0; }
+.subs button { appearance: none; background: none; border: 0; padding: 5px 0; cursor: pointer; font: inherit; font-size: 16px; color: var(--ink-3); text-align: left; display: flex; gap: 10px; width: 100%; border-bottom: .75px solid var(--rule); }
+.subs li:first-child button { border-top: .75px solid var(--rule); }
+.subs button i { font-family: var(--display); font-size: 18px; width: 22px; color: var(--ink-3); }
 .subs button:hover { color: var(--ink); }
-.subs button[aria-pressed="true"] { color: var(--ink); border-bottom-color: var(--ink); }
-.subs button i { font-style: italic; margin-right: .3em; }
-.subcap { min-height: 3em; }
+.subs button[aria-pressed="true"] { color: var(--ink); }
+.subs button[aria-pressed="true"] i { color: var(--accent); }
+.subcap { min-height: 4.5em; }
 
-/* Sections */
-section { padding-top: 26px; display: flow-root; }
-h2.sec { margin: 26px 0 16px; font: 600 25px/1.25 var(--serif); letter-spacing: -.004em; display: flex; gap: 18px; align-items: baseline; }
-h2.sec .n { color: var(--ink-3); font-weight: 400; min-width: 22px; }
-@media (min-width: 1120px) { h2.sec { margin-left: -40px; } h2.sec .n { min-width: 22px; } }
-h3 { margin: 30px 0 8px; font: 400 18px/1.3 var(--serif); font-variant-caps: all-small-caps; letter-spacing: .1em; color: var(--ink-2); }
-p { margin: 0 0 1em; }
-@media (min-width: 700px) { .col p { text-align: justify; hyphens: auto; -webkit-hyphens: auto; } }
-.lead::first-letter { initial-letter: 2; -webkit-initial-letter: 2; margin-right: .08em; font-weight: 400; }
+/* Abstract */
+.abstract { max-width: 760px; margin: 10px auto 0; text-align: center; }
+.abstract h2 { margin: 0 0 14px; font: 400 15.5px/1 var(--text); font-variant-caps: all-small-caps; letter-spacing: .2em; color: var(--ink-2); }
+.abstract p { margin: 0; text-align: justify; text-align-last: center; hyphens: auto; -webkit-hyphens: auto; font-size: 19px; line-height: 1.6; }
+.abstract .kw { margin-top: 16px; font-size: 15.5px; color: var(--ink-3); text-align: center; text-align-last: center; }
+.abstract .kw i { color: var(--ink-2); }
 
-/* Notes in the margin */
-.sn-ref { font-size: .62em; vertical-align: super; line-height: 0; color: var(--accent); margin-left: .05em; font-variant-numeric: lining-nums; }
-.sidenote { display: block; float: right; clear: right; width: 250px; margin: .3em -310px 1em 0; font-size: 15px; line-height: 1.45; color: var(--ink-2); text-align: left; hyphens: none; }
-.sidenote .n { color: var(--accent); margin-right: .35em; font-variant-numeric: lining-nums; }
-@media (max-width: 1119px) {
-  .sidenote { float: none; width: auto; margin: .7em 0 .7em 1.4em; padding-left: 12px; border-left: .75px solid var(--rule-2); }
-}
+/* Articles */
+.article { margin: 90px 0 0; }
+.sechead { text-align: center; margin-bottom: 38px; }
+.sechead .rn { display: block; font: 500 30px/1 var(--display); color: var(--accent); letter-spacing: .06em; }
+.sechead h2 { margin: 10px 0 0; font: 500 clamp(34px, 4.4vw, 52px)/1.06 var(--display); letter-spacing: -.008em; }
+.sechead .standfirst { margin: 12px auto 0; max-width: 620px; font-style: italic; color: var(--ink-2); font-size: 19.5px; }
+.cols { columns: 2; column-gap: 54px; column-rule: .75px solid var(--rule); max-width: 1000px; margin: 0 auto; }
+.cols p, .single p { margin: 0 0 1em; text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
+.single { max-width: 660px; margin: 0 auto; }
+.dropcap::first-letter { float: left; font: 500 5.1em/.78 var(--display); color: var(--accent); margin: .07em .09em -.05em 0; }
+.note { font-size: 15.5px; color: var(--ink-3); font-style: italic; break-inside: avoid; border-top: .75px solid var(--rule); padding-top: 10px; margin-top: 4px; }
+.note b { font-style: normal; font-weight: 400; color: var(--accent); margin-right: .3em; }
 
-/* Definitions: the sections of a reading */
-dl.parts { margin: 8px 0 0; }
-dl.parts > div { padding: 12px 0; border-top: .5px solid var(--rule); }
-dl.parts > div:last-child { border-bottom: .5px solid var(--rule); }
-dl.parts dt { font-variant-caps: all-small-caps; letter-spacing: .1em; font-size: 18px; }
-dl.parts .num { display: inline-block; width: 34px; color: var(--ink-3); font-variant-caps: normal; letter-spacing: 0; }
-dl.parts dd { margin: 2px 0 0 34px; color: var(--ink-2); }
+/* Pull quote */
+.pull { margin: 84px auto; max-width: 980px; text-align: center; }
+.pull blockquote { margin: 26px 0 0; font: italic 500 clamp(36px, 5vw, 64px)/1.08 var(--display); letter-spacing: -.01em; }
+.pull blockquote span { color: var(--accent); }
+.pull cite { display: block; margin-top: 22px; font-style: normal; font-size: 15px; color: var(--ink-3); font-variant-caps: all-small-caps; letter-spacing: .16em; }
 
-/* Tables, ruled like a journal's */
-table { border-collapse: collapse; width: 100%; margin: 6px 0 0; font-size: 17.5px; }
-caption { caption-side: top; text-align: left; padding-bottom: 10px; font-size: 16.5px; color: var(--ink-2); }
-caption .fig { font-variant-caps: all-small-caps; letter-spacing: .08em; color: var(--ink); margin-right: .45em; }
-thead th { font-weight: 400; font-style: italic; color: var(--ink-2); text-align: left; padding: 8px 12px 8px 0; border-top: 1.2px solid var(--ink); border-bottom: .6px solid var(--ink); }
-tbody td { padding: 9px 12px 9px 0; vertical-align: baseline; }
-tbody tr:last-child td { border-bottom: 1.2px solid var(--ink); }
-td.v { white-space: nowrap; font-variant-numeric: lining-nums tabular-nums; }
-table.keys th:first-child, table.keys td:first-child { width: 112px; }
-kbd { font: 500 13px/1 var(--mono); padding: 3px 6px 4px; border: .5px solid var(--rule-2); border-radius: 3px; margin-right: 3px; background: color-mix(in srgb, var(--paper) 70%, var(--plate)); }
-
-/* A principle, set like a theorem */
-.principle { margin: 26px 0 26px; padding: 18px 0 18px 22px; border-left: 1.2px solid var(--ink); }
-.principle p { margin: 0; font-style: italic; font-size: 20px; line-height: 1.5; text-align: left !important; }
-.principle .label { font-style: normal; font-variant-caps: all-small-caps; letter-spacing: .1em; font-weight: 600; margin-right: .5em; }
-.remark { color: var(--ink-2); }
-.remark .label { font-style: italic; margin-right: .4em; color: var(--ink); }
-.struck { text-decoration: line-through; text-decoration-thickness: .75px; text-decoration-color: var(--hurt); }
-
-/* Figure 2, drawn */
-.diagram { width: 100%; height: auto; display: block; color: var(--ink); }
+/* Plate II, drawn */
+.diagram { width: 100%; height: auto; display: block; }
 .diagram .box { fill: var(--paper); stroke: var(--rule-2); stroke-width: .9; }
-.diagram .box.new { stroke: var(--new); }
+.diagram .box.new { stroke: var(--new); stroke-width: 1.1; }
 .diagram .name { font: 500 14.5px var(--mono); fill: var(--ink); }
-.diagram .role { font: italic 400 16px var(--serif); fill: var(--ink-2); }
-.diagram .kind { font: 400 13px var(--serif); font-variant-caps: all-small-caps; letter-spacing: .08em; fill: var(--ink-3); }
+.diagram .role { font: italic 400 16px var(--text); fill: var(--ink-2); }
+.diagram .kind { font: 400 15px var(--text); font-variant-caps: all-small-caps; letter-spacing: .08em; fill: var(--ink-3); }
 .diagram .edge { fill: none; stroke: var(--ink-2); stroke-width: .9; }
 .diagram .head { fill: var(--ink-2); }
-.diagram .label { font: italic 400 15.5px var(--serif); fill: var(--ink-2); paint-order: stroke; stroke: var(--plate); stroke-width: 6px; stroke-linejoin: round; }
+.diagram .label { font: italic 400 16px var(--text); fill: var(--ink-2); paint-order: stroke; stroke: var(--plate); stroke-width: 6px; stroke-linejoin: round; }
 .diagram .axis { stroke: var(--rule-2); stroke-width: .9; }
-.diagram .tick { font: italic 400 15px var(--serif); fill: var(--ink-3); }
-.diagram .tick b { font-style: normal; }
+.diagram .tick { font: italic 400 15.5px var(--text); fill: var(--ink-3); }
 .diagram.tall { display: none; }
-@media (max-width: 720px) { .diagram.wide { display: none; } .diagram.tall { display: block; max-width: 420px; margin: 0 auto; } }
 
-/* Installation */
-ol.steps { margin: 6px 0 0; padding: 0; list-style: none; counter-reset: s; }
-ol.steps li { counter-increment: s; display: grid; grid-template-columns: 34px minmax(0, 1fr); padding: 10px 0; }
-ol.steps li::before { content: counter(s) "."; color: var(--ink-3); }
-pre { margin: 8px 0 2px; padding: 12px 14px; overflow-x: auto; background: var(--plate); border-left: .75px solid var(--rule-2); font: 400 14.5px/1.5 var(--mono); }
+/* Anatomy: the contents of a reading, as a magazine spread */
+.anatomy { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 2px solid var(--ink); border-bottom: .75px solid var(--ink); }
+.anatomy > div { padding: 28px 30px 30px; border-right: .75px solid var(--rule); border-bottom: .75px solid var(--rule); }
+.anatomy > div:nth-child(3n) { border-right: 0; }
+.anatomy > div:nth-last-child(-n+3) { border-bottom: 0; }
+.anatomy .n { font: 500 64px/.9 var(--display); color: var(--accent); font-variant-numeric: lining-nums; }
+.anatomy h3 { margin: 14px 0 6px; font: 400 16.5px/1.2 var(--text); font-variant-caps: all-small-caps; letter-spacing: .14em; }
+.anatomy p { margin: 0; font-size: 17px; line-height: 1.55; color: var(--ink-2); }
 
-/* References */
-ol.refs { margin: 4px 0 0; padding: 0; list-style: none; counter-reset: r; font-size: 17px; }
-ol.refs li { counter-increment: r; display: grid; grid-template-columns: 38px minmax(0, 1fr); padding: 5px 0; overflow-wrap: anywhere; }
+/* The review: text beside the keys */
+.side { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 60px; max-width: 1060px; margin: 0 auto; align-items: start; }
+table { border-collapse: collapse; width: 100%; font-size: 17px; }
+caption { caption-side: top; text-align: left; padding-bottom: 10px; font-size: 15.5px; color: var(--ink-2); }
+caption .pl { font: 500 17px/1 var(--display); font-variant-caps: all-small-caps; letter-spacing: .14em; color: var(--ink); margin-right: .5em; }
+caption .pl b { color: var(--accent); font-weight: 600; font-variant-numeric: lining-nums; }
+thead th { font-weight: 400; font-style: italic; color: var(--ink-2); text-align: left; padding: 8px 12px 8px 0; border-top: 1.5px solid var(--ink); border-bottom: .75px solid var(--ink); }
+tbody td { padding: 9px 12px 9px 0; vertical-align: baseline; border-bottom: .5px solid var(--rule); }
+tbody tr:last-child td { border-bottom: 1.5px solid var(--ink); }
+td.k { white-space: nowrap; width: 96px; }
+kbd { font: 500 12.5px/1 var(--mono); padding: 3px 6px 4px; border: .75px solid var(--rule-2); border-radius: 2px; margin-right: 3px; background: color-mix(in srgb, var(--paper) 60%, var(--plate)); }
+
+/* By the numbers */
+.numbers { margin: 96px 0 0; }
+.numbers .head { text-align: center; margin-bottom: 18px; font-size: 15.5px; font-variant-caps: all-small-caps; letter-spacing: .2em; color: var(--ink-2); }
+.numbers .row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.numbers .row > div { padding: 30px 30px 26px; text-align: center; border-right: .75px solid var(--rule); }
+.numbers .row > div:last-child { border-right: 0; }
+.numbers .v { font: 500 clamp(64px, 8vw, 104px)/.9 var(--display); font-variant-numeric: lining-nums; letter-spacing: -.02em; }
+.numbers .v small { font: italic 400 .36em/1 var(--display); color: var(--accent); margin-left: 6px; letter-spacing: 0; }
+.numbers .k { margin: 14px auto 0; max-width: 260px; font-size: 16.5px; color: var(--ink-2); font-style: italic; line-height: 1.45; }
+
+/* The principle */
+.principle { max-width: 860px; margin: 0 auto; text-align: center; }
+.principle .label { font-size: 15.5px; font-variant-caps: all-small-caps; letter-spacing: .2em; color: var(--accent); }
+.principle p.big { margin: 14px 0 0; font: italic 500 clamp(30px, 3.6vw, 44px)/1.18 var(--display); }
+.principle p.small { margin: 24px auto 0; max-width: 640px; color: var(--ink-2); font-size: 18.5px; }
+.struck { text-decoration: line-through; text-decoration-thickness: .9px; text-decoration-color: var(--accent); }
+
+/* Availability */
+.avail { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 60px; max-width: 1060px; margin: 0 auto; }
+ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; }
+ol.steps li { counter-increment: s; display: grid; grid-template-columns: 40px minmax(0, 1fr); padding: 12px 0; border-top: .75px solid var(--rule); }
+ol.steps li:last-child { border-bottom: .75px solid var(--rule); }
+ol.steps li::before { content: counter(s); font: 500 24px/1 var(--display); color: var(--accent); padding-top: 2px; font-variant-numeric: lining-nums; }
+pre { margin: 10px 0 2px; padding: 12px 14px; overflow-x: auto; background: var(--plate); font: 400 14px/1.5 var(--mono); }
+h3.small { margin: 0 0 12px; font: 400 15.5px/1 var(--text); font-variant-caps: all-small-caps; letter-spacing: .18em; color: var(--ink-2); }
+ol.refs { margin: 0; padding: 0; list-style: none; counter-reset: r; font-size: 16.5px; line-height: 1.5; }
+ol.refs li { counter-increment: r; display: grid; grid-template-columns: 36px minmax(0, 1fr); padding: 9px 0; border-top: .75px solid var(--rule); overflow-wrap: anywhere; }
+ol.refs li:last-child { border-bottom: .75px solid var(--rule); }
 ol.refs li::before { content: "[" counter(r) "]"; color: var(--ink-3); font-variant-numeric: lining-nums; }
-ol.refs .t { font-style: italic; }
+ol.refs i { color: var(--ink); }
 
-/* The end */
-.final { text-align: center; padding: 70px 0 30px; }
-.final .mark { width: 64px; height: 64px; border-radius: 14px; }
-.final h2 { margin: 18px 0 0; font: 400 clamp(30px, 4.4vw, 42px)/1.15 var(--serif); }
-.final p { margin: 10px auto 0; max-width: 520px; color: var(--ink-2); font-style: italic; }
-.final .actions { margin-top: 26px; }
-footer { border-top: .5px solid var(--rule); margin-top: 60px; }
-footer .theme { appearance: none; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-decoration: underline; text-decoration-thickness: .5px; text-underline-offset: .18em; text-decoration-color: var(--rule-2); }
+/* Finis */
+.finis { text-align: center; padding: 110px 0 40px; }
+.finis img { width: 72px; height: 72px; border-radius: 16px; box-shadow: 0 16px 34px -18px rgba(0, 0, 0, .55); }
+.finis h2 { margin: 26px 0 0; font: italic 500 clamp(46px, 6.4vw, 84px)/1 var(--display); letter-spacing: -.012em; }
+.finis p { margin: 14px auto 0; max-width: 520px; color: var(--ink-2); font-size: 19px; }
+.finis .actions { justify-content: center; }
+footer { margin-top: 70px; }
+footer .colophon { display: grid; grid-template-columns: 1fr auto 1fr; gap: 20px; align-items: center; padding: 18px 0 44px; font-size: 14.5px; color: var(--ink-3); }
+footer .colophon .r { text-align: right; }
+footer .theme { appearance: none; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-decoration: underline; text-decoration-thickness: .5px; text-underline-offset: .2em; text-decoration-color: var(--rule-2); }
 footer .theme:hover { color: var(--accent); }
-footer .in { max-width: 1080px; margin: 0 auto; padding: 22px 28px 40px; display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; font-size: 15px; color: var(--ink-3); }
 
-@media (max-width: 860px) { .head nav { display: none; } .head .dl { margin-left: auto; } }
+/* Narrower */
+@media (max-width: 1100px) {
+  .plate-row { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .plate-row .cap { order: 2; }
+  .subs { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+  .subs button, .subs li:first-child button { border: 0; width: auto; padding: 3px 0; }
+  .subcap { min-height: 0; }
+}
+@media (max-width: 900px) {
+  .masthead nav { display: none; }
+  .cover .grid, .side, .avail { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+  .cols { columns: 1; }
+  .anatomy { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .anatomy > div { border-right: .75px solid var(--rule) !important; border-bottom: .75px solid var(--rule) !important; }
+  .anatomy > div:nth-child(2n) { border-right: 0 !important; }
+  .anatomy > div:nth-last-child(-n+2) { border-bottom: 0 !important; }
+}
+@media (max-width: 720px) {
+  .diagram.wide { display: none; } .diagram.tall { display: block; max-width: 420px; margin: 0 auto; }
+}
 @media (max-width: 600px) {
-  body { font-size: 17.5px; }
-  .page, .head .in, footer .in { padding-left: 16px; padding-right: 16px; }
-  .titleblock { padding-top: 48px; }
+  body { font-size: 18px; }
+  .wrap { padding: 0 16px; }
+  .masthead .row { grid-template-columns: minmax(0, 1fr); text-align: center; gap: 8px; }
+  .masthead .meta, .masthead .meta.r { text-align: center; }
+  .masthead .meta.l { display: none; }
+  .cover { padding-top: 40px; }
   .plate { padding: 10px; }
-  figure { margin: 38px 0; }
-  .abstract p { text-align: left; }
-  h2.sec { font-size: 22px; gap: 12px; }
-  .principle p { font-size: 18.5px; }
+  .plate-row { margin: 48px 0; }
+  .cols p, .single p, .abstract p { text-align: left; text-align-last: auto; }
+  .anatomy { grid-template-columns: minmax(0, 1fr); }
+  .anatomy > div { border-right: 0 !important; border-bottom: .75px solid var(--rule) !important; padding: 22px 4px; }
+  .anatomy > div:last-child { border-bottom: 0 !important; }
+  .numbers .row { grid-template-columns: minmax(0, 1fr); }
+  .numbers .row > div { border-right: 0; border-bottom: .75px solid var(--rule); }
+  .numbers .row > div:last-child { border-bottom: 0; }
+  .bar .s { display: none; }
+  footer .colophon { grid-template-columns: minmax(0, 1fr); text-align: center; }
+  footer .colophon .r { text-align: center; }
+  .article { margin-top: 70px; }
 }
 </style>
 </head>
 <body>
 
-<header class="head" id="head">
-  <div class="in">
-    <a class="brand" href="#top"><img src="/fathom/assets/icon-512.webp" alt="" width="22" height="22"><span class="sc">Fathom</span></a>
-    <nav aria-label="Sections">
-      <a href="#introduction">Introduction</a>
-      <a href="#method">Method</a>
-      <a href="#sections">Sections</a>
-      <a href="#review">Review</a>
-      <a href="#install">Installation</a>
-    </nav>
-    <a class="dl" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg">Download <span aria-hidden="true">↓</span></a>
+<div class="bar" id="bar" aria-hidden="true">
+  <div class="wrap">
+    <a class="t" href="#top" tabindex="-1">The Fathom Review</a>
+    <span class="s">Don’t read the diff. Fathom it.</span>
+    <a class="btn small dl" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg" tabindex="-1">Download <span class="arrow" aria-hidden="true">↓</span></a>
   </div>
+</div>
+
+<header class="masthead wrap" id="top">
+  <div class="row">
+    <span class="meta l">Vol. I · No. 5</span>
+    <a class="title" href="#top"><img src="/fathom/assets/icon-512.webp" alt="" width="26" height="26">The Fathom Review</a>
+    <span class="meta r">Autumn 2026 · Free of charge</span>
+  </div>
+  <div class="double"></div>
+  <nav aria-label="Sections">
+    <a href="#premise">The Premise</a>
+    <a href="#method">The Method</a>
+    <a href="#anatomy">The Reading</a>
+    <a href="#review">The Review</a>
+    <a href="#availability">Availability</a>
+  </nav>
 </header>
 
-<main class="page" id="top">
-
-  <div class="titleblock">
-    <div class="kicker sc">A Mac app for reviewing code that agents write</div>
-    <h1>Don’t read the diff. Fathom it.</h1>
-    <p class="subtitle">Reading a pull request as a story: what was wrong, the idea that fixes it, how it works now, and the choices it makes.</p>
-    <p class="authors"><span class="sc">Yask Srivastava</span><span class="sep">·</span><a href="https://yask.dev">yask.dev</a><span class="sep">·</span>Version 0.5, October 2026</p>
-    <div class="actions">
-      <a class="btn" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg">Download for Mac <span class="arrow" aria-hidden="true">↓</span></a>
-      <a href="https://github.com/yask123/fathom">Source on GitHub</a>
+<main>
+  <section class="cover wrap">
+    <div class="kicker">Software · Code Review in the Age of Agents</div>
+    <h1><span class="l1">Don’t read the diff.</span> <em>Fathom it.</em></h1>
+    <div class="grid">
+      <div>
+        <p class="dek">A Mac app that reads a pull request and tells it back as a short paper: what was wrong, the idea that fixes it, how things work now, and the choices made along the way. One sentence and one figure at a time.</p>
+        <p class="byline">By <span class="sc">Yask Srivastava</span> · Version 0.5, notarized by Apple</p>
+        <div class="actions">
+          <a class="btn" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg">Download for Mac <span class="arrow" aria-hidden="true">↓</span></a>
+          <a href="https://github.com/yask123/fathom">Read the source on GitHub</a>
+        </div>
+        <p class="fine">Free and open source, MIT licence · macOS 26 or later · Apple silicon and Intel</p>
+      </div>
+      <aside class="issue" aria-label="In this issue">
+        <h2>In this issue</h2>
+        <ol>
+          <li><a href="#premise"><span class="rn">I</span><span class="t">The Premise</span><span class="d">Agents write the lines. You own the shape.</span></a></li>
+          <li><a href="#method"><span class="rn">II</span><span class="t">The Method</span><span class="d">How a reading is made, in about thirty seconds.</span></a></li>
+          <li><a href="#anatomy"><span class="rn">III</span><span class="t">Anatomy of a Reading</span><span class="d">Six sections, the same every time.</span></a></li>
+          <li><a href="#review"><span class="rn">IV</span><span class="t">The Review</span><span class="d">Conversations on the lines, and your verdict.</span></a></li>
+          <li><a href="#availability"><span class="rn">V</span><span class="t">Availability</span><span class="d">Free, open source, yours in a minute.</span></a></li>
+        </ol>
+      </aside>
     </div>
-    <p class="fine">Free and open source (MIT) · signed and notarized · macOS 26 or later · Apple silicon and Intel</p>
+  </section>
+
+  <div class="wrap">
+    <div class="plate-row" id="plate1">
+      <div class="cap">
+        <span class="pl">Plate <b>I</b></span>
+        <ul class="subs" role="list" aria-label="Views">
+          <li><button type="button" data-i="0" aria-pressed="true"><i>a</i>The title page</button></li>
+          <li><button type="button" data-i="1" aria-pressed="false"><i>b</i>The problem</button></li>
+          <li><button type="button" data-i="2" aria-pressed="false"><i>c</i>The idea</button></li>
+          <li><button type="button" data-i="3" aria-pressed="false"><i>d</i>How it works now</button></li>
+        </ul>
+        <p class="subcap" id="subcap">The title page of a reading: an abstract in three sentences, then the contents, each line a way in.</p>
+      </div>
+      <div class="plate"><span class="cm"></span>
+        <div class="stack">
+          <img class="shot on" src="/fathom/assets/v7-overview.webp" width="2400" height="1500" fetchpriority="high" alt="A reading’s title page: the pull request’s title, a byline, an abstract with run-in heads Problem, Idea and Now, and a table of contents with dotted leaders.">
+          <img class="shot" src="/fathom/assets/v7-problem-fig.webp" width="2400" height="1500" loading="lazy" alt="The problem as a sequence diagram: actors across the top, time running down an axis, italic labels over hairline arrows, and the step where navigation stopped marked in red.">
+          <img class="shot" src="/fathom/assets/v7-idea.webp" width="2400" height="1500" loading="lazy" alt="The idea: WalkModel.generate with arrows to five parts, four of them new in green, each arrow labelled in italics.">
+          <img class="shot" src="/fathom/assets/v7-now.webp" width="2400" height="1500" loading="lazy" alt="How it works now: the same sequence after the change, new steps in green, what each carries in angle brackets.">
+        </div>
+      </div>
+    </div>
 
     <div class="abstract">
       <h2>Abstract</h2>
-      <p>When an agent writes the code and a bot checks that it does what it says, reading a diff line by line is no longer the reviewer’s job. The job is understanding the move. Fathom reads a GitHub pull request with Claude and tells it back as a short paper: the problem it solves, the idea that solves it, how things work now, the choices it makes and the promises it changes, one sentence and one figure at a time, with the code a click away. It runs on your own GitHub CLI and Claude Code; there is no account, server or key.</p>
-      <p class="keywords"><b>Keywords:</b> code review, pull requests, coding agents, comprehension, sequence diagrams.</p>
+      <p>When an agent writes the code and a bot checks that it does what it says, reading a diff line by line is no longer the reviewer’s job. The job is understanding the move. Fathom reads a GitHub pull request with Claude and tells it back as a short paper: the problem it solves, the idea that solves it, how things work now, the choices it makes and the promises it changes, with the code a click away. It runs on your own GitHub CLI and Claude Code; there is no account, server or key.</p>
+      <p class="kw"><i>Keywords:</i> code review, pull requests, coding agents, comprehension.</p>
     </div>
+
+    <article class="article" id="premise">
+      <div class="sechead">
+        <span class="rn">I</span>
+        <h2>The Premise</h2>
+        <p class="standfirst">What is left for a reviewer when the lines write themselves.</p>
+      </div>
+      <div class="cols">
+        <p class="dropcap">Agents now write much of the code in a pull request, and checks and review bots confirm that it does what it claims. What is left for the human reviewer is the part no bot can do: to understand the change well enough to own it. What was wrong before? What is the one idea that fixes it? How does the system behave now, and what did the author give up to get there?</p>
+        <p>A diff answers none of these directly. It is ordered by file rather than by thought, and it gives every line the same weight. Fathom reorders the change into the shape you would draw on a whiteboard for a colleague, and draws it, as sequence diagrams and small figures of the parts that carry the idea.</p>
+        <p>It never tells you whether the code is good. That judgement stays with you; Fathom only makes sure you have what you need to make it.</p>
+        <p class="note"><b>Note.</b> Every plate in this issue is Fathom reading one of the author’s own pull requests, walkai #46, unedited.</p>
+      </div>
+    </article>
   </div>
 
-  <figure id="fig1" aria-labelledby="fig1-cap">
-    <div class="plate"><span class="cm"></span>
-      <div class="stack">
-        <img class="shot on" src="/fathom/assets/v7-overview.webp" width="2400" height="1500" fetchpriority="high" alt="A reading’s title page: the pull request’s title, a byline, an abstract with run-in heads Problem, Idea and Now, and a table of contents with dotted leaders to each section and sub-entries for each choice and each place to read.">
-        <img class="shot" src="/fathom/assets/v7-problem-fig.webp" width="2400" height="1500" loading="lazy" alt="The problem, drawn as a sequence diagram: actors You, WalkingView, WalkModel and RoutePlanner across the top, time running down an axis t1 to t5, italic labels over hairline arrows, and the step where navigation stopped marked with a red cross and a note.">
-        <img class="shot" src="/fathom/assets/v7-idea.webp" width="2400" height="1500" loading="lazy" alt="The idea: WalkModel.generate on the left with arrows to five parts, four of them new and drawn in green, each arrow labelled in italics with what it does.">
-        <img class="shot" src="/fathom/assets/v7-now.webp" width="2400" height="1500" loading="lazy" alt="How it works now: the same sequence after the change, seven steps on a time axis, the new ones in green, with what each carries in angle brackets.">
+  <div class="pull wrap" aria-hidden="true">
+    <div class="ornament"><i></i></div>
+    <blockquote>Agents write the lines.<br><span>You own the shape.</span></blockquote>
+    <cite>The premise of Fathom</cite>
+  </div>
+
+  <div class="wrap">
+    <article class="article" id="method">
+      <div class="sechead">
+        <span class="rn">II</span>
+        <h2>The Method</h2>
+        <p class="standfirst">Two readings at once, both streamed onto the page as they are written.</p>
+      </div>
+      <div class="cols">
+        <p class="dropcap">Fathom fetches the pull request and its diff through your GitHub CLI and labels every hunk of the diff. It then asks Claude, through your own Claude Code, for two things at once: an outline of the change, and its story.</p>
+        <p>The story is told with read-only access to a shallow checkout of the pull request’s head, so its figures name real types and functions rather than guesses. Both readings stream onto the page as they are written, and are kept on your Mac, per commit, so a pull request you have read before opens at once.</p>
+      </div>
+    </article>
+
+    <div class="plate-row top">
+      <div class="cap">
+        <span class="pl">Plate <b>II</b></span>
+        <p>How a reading is made. Two runs of Claude Code work in parallel, one with a read-only checkout. Times are typical for a pull request of a few thousand lines.</p>
+      </div>
+      <div class="plate"><span class="cm"></span>
+        <svg class="diagram wide" viewBox="0 0 1060 360" role="img" aria-label="GitHub sends the pull request and its diff to Fathom, which labels every hunk and sends it to two Claude runs, an outline and a story with a read-only checkout; both stream into the reading, kept on your Mac. A time axis marks 0 seconds, about 2, about 5 and about 30 seconds.">
+          <defs><marker id="ah" viewBox="0 0 10 8" refX="9.5" refY="4" markerWidth="10" markerHeight="8" orient="auto-start-reverse"><path class="head" d="M0 0 L10 4 L0 8 L2.6 4 Z"/></marker></defs>
+          <path class="edge" d="M190 163 L298 163" marker-end="url(#ah)"/>
+          <path class="edge" d="M480 156 C 535 156, 530 79, 588 79" marker-end="url(#ah)"/>
+          <path class="edge" d="M480 170 C 535 170, 530 249, 588 249" marker-end="url(#ah)"/>
+          <path class="edge" d="M770 79 C 825 79, 820 156, 878 156" marker-end="url(#ah)"/>
+          <path class="edge" d="M770 249 C 825 249, 820 170, 878 170" marker-end="url(#ah)"/>
+          <text class="label" x="244" y="152" text-anchor="middle">the diff</text>
+          <text class="label" x="520" y="104" text-anchor="end">every hunk, labelled</text>
+          <text class="label" x="520" y="232" text-anchor="end">and a checkout</text>
+          <text class="label" x="830" y="96">streams in</text>
+          <text class="label" x="830" y="246">streams in</text>
+          <g transform="translate(10 128)"><rect class="box" width="180" height="70"/><text class="name" x="14" y="28">github.com</text><text class="role" x="14" y="52">the pull request</text></g>
+          <g transform="translate(300 128)"><rect class="box" width="180" height="70"/><text class="name" x="14" y="28">Fathom</text><text class="role" x="14" y="52">parses and labels</text></g>
+          <g transform="translate(590 44)"><rect class="box" width="180" height="70"/><text class="name" x="14" y="28">claude -p</text><text class="kind" x="166" y="28" text-anchor="end">outline</text><text class="role" x="14" y="52">headline, chapters</text></g>
+          <g transform="translate(590 214)"><rect class="box" width="180" height="70"/><text class="name" x="14" y="28">claude -p</text><text class="kind" x="166" y="28" text-anchor="end">story</text><text class="role" x="14" y="52">problem, idea, now</text></g>
+          <g transform="translate(880 128)"><rect class="box new" width="170" height="70"/><text class="name" x="14" y="28">the reading</text><text class="role" x="14" y="52">kept on your Mac</text></g>
+          <path class="axis" d="M10 322 L1044 322"/>
+          <path class="head" d="M1052 322 L1043 318.5 L1045.5 322 L1043 325.5 Z"/>
+          <g class="axis"><path d="M100 317 L100 327"/><path d="M390 317 L390 327"/><path d="M680 317 L680 327"/><path d="M965 317 L965 327"/></g>
+          <text class="tick" x="100" y="348" text-anchor="middle">t = 0 s</text>
+          <text class="tick" x="390" y="348" text-anchor="middle">≈ 2 s, the diff on screen</text>
+          <text class="tick" x="680" y="348" text-anchor="middle">≈ 5 s, the headline</text>
+          <text class="tick" x="965" y="348" text-anchor="middle">≈ 30 s, the whole story</text>
+        </svg>
+        <svg class="diagram tall" viewBox="0 0 360 600" role="img" aria-label="GitHub, then Fathom, then two Claude runs side by side, then the reading.">
+          <defs><marker id="ah2" viewBox="0 0 10 8" refX="9.5" refY="4" markerWidth="10" markerHeight="8" orient="auto-start-reverse"><path class="head" d="M0 0 L10 4 L0 8 L2.6 4 Z"/></marker></defs>
+          <path class="edge" d="M180 80 L180 146" marker-end="url(#ah2)"/>
+          <path class="edge" d="M150 218 C 150 260, 92 250, 92 288" marker-end="url(#ah2)"/>
+          <path class="edge" d="M210 218 C 210 260, 268 250, 268 288" marker-end="url(#ah2)"/>
+          <path class="edge" d="M92 360 C 92 400, 150 390, 150 438" marker-end="url(#ah2)"/>
+          <path class="edge" d="M268 360 C 268 400, 210 390, 210 438" marker-end="url(#ah2)"/>
+          <text class="label" x="190" y="118">the diff</text>
+          <text class="label" x="180" y="562" text-anchor="middle">≈ 30 s from link to story</text>
+          <g transform="translate(60 10)"><rect class="box" width="240" height="70"/><text class="name" x="14" y="28">github.com</text><text class="role" x="14" y="52">the pull request</text></g>
+          <g transform="translate(60 148)"><rect class="box" width="240" height="70"/><text class="name" x="14" y="28">Fathom</text><text class="role" x="14" y="52">parses and labels</text></g>
+          <g transform="translate(10 290)"><rect class="box" width="164" height="70"/><text class="name" x="12" y="28">claude -p</text><text class="role" x="12" y="52">the outline</text></g>
+          <g transform="translate(186 290)"><rect class="box" width="164" height="70"/><text class="name" x="12" y="28">claude -p</text><text class="role" x="12" y="52">the story</text></g>
+          <g transform="translate(60 440)"><rect class="box new" width="240" height="70"/><text class="name" x="14" y="28">the reading</text><text class="role" x="14" y="52">kept on your Mac</text></g>
+        </svg>
       </div>
     </div>
-    <ul class="subs" role="list" aria-label="Sub-figures">
-      <li><button type="button" data-i="0" aria-pressed="true"><i>(a)</i>The title page</button></li>
-      <li><button type="button" data-i="1" aria-pressed="false"><i>(b)</i>The problem</button></li>
-      <li><button type="button" data-i="2" aria-pressed="false"><i>(c)</i>The idea</button></li>
-      <li><button type="button" data-i="3" aria-pressed="false"><i>(d)</i>How it works now</button></li>
-    </ul>
-    <figcaption id="fig1-cap" class="subcap"><span class="fig">Fig. 1.</span><span id="subcap">(a) The title page of a reading: an abstract in three sentences, then the contents, each line a way in.</span></figcaption>
-  </figure>
 
-  <section id="introduction" class="col">
-    <h2 class="sec"><span class="n">1</span>Introduction</h2>
-    <p class="lead">Agents now write much of the code in a pull request, and checks and review bots confirm that it does what it claims. What is left for the human reviewer is the part no bot can do: to understand the change well enough to own it. What was wrong before? What is the one idea that fixes it? How does the system behave now, and what did the author give up to get there?<span class="sn-ref">1</span><span class="sidenote"><span class="n">1</span>Every figure on this page is Fathom reading one of the author’s own pull requests, walkai #46, unedited.</span></p>
-    <p>A diff answers none of these directly. It is ordered by file, not by thought, and it gives every line the same weight. Fathom reorders the change into the shape you would draw on a whiteboard for a colleague, and draws it. It never tells you whether the code is good; that judgement stays with you.</p>
-  </section>
+    <article class="article" id="anatomy">
+      <div class="sechead">
+        <span class="rn">III</span>
+        <h2>Anatomy of a Reading</h2>
+        <p class="standfirst">Six sections, the same every time, so you always know where to look.</p>
+      </div>
+      <div class="anatomy">
+        <div><div class="n">1</div><h3>The problem</h3><p>How things went before, as a sequence diagram with time running down the page, and the step where it hurt marked in red.</p></div>
+        <div><div class="n">2</div><h3>The idea</h3><p>The key idea in a sentence, and the few parts that carry it, the new ones in green. Point at a part to see only what it touches.</p></div>
+        <div><div class="n">3</div><h3>How it works now</h3><p>The same actors after the change, with what travels on every arrow. Flip to <i>Before</i> to compare.</p></div>
+        <div><div class="n">4</div><h3>Choices it makes</h3><p>Each decision as the fork it was: what was chosen, what it was chosen over, and why, marked stated or inferred.</p></div>
+        <div><div class="n">5</div><h3>Promises that change</h3><p>The interfaces whose shape changes, member by member: endpoints, types, tables, configuration.</p></div>
+        <div><div class="n">6</div><h3>Where to look</h3><p>The two to four places in the code to read if you read nothing else, each a click from the diff.</p></div>
+      </div>
+    </article>
 
-  <section id="method" class="col">
-    <h2 class="sec"><span class="n">2</span>How a reading is made</h2>
-    <p>Fathom fetches the pull request and its diff through your GitHub CLI, labels every hunk, and asks Claude, through your Claude Code, for two things at once: an outline of the change, and its story. The story is told with read-only access to a shallow checkout of the pull request’s head, so the figures name real types and functions. Both stream in as they are written, and the reading is kept on your Mac.<span class="sn-ref">2</span><span class="sidenote"><span class="n">2</span>Opus by default; Sonnet if you prefer speed. A pull request you have read before opens in no time at all, from disk.</span></p>
-  </section>
-
-  <figure aria-labelledby="fig2-cap">
-    <div class="plate"><span class="cm"></span>
-      <svg class="diagram wide" viewBox="0 0 1060 360" role="img" aria-label="Diagram: GitHub sends the pull request and its diff to Fathom, which labels every hunk and sends it to two Claude runs, an outline and a story with a read-only checkout; both stream into the reading, kept on your Mac. A time axis below marks 0 seconds, about 2 seconds, about 5 seconds and about 30 seconds.">
-        <defs>
-          <marker id="ah" viewBox="0 0 10 8" refX="9.5" refY="4" markerWidth="10" markerHeight="8" orient="auto-start-reverse"><path class="head" d="M0 0 L10 4 L0 8 L2.6 4 Z"/></marker>
-        </defs>
-        <!-- edges -->
-        <path class="edge" d="M190 163 L298 163" marker-end="url(#ah)"/>
-        <path class="edge" d="M480 156 C 535 156, 530 79, 588 79" marker-end="url(#ah)"/>
-        <path class="edge" d="M480 170 C 535 170, 530 249, 588 249" marker-end="url(#ah)"/>
-        <path class="edge" d="M770 79 C 825 79, 820 156, 878 156" marker-end="url(#ah)"/>
-        <path class="edge" d="M770 249 C 825 249, 820 170, 878 170" marker-end="url(#ah)"/>
-        <text class="label" x="244" y="152" text-anchor="middle">the diff</text>
-        <text class="label" x="520" y="104" text-anchor="end">every hunk, labelled</text>
-        <text class="label" x="520" y="232" text-anchor="end">and a checkout</text>
-        <text class="label" x="830" y="96">streams in</text>
-        <text class="label" x="830" y="246">streams in</text>
-        <!-- boxes -->
-        <g transform="translate(10 128)"><rect class="box" width="180" height="70"/><text class="name" x="14" y="28">github.com</text><text class="role" x="14" y="52">the pull request</text></g>
-        <g transform="translate(300 128)"><rect class="box" width="180" height="70"/><text class="name" x="14" y="28">Fathom</text><text class="role" x="14" y="52">parses and labels</text></g>
-        <g transform="translate(590 44)"><rect class="box" width="180" height="70"/><text class="name" x="14" y="28">claude -p</text><text class="kind" x="166" y="28" text-anchor="end">outline</text><text class="role" x="14" y="52">headline, chapters</text></g>
-        <g transform="translate(590 214)"><rect class="box" width="180" height="70"/><text class="name" x="14" y="28">claude -p</text><text class="kind" x="166" y="28" text-anchor="end">story</text><text class="role" x="14" y="52">problem, idea, now</text></g>
-        <g transform="translate(880 128)"><rect class="box new" width="170" height="70"/><text class="name" x="14" y="28">the reading</text><text class="role" x="14" y="52">kept on your Mac</text></g>
-        <!-- time -->
-        <path class="axis" d="M10 322 L1044 322"/>
-        <path class="head" d="M1052 322 L1043 318.5 L1045.5 322 L1043 325.5 Z"/>
-        <g class="axis"><path d="M100 317 L100 327"/><path d="M390 317 L390 327"/><path d="M680 317 L680 327"/><path d="M965 317 L965 327"/></g>
-        <text class="tick" x="100" y="348" text-anchor="middle">t = 0 s</text>
-        <text class="tick" x="390" y="348" text-anchor="middle">≈ 2 s, the diff on screen</text>
-        <text class="tick" x="680" y="348" text-anchor="middle">≈ 5 s, the headline</text>
-        <text class="tick" x="965" y="348" text-anchor="middle">≈ 30 s, the whole story</text>
-      </svg>
-      <svg class="diagram tall" viewBox="0 0 360 600" role="img" aria-label="Diagram: GitHub, then Fathom, then two Claude runs side by side, then the reading.">
-        <defs>
-          <marker id="ah2" viewBox="0 0 10 8" refX="9.5" refY="4" markerWidth="10" markerHeight="8" orient="auto-start-reverse"><path class="head" d="M0 0 L10 4 L0 8 L2.6 4 Z"/></marker>
-        </defs>
-        <path class="edge" d="M180 80 L180 146" marker-end="url(#ah2)"/>
-        <path class="edge" d="M150 218 C 150 260, 92 250, 92 288" marker-end="url(#ah2)"/>
-        <path class="edge" d="M210 218 C 210 260, 268 250, 268 288" marker-end="url(#ah2)"/>
-        <path class="edge" d="M92 360 C 92 400, 150 390, 150 438" marker-end="url(#ah2)"/>
-        <path class="edge" d="M268 360 C 268 400, 210 390, 210 438" marker-end="url(#ah2)"/>
-        <text class="label" x="190" y="118">the diff</text>
-        <text class="label" x="180" y="562" text-anchor="middle">≈ 30 s from link to story</text>
-        <g transform="translate(60 10)"><rect class="box" width="240" height="70"/><text class="name" x="14" y="28">github.com</text><text class="role" x="14" y="52">the pull request</text></g>
-        <g transform="translate(60 148)"><rect class="box" width="240" height="70"/><text class="name" x="14" y="28">Fathom</text><text class="role" x="14" y="52">parses and labels</text></g>
-        <g transform="translate(10 290)"><rect class="box" width="164" height="70"/><text class="name" x="12" y="28">claude -p</text><text class="role" x="12" y="52">the outline</text></g>
-        <g transform="translate(186 290)"><rect class="box" width="164" height="70"/><text class="name" x="12" y="28">claude -p</text><text class="role" x="12" y="52">the story</text></g>
-        <g transform="translate(60 440)"><rect class="box new" width="240" height="70"/><text class="name" x="14" y="28">the reading</text><text class="role" x="14" y="52">kept on your Mac</text></g>
-      </svg>
+    <div class="plate-row">
+      <div class="cap">
+        <span class="pl">Plate <b>III</b></span>
+        <p>Choices it makes, each drawn as a fork: the road taken, the road not taken, and the reason. Every card links to the code it describes.</p>
+      </div>
+      <div class="plate"><span class="cm"></span>
+        <img class="shot" src="/fathom/assets/v7-choices.webp" width="2400" height="1500" loading="lazy" decoding="async" alt="Choices it makes: four cards numbered 4.1 to 4.4, each with what was chosen, what it was chosen over, and why in italics.">
+      </div>
     </div>
-    <figcaption id="fig2-cap"><span class="fig">Fig. 2.</span>How a reading is made. Two runs of Claude Code work in parallel, one with a read-only checkout of the pull request; each page fills in as it is written. Times are typical for a pull request of a few thousand lines.</figcaption>
-  </figure>
 
-  <section id="sections" class="col">
-    <h2 class="sec"><span class="n">3</span>The sections of a reading</h2>
-    <p>A reading has the same sections every time, so you always know where to look. Each is one sentence and one figure; most of the time the abstract alone tells you what you are looking at.</p>
-    <dl class="parts">
-      <div><dt><span class="num">1</span>The problem</dt><dd>How things went before, as a sequence diagram with time running down the page, and the step where it hurt marked in red.</dd></div>
-      <div><dt><span class="num">2</span>The idea</dt><dd>The key idea in a sentence, and the few parts that carry it, the new ones in green. Point at a part to see only what it touches.</dd></div>
-      <div><dt><span class="num">3</span>How it works now</dt><dd>The same actors after the change, with what travels on every arrow. Flip to <i>Before</i> to compare.</dd></div>
-      <div><dt><span class="num">4</span>Choices it makes</dt><dd>Each design decision as the fork it was: what was chosen, what it was chosen over, and why, marked as stated by the author or inferred.</dd></div>
-      <div><dt><span class="num">5</span>Promises that change</dt><dd>The interfaces whose shape changes, member by member: endpoints, types, tables, configuration.</dd></div>
-      <div><dt><span class="num">6</span>Where to look</dt><dd>The two to four places in the code to read if you read nothing else.</dd></div>
-    </dl>
-  </section>
+    <article class="article" id="review">
+      <div class="sechead">
+        <span class="rn">IV</span>
+        <h2>The Review</h2>
+        <p class="standfirst">When you want the lines, they are in an order that makes sense.</p>
+      </div>
+      <div class="side">
+        <div class="single">
+          <p class="dropcap"><i>Changes</i> has the whole diff regrouped into chapters by purpose, each marked <span class="sc">read</span>, <span class="sc">skim</span> or <span class="sc">skip</span>, with a short note above every change. What people and review bots have already said on GitHub sits on the lines it is about.</p>
+          <p>Click a line number to comment, reply inside a thread, or suggest a change, then send it all as one review, under your own name. Fathom never posts anything you have not sent.</p>
+        </div>
+        <table>
+          <caption><span class="pl">Table <b>1</b></span>Keys for reading a diff.</caption>
+          <thead><tr><th>Key</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td class="k"><kbd>J</kbd><kbd>K</kbd></td><td>Next, previous change</td></tr>
+            <tr><td class="k"><kbd>N</kbd><kbd>P</kbd></td><td>Next, previous chapter</td></tr>
+            <tr><td class="k"><kbd>X</kbd></td><td>Mark a chapter understood</td></tr>
+            <tr><td class="k"><kbd>⌘</kbd><kbd>↩</kbd></td><td>Add a comment, or review</td></tr>
+            <tr><td class="k"><kbd>⌘</kbd><kbd>K</kbd></td><td>Ask Claude</td></tr>
+            <tr><td class="k"><kbd>←</kbd><kbd>→</kbd></td><td>Turn the pages</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
 
-  <figure aria-labelledby="fig3-cap">
-    <div class="plate"><span class="cm"></span>
-      <img class="shot" src="/fathom/assets/v7-choices.webp" width="2400" height="1500" loading="lazy" decoding="async" alt="Choices it makes: four cards numbered 4.1 to 4.4, each with what was chosen, what it was chosen over (struck through with a dashed fork), and why in italics, each marked stated.">
+    <div class="plate-row">
+      <div class="cap">
+        <span class="pl">Plate <b>IV</b></span>
+        <p>Changes, regrouped into chapters. A comment waiting to be sent sits under one line; a new one is being written under another.</p>
+      </div>
+      <div class="plate"><span class="cm"></span>
+        <img class="shot" src="/fathom/assets/v7-changes.webp" width="2000" height="1250" loading="lazy" decoding="async" alt="Changes: chapters on the left; on the right the WalkModel changes with a short note above each, a pending review comment under one line and a comment box open under another.">
+      </div>
     </div>
-    <figcaption id="fig3-cap"><span class="fig">Fig. 3.</span>The choices a pull request makes, each drawn as a fork: the road taken, the road not taken, and the reason. Every card links to the code it describes.</figcaption>
-  </figure>
 
-  <section id="review" class="col">
-    <h2 class="sec"><span class="n">4</span>Reviewing</h2>
-    <p>When you want the lines, <i>Changes</i> has the whole diff regrouped into chapters by purpose, each marked <span class="sc">read</span>, <span class="sc">skim</span> or <span class="sc">skip</span>, with a short note on every change. What people and review bots have already said on GitHub sits on the lines it is about. Click a line number to comment, reply in a thread, or suggest a change, and send it all as one review, under your own name.</p>
+    <section class="numbers" aria-label="By the numbers">
+      <div class="head">By the numbers</div>
+      <div class="double"></div>
+      <div class="row">
+        <div><div class="v">30<small>s</small></div><p class="k">From a pull request link to its whole story. The headline arrives in five.</p></div>
+        <div><div class="v">0<small>s</small></div><p class="k">To open it again. Readings are kept on your Mac.</p></div>
+        <div><div class="v">0<small>keys</small></div><p class="k">No account, no server. It uses your GitHub CLI and your Claude plan.</p></div>
+      </div>
+      <div class="double" style="transform: scaleY(-1)"></div>
+    </section>
 
-    <table class="keys">
-      <caption><span class="fig">Table 1.</span>Keys for reading a diff.</caption>
-      <thead><tr><th>Key</th><th>Action</th></tr></thead>
-      <tbody>
-        <tr><td class="v"><kbd>J</kbd><kbd>K</kbd></td><td>Next and previous change</td></tr>
-        <tr><td class="v"><kbd>N</kbd><kbd>P</kbd></td><td>Next and previous chapter</td></tr>
-        <tr><td class="v"><kbd>X</kbd></td><td>Mark a chapter understood</td></tr>
-        <tr><td class="v"><kbd>⌘</kbd><kbd>↩</kbd></td><td>Add a comment, or open the review</td></tr>
-        <tr><td class="v"><kbd>⌘</kbd><kbd>K</kbd></td><td>Ask Claude about the pull request</td></tr>
-        <tr><td class="v"><kbd>←</kbd><kbd>→</kbd></td><td>Turn the pages of a reading</td></tr>
-      </tbody>
-    </table>
-  </section>
+    <section class="article">
+      <div class="principle">
+        <div class="ornament"><i></i></div>
+        <p class="label" style="margin-top: 22px">A principle</p>
+        <p class="big">Fathom never tells you whether the code is good. It shows you what the code does.</p>
+        <p class="small">So there are <span class="struck">no verdicts</span>, <span class="struck">no risk scores</span> and <span class="struck">no robot approvals</span>. A choice the pull request does not state is marked <i>inferred</i>, and every figure links back to the lines it was drawn from.</p>
+      </div>
+    </section>
 
-  <figure aria-labelledby="fig4-cap">
-    <div class="plate"><span class="cm"></span>
-      <img class="shot" src="/fathom/assets/v7-changes.webp" width="2000" height="1250" loading="lazy" decoding="async" alt="Changes: chapters on the left; on the right the WalkModel changes with a short note above each, a pending review comment under one line and a comment box open under another.">
-    </div>
-    <figcaption id="fig4-cap"><span class="fig">Fig. 4.</span>Changes, regrouped into chapters. A comment waiting to be sent sits under one line; a new one is being written under another.</figcaption>
-  </figure>
+    <article class="article" id="availability">
+      <div class="sechead">
+        <span class="rn">V</span>
+        <h2>Availability</h2>
+        <p class="standfirst">Free and open source. Yours in a minute.</p>
+      </div>
+      <div class="avail">
+        <ol class="steps">
+          <li><span><a href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg">Download Fathom</a>, drag it into Applications and open it. It is signed and notarized by Apple.</span></li>
+          <li><span>Install the GitHub CLI [1], then press <i>Sign In to GitHub</i> in Fathom; it shows a one-time code and finishes by itself.<pre>brew install gh</pre></span></li>
+          <li><span>Install Claude Code [2] and sign in once. Readings use your Claude plan.<pre>curl -fsSL https://claude.ai/install.sh | bash</pre></span></li>
+          <li><span>Pick a repository, then a pull request. Or paste a link.</span></li>
+        </ol>
+        <div>
+          <h3 class="small">References</h3>
+          <ol class="refs">
+            <li><span>GitHub. <i>GitHub CLI.</i> <a href="https://cli.github.com">cli.github.com</a></span></li>
+            <li><span>Anthropic. <i>Claude Code.</i> <a href="https://code.claude.com/docs/en/setup">code.claude.com</a></span></li>
+            <li><span>Srivastava, Y. <i>Fathom: source code and releases.</i> MIT licence. <a href="https://github.com/yask123/fathom">github.com/yask123/fathom</a></span></li>
+          </ol>
+        </div>
+      </div>
+    </article>
 
-  <section class="col" id="principle">
-    <h2 class="sec"><span class="n">5</span>What Fathom will not do</h2>
-    <div class="principle"><p><span class="label">Principle.</span>Fathom never tells you whether the code is good. It shows you what the code does.</p></div>
-    <p class="remark"><span class="label">Remark.</span>So there are <span class="struck">no verdicts</span>, <span class="struck">no risk scores</span> and <span class="struck">no robot approvals</span>. Choices it cannot find stated in the pull request are marked <i>inferred</i>, and every figure links back to the lines it was drawn from.</p>
-
-    <table style="margin-top: 26px">
-      <caption><span class="fig">Table 2.</span>What it costs you.</caption>
-      <thead><tr><th>Measure</th><th>Value</th><th>Note</th></tr></thead>
-      <tbody>
-        <tr><td>From a link to the whole story</td><td class="v">≈ 30 s</td><td>The headline arrives in seconds; pages fill in as they are written.</td></tr>
-        <tr><td>To open it again</td><td class="v">0 s</td><td>Readings are kept on your Mac, per commit.</td></tr>
-        <tr><td>Accounts, servers, API keys</td><td class="v">0</td><td>It uses your GitHub CLI and your Claude Code plan.</td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section id="install" class="col">
-    <h2 class="sec"><span class="n">6</span>Installation</h2>
-    <ol class="steps">
-      <li><span><a href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg">Download Fathom</a>, drag it into Applications and open it. It is signed and notarized by Apple.</span></li>
-      <li><span>Install the GitHub CLI [1], then press <i>Sign In to GitHub</i> in Fathom; it shows a one-time code and finishes by itself.<pre>brew install gh</pre></span></li>
-      <li><span>Install Claude Code [2] and sign in once. Readings use your Claude plan.<pre>curl -fsSL https://claude.ai/install.sh | bash</pre></span></li>
-      <li><span>Pick a repository, then a pull request. Or paste a link.</span></li>
-    </ol>
-
-    <h3>References</h3>
-    <ol class="refs">
-      <li><span>GitHub. <span class="t">GitHub CLI.</span> <a href="https://cli.github.com">cli.github.com</a></span></li>
-      <li><span>Anthropic. <span class="t">Claude Code.</span> <a href="https://code.claude.com/docs/en/setup">code.claude.com</a></span></li>
-      <li><span>Srivastava, Y. <span class="t">Fathom: source code and releases.</span> MIT licence. <a href="https://github.com/yask123/fathom">github.com/yask123/fathom</a></span></li>
-    </ol>
-  </section>
-
-  <div class="final">
-    <img class="mark" src="/fathom/assets/icon-512.webp" width="64" height="64" alt="Fathom app icon">
-    <h2>Review the shape.</h2>
-    <p>Free, open source, and yours in a minute.</p>
-    <div class="actions">
-      <a class="btn" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg">Download for Mac <span class="arrow" aria-hidden="true">↓</span></a>
-      <a href="https://github.com/yask123/fathom">Source on GitHub</a>
+    <div class="finis">
+      <img src="/fathom/assets/icon-512.webp" width="72" height="72" alt="Fathom app icon">
+      <h2>Review the shape.</h2>
+      <p>Free, open source, and on your Mac in a minute.</p>
+      <div class="actions">
+        <a class="btn" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg">Download for Mac <span class="arrow" aria-hidden="true">↓</span></a>
+        <a href="https://github.com/yask123/fathom">Read the source on GitHub</a>
+      </div>
     </div>
   </div>
 </main>
 
-<footer>
-  <div class="in">
-    <span>Set in STIX Two Text and IBM Plex Mono. <button class="theme" id="theme" type="button">Read in the dark</button></span>
-    <span>Made by <a href="https://yask.dev">Yask Srivastava</a>, 2026.</span>
+<footer class="wrap">
+  <div class="double"></div>
+  <div class="colophon">
+    <span>Set in Cormorant Garamond and Source Serif 4.</span>
+    <div class="ornament"><i></i></div>
+    <span class="r">Made by <a href="https://yask.dev">Yask Srivastava</a>, 2026 · <button class="theme" id="theme" type="button">Night edition</button></span>
   </div>
 </footer>
 
 <script>
 (() => {
-  // The running head gets its rule once the title has scrolled away.
-  // Paper by default; the footer switches to the dark edition and remembers it.
+  // The night edition, remembered.
   const theme = document.getElementById('theme');
-  const label = () => { theme.textContent = document.documentElement.dataset.theme === 'dark' ? 'Read on paper' : 'Read in the dark'; };
+  const label = () => { theme.textContent = document.documentElement.dataset.theme === 'dark' ? 'Day edition' : 'Night edition'; };
   theme.addEventListener('click', () => {
     const dark = document.documentElement.dataset.theme !== 'dark';
     if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
     try { localStorage.setItem('fathom-theme', dark ? 'dark' : 'light'); } catch (e) {}
-    document.querySelector('meta[name="theme-color"]').content = dark ? '#101216' : '#F5F2EA';
+    document.querySelector('meta[name="theme-color"]').content = dark ? '#121110' : '#F3EEE3';
     label();
   });
   label();
 
-  const head = document.getElementById('head');
-  const onScroll = () => head.classList.toggle('ruled', scrollY > 24);
-  addEventListener('scroll', onScroll, { passive: true }); onScroll();
+  // A slim bar follows you once the masthead has scrolled away.
+  const bar = document.getElementById('bar');
+  new IntersectionObserver(([e]) => {
+    const on = !e.isIntersecting;
+    bar.classList.toggle('on', on);
+    bar.setAttribute('aria-hidden', String(!on));
+    bar.querySelectorAll('a').forEach((a) => a.tabIndex = on ? 0 : -1);
+  }).observe(document.querySelector('.masthead'));
 
-  // Figure 1: four sub-figures on one plate. They turn by themselves while the plate is in view, until you pick one.
-  const shots = [...document.querySelectorAll('#fig1 .stack .shot')];
-  const buttons = [...document.querySelectorAll('#fig1 .subs button')];
+  // Plate I: four views on one plate. They turn by themselves while the plate is in view, until you pick one.
+  const shots = [...document.querySelectorAll('#plate1 .stack .shot')];
+  const buttons = [...document.querySelectorAll('#plate1 .subs button')];
   const caption = document.getElementById('subcap');
   const captions = [
-    '(a) The title page of a reading: an abstract in three sentences, then the contents, each line a way in.',
-    '(b) The problem, as a sequence diagram with time running down the page. Red marks the step where it went wrong.',
-    '(c) The idea, and the parts that carry it. Green marks what is new; each arrow says what it does.',
-    '(d) How it works now: the same actors after the change, new steps in green, what travels in angle brackets.',
+    'The title page of a reading: an abstract in three sentences, then the contents, each line a way in.',
+    'The problem, as a sequence diagram with time running down the page. Red marks the step where it went wrong.',
+    'The idea, and the parts that carry it. Green marks what is new; each arrow says what it does.',
+    'How it works now: the same actors after the change, new steps in green, what travels in angle brackets.',
   ];
   let i = 0, picked = false, visible = false;
   const show = (n) => {
@@ -482,9 +622,10 @@ footer .in { max-width: 1080px; margin: 0 auto; padding: 22px 28px 40px; display
     caption.textContent = captions[n];
   };
   buttons.forEach((b) => b.addEventListener('click', () => { picked = true; show(+b.dataset.i); }));
-  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  new IntersectionObserver(([e]) => { visible = e.isIntersecting; }, { threshold: 0.5 }).observe(document.getElementById('fig1'));
-  if (!still) setInterval(() => { if (visible && !picked && !document.hidden) show((i + 1) % shots.length); }, 6500);
+  new IntersectionObserver(([e]) => { visible = e.isIntersecting; }, { threshold: 0.5 }).observe(document.getElementById('plate1'));
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    setInterval(() => { if (visible && !picked && !document.hidden) show((i + 1) % shots.length); }, 6500);
+  }
 })();
 </script>
 </body>
