@@ -7,14 +7,14 @@
 <meta name="description" content="Fathom is a Mac app that reads a GitHub pull request as a story: what was wrong, the idea that fixes it, how it works now, and the choices it makes. Built for reviewing code that agents write.">
 <meta property="og:title" content="Fathom: don't read the diff, fathom it">
 <meta property="og:description" content="Read a pull request as a story: what was wrong, the idea, how it works now, and the choices it makes. A Mac app for the age of agents.">
-<meta property="og:image" content="https://yask.dev/fathom/assets/og-v5.jpg">
+<meta property="og:image" content="https://yask.dev/fathom/assets/og-v6.jpg">
 <meta property="og:url" content="https://yask.dev/fathom">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://yask.dev/fathom/assets/og-v5.jpg">
+<meta name="twitter:image" content="https://yask.dev/fathom/assets/og-v6.jpg">
 <link rel="icon" type="image/png" href="/fathom/assets/favicon.png">
 <link rel="apple-touch-icon" href="/fathom/assets/apple-touch-icon.png">
-<link rel="preload" as="image" href="/fathom/assets/v5-overview.webp">
+<link rel="preload" as="image" href="/fathom/assets/v6-overview.webp">
 <meta name="theme-color" content="#06080C">
 <meta name="color-scheme" content="dark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -193,10 +193,10 @@ footer p { margin: 0; max-width: 54ch; }
       </ol>
       <div class="window" id="window">
         <div class="shots">
-          <img class="on" src="/fathom/assets/v5-overview.webp" width="2400" height="1500" alt="The story of a pull request at a glance: a headline, then one line each for the problem, the idea, how it works now, the choices, the interfaces that change, and the code to read." fetchpriority="high">
-          <img src="/fathom/assets/v5-problem.webp" width="2400" height="1500" alt="The problem page: a sequence diagram of how things went before, from You to WalkingView to WalkModel, with the step where navigation stopped marked in red.">
-          <img src="/fathom/assets/v5-idea.webp" width="2400" height="1500" alt="The idea page: one sentence, and a small graph of the parts that carry it, the new ones glowing green.">
-          <img src="/fathom/assets/v5-now.webp" width="2400" height="1500" alt="How it works now: the same sequence after the change, new steps in green with the data each one carries.">
+          <img class="on" src="/fathom/assets/v6-overview.webp" width="2400" height="1500" alt="The story of a pull request at a glance: a headline, then a line for each part of the story along a thin coloured thread: the problem, the idea, how it works now, the choices, the interfaces that change, and the code to read." fetchpriority="high">
+          <img src="/fathom/assets/v6-problem.webp" width="2400" height="1500" alt="The problem page: a sequence diagram of how things went before, from You to WalkingView to WalkModel, with the step where navigation stopped marked in red.">
+          <img src="/fathom/assets/v6-idea.webp" width="2400" height="1500" alt="The idea page: one sentence, and a small graph of the parts that carry it, the new ones in green, each link labelled with what it does.">
+          <img src="/fathom/assets/v6-now.webp" width="2400" height="1500" alt="How it works now: the same sequence after the change, new steps in green with the data each one carries.">
         </div>
         <div class="sheen" aria-hidden="true"></div>
         <div class="ripple" id="ripple" aria-hidden="true"></div>
@@ -219,12 +219,12 @@ footer p { margin: 0; max-width: 54ch; }
   <section class="showcase flip">
     <div class="wrap">
       <div class="tilted reveal" style="--i:1">
-        <div class="window"><div class="shots"><img src="/fathom/assets/v5-choices.webp" width="2400" height="1500" decoding="async" alt="The choices page: four cards, each saying what the pull request chose, what it chose it over, and why, marked when the PR says so."></div></div>
+        <div class="window"><div class="shots"><img src="/fathom/assets/v6-choices.webp" width="2400" height="1500" decoding="async" alt="The choices page: four cards, each drawn as a fork: what the pull request chose in green, what it passed over dashed and crossed out, and why, marked when the PR says so."></div></div>
       </div>
       <div>
         <p class="eyebrow reveal">The decisions</p>
         <h2 class="reveal" style="--i:1">See what it chose, and over what.</h2>
-        <p class="copy reveal" style="--i:2">The design calls a staff engineer would ask about, each with the road not taken and the reason, marked when the PR says so and when it's inferred.</p>
+        <p class="copy reveal" style="--i:2">The design calls a staff engineer would ask about, each drawn as the fork it was: the road taken, the road not taken, and the reason, marked when the PR says so and when it's inferred.</p>
       </div>
     </div>
   </section>
@@ -233,12 +233,12 @@ footer p { margin: 0; max-width: 54ch; }
     <div class="wrap">
       <div>
         <p class="eyebrow reveal">When you want the lines</p>
-        <h2 class="reveal" style="--i:1">Read them in an order that makes sense.</h2>
-        <p class="copy reveal" style="--i:2">The diff regrouped by purpose into chapters marked read, skim or skip, with a short note on every change.</p>
-        <div class="keys reveal" style="--i:3"><span><kbd>J</kbd><kbd>K</kbd>next change</span><span><kbd>X</kbd>understood</span><span><kbd>⌘K</kbd>ask</span></div>
+        <h2 class="reveal" style="--i:1">Read them in order. Talk back on the line.</h2>
+        <p class="copy reveal" style="--i:2">The diff regrouped by purpose into chapters marked read, skim or skip, with a short note on every change. What people and review bots have already said on GitHub sits on the lines it's about. Click a line number to comment, reply in a thread, or suggest a change, then send it all as one review.</p>
+        <div class="keys reveal" style="--i:3"><span><kbd>J</kbd><kbd>K</kbd>next change</span><span><kbd>N</kbd><kbd>P</kbd>chapter</span><span><kbd>⌘↩</kbd>add comment</span><span><kbd>⌘K</kbd>ask</span></div>
       </div>
       <div class="tilted reveal" style="--i:1">
-        <div class="window"><div class="shots"><img src="/fathom/assets/v5-changes.webp" width="2000" height="1250" decoding="async" alt="Fathom's Changes view: chapters on the left marked read, skim or skip; on the right, the WalkModel changes with a short note above each."></div></div>
+        <div class="window"><div class="shots"><img src="/fathom/assets/v6-changes.webp" width="2000" height="1250" decoding="async" alt="Fathom's Changes view: chapters on the left marked read, skim or skip; on the right, the WalkModel changes with a short note above each, a pending review comment under one line and a comment box open under another."></div></div>
       </div>
     </div>
   </section>
@@ -307,12 +307,12 @@ footer p { margin: 0; max-width: 54ch; }
   };
   const film = [
     [700, () => { show(0); at(64, 82); cursor.style.opacity = 1; }],
-    [2600, () => at(40.4, 8.1)],
-    [1100, () => { click(40.4, 8.1); setTimeout(() => show(1), 160); }],
-    [3800, () => at(45.3, 8.1)],
-    [1100, () => { click(45.3, 8.1); setTimeout(() => show(2), 160); }],
-    [3800, () => at(49.7, 8.1)],
-    [1100, () => { click(49.7, 8.1); setTimeout(() => show(3), 160); }],
+    [2600, () => at(42.8, 7.8)],
+    [1100, () => { click(42.8, 7.8); setTimeout(() => show(1), 160); }],
+    [3800, () => at(46.7, 7.8)],
+    [1100, () => { click(46.7, 7.8); setTimeout(() => show(2), 160); }],
+    [3800, () => at(49.8, 7.8)],
+    [1100, () => { click(49.8, 7.8); setTimeout(() => show(3), 160); }],
     [5200, () => { cursor.style.opacity = 0; }],
     [700, () => show(0)],
   ];
