@@ -363,13 +363,16 @@ final class PRSession {
 
     // Review
     var pending: [PendingComment] = []
-    var composing: String?      // line key of an open comment box
-    var composingInPanel = false  // opened from the side panel rather than Changes
+    var compose: Compose?         // the open comment box, if any
+    var drafts: [String: String] = [:]   // words typed into comment boxes, kept while they scroll away
+    var openThreads: Set<String> = []    // resolved threads unfolded
     var reviewOpen = false
     var submitting = false
     var submitError: String?
     var submittedURL: URL?
     var reviewBody = ""
+    /// Set once the review itself is on GitHub but replies are still to go, so trying again sends only those.
+    var reviewPosted: URL?
 
     // Ask
     var askOpen = false
@@ -548,7 +551,7 @@ final class PRSession {
         askSession = nil
         soundedAt = nil
         // These point at the old diff's hunks and lines.
-        composing = nil
+        compose = nil
         expandedSkips = []
         fileFilter = nil
         filterLabel = ""
@@ -833,15 +836,67 @@ final class PRSession {
 
     // MARK: Review comments
 
-    func addComment(path: String, line: Int, side: String, body: String, hunk: String) {
-        let text = body.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// Opens a comment box on a line: a new comment, a reply in a thread, or an edit of one of yours.
+    func startComposing(_ c: Compose) {
+        withAnimation(Motion.snappy) { compose = c }
+    }
+
+    /// Closes the box. Esc keeps what was typed for next time; Cancel throws it away.
+    func cancelCompose(discard: Bool = true) {
+        guard let c = compose else { return }
+        if discard { drafts[c.draftKey] = nil }
+        withAnimation(Motion.snappy) { compose = nil }
+    }
+
+    /// Adds what's in the open box to the review (or saves the edit).
+    func commitCompose() {
+        guard let c = compose else { return }
+        var original = ""
+        if case .edit(let id) = c.kind { original = pending.first { $0.id == id }?.body ?? "" }
+        let text = (drafts[c.draftKey] ?? original).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        drafts[c.draftKey] = nil
         withAnimation(Motion.spring) {
-            pending.append(PendingComment(path: path, line: line, side: side, body: text, hunk: hunk))
-            composing = nil
+            switch c.kind {
+            case .edit(let id):
+                if let i = pending.firstIndex(where: { $0.id == id }) { pending[i].body = text }
+            case .reply(let to):
+                pending.append(PendingComment(path: c.path, line: c.line, side: c.side, body: text, hunk: c.hunk, replyTo: to))
+            case .new:
+                pending.append(PendingComment(path: c.path, line: c.line, side: c.side, body: text, hunk: c.hunk))
+            }
+            compose = nil
         }
         store?.setPending(ref, pending)
     }
+
+    /// ⌘↩: adds the comment being written; with an empty box (or none), opens the review.
+    func commandReturn() {
+        guard let c = compose, !reviewOpen else {
+            reviewOpen = true
+            return
+        }
+        var original = ""
+        if case .edit(let id) = c.kind { original = pending.first { $0.id == id }?.body ?? "" }
+        if (drafts[c.draftKey] ?? original).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            cancelCompose()
+            reviewOpen = true
+        } else {
+            commitCompose()
+        }
+    }
+
+    /// The text of a box, for the editor to bind to.
+    func draft(_ key: String, initial: String = "") -> Binding<String> {
+        Binding(get: { self.drafts[key] ?? initial }, set: { self.drafts[key] = $0 })
+    }
+
+    var threadsByLine: [String: [ReviewThread]] {
+        var out: [String: [ReviewThread]] = [:]
+        for t in detail?.threads ?? [] { if let k = t.key { out[k, default: []].append(t) } }
+        return out
+    }
+
 
     func removeComment(_ id: UUID) {
         withAnimation(Motion.spring) { pending.removeAll { $0.id == id } }
@@ -859,30 +914,65 @@ final class PRSession {
     var sendableComments: [PendingComment] {
         guard let diff else { return [] }
         return pending.filter { c in
-            guard !c.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let f = diff.file(path: c.path) else { return false }
+            guard !c.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+            // A reply goes to its thread by id; it only needs the thread to still be there.
+            if let to = c.replyTo { return detail?.threads.contains { $0.replyTo == to } ?? false }
+            guard let f = diff.file(path: c.path) else { return false }
             return f.hunks.contains { h in
                 h.lines.contains { l in c.side == "LEFT" ? (l.kind == .del && l.old == c.line) : (l.kind != .del && l.new == c.line) }
             }
         }
     }
 
+    /// Whether Send has anything to send: a verdict, a summary, or comments and replies GitHub will take.
+    func canSend(_ verdict: GitHub.Verdict, body: String) -> Bool {
+        let sendable = sendableComments
+        if reviewPosted != nil { return sendable.contains { $0.replyTo != nil } }
+        return verdict != .comment || !sendable.isEmpty || !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     func submit(_ verdict: GitHub.Verdict, body: String) {
-        guard let detail else { return }
+        guard let detail, !submitting else { return }
+        let sendable = sendableComments
+        let comments = sendable.filter { $0.replyTo == nil }
+        let replies = sendable.filter { $0.replyTo != nil }
+        let posted = reviewPosted
+        let review = posted == nil && (verdict != .comment || !comments.isEmpty
+                                       || !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        guard review || !replies.isEmpty else {
+            submitError = "Nothing here can be sent: write a summary, pick a verdict, or comment on a line that's in this commit."
+            return
+        }
         submitting = true
         submitError = nil
-        let comments = sendableComments
         tasks.append(Task {
             do {
-                let url = try await GitHub.submitReview(ref, commit: detail.headSha, verdict: verdict, body: body, comments: comments)
+                var url = posted
+                if review {
+                    url = try await GitHub.submitReview(ref, commit: detail.headSha, verdict: verdict, body: body, comments: comments)
+                    // The review is in. If a reply fails now, trying again must not post the review a second time.
+                    reviewPosted = url ?? ref.web
+                    reviewBody = ""
+                    pending.removeAll { c in comments.contains { $0.id == c.id } }
+                    store?.setPending(ref, pending)
+                }
+                for r in replies {
+                    let u = try await GitHub.reply(ref, to: r.replyTo ?? 0, body: r.body)
+                    url = url ?? u
+                    pending.removeAll { $0.id == r.id }
+                    store?.setPending(ref, pending)
+                }
+                // Anything left out (its line is gone) stays, so nothing you wrote disappears unsent.
                 withAnimation(Motion.spring) {
                     submittedURL = url ?? ref.web
-                    pending = []
+                    reviewPosted = nil
+                    drafts = [:]
                     submitting = false
                 }
-                store?.setPending(ref, [])
             } catch {
                 submitting = false
                 submitError = error.localizedDescription
+                    + (reviewPosted != nil ? "\n\nYour review is on GitHub. Send again to post the replies that are left." : "")
             }
         })
     }
@@ -956,7 +1046,7 @@ final class PRSession {
             try? await Task.sleep(for: .milliseconds(400))
             if env["FATHOM_TAB"] == "changes" { tab = .changes }
             if env["FATHOM_BY_FILE"] == "1" { byFile = true }
-            for _ in 0..<600 where story.isEmpty || brief.isEmpty {
+            for _ in 0..<600 where (story.isEmpty || brief.isEmpty) && env["FATHOM_NO_AI"] != "1" {
                 try? await Task.sleep(for: .milliseconds(200))
             }
             if let q = env["FATHOM_ASK"] {
@@ -964,6 +1054,31 @@ final class PRSession {
             }
             if env["FATHOM_REVIEW"] == "1" { reviewOpen = true }
             if let h = env["FATHOM_GO"] { go(toHunk: h) }
+            // FATHOM_COMMENT=path:line opens a comment box there (FATHOM_DRAFT fills it, FATHOM_ADD=1 adds it);
+            // FATHOM_REPLY=<thread id> opens a reply in that conversation.
+            if let spec = env["FATHOM_COMMENT"], let colon = spec.lastIndex(of: ":"), let n = Int(spec[spec.index(after: colon)...]),
+               let f = diff?.file(path: String(spec[..<colon])),
+               let h = f.hunks.first(where: { $0.lines.contains { $0.kind != .del && $0.new == n } }),
+               let i = h.lines.firstIndex(where: { $0.kind != .del && $0.new == n }) {
+                withAnimation(Motion.spring) { tab = .changes }
+                try? await Task.sleep(for: .milliseconds(300))
+                scrollTarget = "line:\(h.id):\(max(i - 3, 0))"
+                try? await Task.sleep(for: .milliseconds(300))
+                let c = Compose(kind: .new, path: f.path, line: n, side: "RIGHT", hunk: h.id)
+                if let d = env["FATHOM_DRAFT"] { drafts[c.draftKey] = d.replacingOccurrences(of: "\\n", with: "\n") }
+                startComposing(c)
+                if env["FATHOM_ADD"] == "1" { commitCompose() }
+            }
+            if let id = env["FATHOM_REPLY"], let t = detail?.threads.first(where: { $0.id == id }), let n = t.line, let to = t.replyTo,
+               let h = diff?.file(path: t.path)?.hunks.first(where: { $0.lines.contains { $0.kind != .del && $0.new == n } }) {
+                withAnimation(Motion.spring) { tab = .changes }
+                try? await Task.sleep(for: .milliseconds(300))
+                scrollTarget = "thread:\(id)"
+                try? await Task.sleep(for: .milliseconds(300))
+                let c = Compose(kind: .reply(to), path: t.path, line: n, side: t.side, hunk: h.id, thread: id)
+                if let d = env["FATHOM_DRAFT"] { drafts[c.draftKey] = d.replacingOccurrences(of: "\\n", with: "\n") }
+                startComposing(c)
+            }
             if let row = env["FATHOM_SCROLL"] {
                 withAnimation(Motion.spring) { tab = .changes }
                 try? await Task.sleep(for: .milliseconds(300))

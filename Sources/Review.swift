@@ -65,8 +65,7 @@ struct ReviewSheet: View {
                     }
                     .buttonStyle(.glassProminent)
                     .tint(verdictTint)
-                    .disabled(session.submitting || needsSummary
-                              || (verdict == .comment && session.pending.isEmpty && session.reviewBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+                    .disabled(session.submitting || needsSummary || !session.canSend(verdict, body: session.reviewBody))
                     .keyboardShortcut(.return, modifiers: .command)
                 }
             }
@@ -74,20 +73,28 @@ struct ReviewSheet: View {
         .padding(26)
         .frame(width: 640)
         .defaultFocus($summaryFocused, true)
+        .onAppear {
+            // The summary, not the first comment, is where the cursor belongs.
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(80))
+                summaryFocused = true
+            }
+        }
         .background(Color(hex: 0x0B0F16))
         .preferredColorScheme(.dark)
     }
 
     /// GitHub won't take a request for changes without words.
     private var needsSummary: Bool {
-        verdict == .requestChanges && session.reviewBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        session.reviewPosted == nil && verdict == .requestChanges && session.reviewBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var sendTitle: String {
+        if session.reviewPosted != nil { return "Send the replies left" }
         switch verdict {
-        case .comment: "Send comments"
-        case .approve: "Approve"
-        case .requestChanges: "Request changes"
+        case .comment: return "Send comments"
+        case .approve: return "Approve"
+        case .requestChanges: return "Request changes"
         }
     }
 
@@ -102,7 +109,7 @@ struct ReviewSheet: View {
     private var comments: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Eyebrow("Line comments")
+                Eyebrow("On the code")
                 Text("\(session.pending.count)").font(.mono(10, .semibold)).foregroundStyle(Color.text3)
                 let left = session.pending.count - session.sendableComments.count
                 if left > 0 {
@@ -113,7 +120,7 @@ struct ReviewSheet: View {
                 }
             }
             if session.pending.isEmpty {
-                Text("None yet. In Changes, hover a line and press +, or use Comment on anything under Worth knowing.")
+                Text("None yet. In Changes, click a line number (or the + beside it) to comment on that line, or Reply under someone's comment.")
                     .font(.system(size: 12))
                     .foregroundStyle(Color.text3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -215,16 +222,26 @@ struct PendingRow: View {
     @Bindable var session: PRSession
     let comment: PendingComment
     @State private var text = ""
+    @State private var hover = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 7) {
+                Image(systemName: comment.replyTo == nil ? "text.bubble" : "arrowshape.turn.up.left")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .foregroundStyle(Color.sonar)
                 Text("\((comment.path as NSString).lastPathComponent):\(comment.line)")
                     .font(.mono(11, .medium))
-                    .foregroundStyle(Color.sonar)
-                Text(comment.side == "LEFT" ? "removed line" : "")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(Color.text3)
+                    .foregroundStyle(Color.text2)
+                if let who = repliedTo {
+                    Text("reply to \(who)")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Color.text3)
+                } else if comment.side == "LEFT" {
+                    Text("removed line")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Color.text3)
+                }
                 Spacer()
                 Button {
                     session.removeComment(comment.id)
@@ -232,6 +249,19 @@ struct PendingRow: View {
                     Image(systemName: "trash").font(.system(size: 11)).foregroundStyle(Color.text3)
                 }
                 .buttonStyle(.plain)
+                .opacity(hover ? 1 : 0.5)
+                .help("Remove this comment")
+            }
+            if let code = codeLine {
+                Text(code.trimmingCharacters(in: .whitespaces))
+                    .font(.mono(11))
+                    .foregroundStyle(Color.text3)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.black.opacity(0.25)))
             }
             TextField("", text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
@@ -243,6 +273,19 @@ struct PendingRow: View {
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.035)))
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 0.5))
+        .onHover { hover = QA.hover($0) }
         .onAppear { text = comment.body }
+    }
+
+    /// The line the comment is on, as it reads in this commit.
+    private var codeLine: String? {
+        session.diff?.hunk(comment.hunk)?.lines.first { l in
+            comment.side == "LEFT" ? (l.kind == .del && l.old == comment.line) : (l.kind != .del && l.new == comment.line)
+        }?.text
+    }
+
+    private var repliedTo: String? {
+        guard let to = comment.replyTo else { return nil }
+        return session.detail?.threads.first { $0.replyTo == to }?.comments.first.map { "@\($0.displayName)" } ?? "a thread"
     }
 }

@@ -157,6 +157,69 @@ enum AuthorNote {
     }
 }
 
+/// GitHub comments as they read on github.com: HTML tidied, folded extras (tool output, prompts for agents) left
+/// folded, and long ones shortened until asked.
+enum GHText {
+    static func clean(_ body: String) -> String {
+        var s = AuthorNote.clean(body)
+        s = s.replacingOccurrences(of: #"(?s)<details[^>]*>.*?</details>"#, with: "", options: [.regularExpression, .caseInsensitive])
+        // Tags go only outside code: a suggestion or snippet keeps its <div>s.
+        var lines: [String] = []
+        var fence = false
+        for line in s.components(separatedBy: "\n") {
+            if line.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                fence.toggle()
+                lines.append(line)
+            } else {
+                lines.append(fence ? line : tidy(line))
+            }
+        }
+        s = lines.joined(separator: "\n")
+        s = s.replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)
+        return s.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// One line of prose with its HTML taken out, leaving `inline code` alone.
+    private static func tidy(_ line: String) -> String {
+        line.components(separatedBy: "`").enumerated().map { i, part in
+            guard i % 2 == 0 else { return part }
+            return part
+                .replacingOccurrences(of: #"<br\s*/?>"#, with: "\n", options: [.regularExpression, .caseInsensitive])
+                .replacingOccurrences(of: #"</?(details|summary|sub|sup|p|div|span|b|strong|i|em|blockquote|code|pre|table|tr|td|th|tbody|thead|a|h[1-6]|ul|ol|li|hr)\b[^>]*>"#,
+                                      with: "", options: [.regularExpression, .caseInsensitive])
+        }
+        .joined(separator: "`")
+    }
+
+    /// The first paragraph or so of a long comment, cut where a paragraph ends; nil when it's short already.
+    static func short(_ text: String) -> String? {
+        let lines = text.components(separatedBy: "\n")
+        guard text.count > 900 || lines.count > 14 else { return nil }
+        var out: [String] = []
+        var count = 0
+        var fence = false
+        for l in lines {
+            if l.trimmingCharacters(in: .whitespaces).hasPrefix("```") { fence.toggle() }
+            out.append(l)
+            count += l.count
+            if !fence && l.trimmingCharacters(in: .whitespaces).isEmpty && (count > 380 || out.count > 7) { break }
+            if count > 650 && !fence { break }
+        }
+        if fence { out.append("```") }
+        return out.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines) + " …"
+    }
+
+    /// One line to stand for a folded conversation.
+    static func firstLine(_ body: String) -> String {
+        // Markdown marks out first, then escapes undone, so `snake\_case` and `a > b` read as written.
+        let s = clean(body)
+            .replacingOccurrences(of: #"(?m)^\s*(#{1,6}|>)\s+"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"(?<!\\)(\*\*|__|`)"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: #"\\([\\`*_{}\[\]()#+\-.!>])"#, with: "$1", options: .regularExpression)
+        return s.split(separator: "\n").first { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.map(String.init) ?? ""
+    }
+}
+
 struct Failure: View {
     let message: String
     let retry: () -> Void

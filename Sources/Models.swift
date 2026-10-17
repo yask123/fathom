@@ -130,6 +130,51 @@ struct PRCommit: Hashable, Sendable {
     var date: Date?
 }
 
+/// One comment from GitHub: on a line of the diff, or on the pull request as a whole.
+struct GHComment: Identifiable, Hashable, Sendable {
+    var id: String
+    var databaseId: Int
+    var author: String
+    var avatar: URL?
+    var body: String
+    var createdAt: Date?
+    var url: URL?
+    /// For a review: APPROVED, CHANGES_REQUESTED or COMMENTED. Empty for a plain comment.
+    var verdict = ""
+
+    var isBot = false
+    var displayName: String { author.replacingOccurrences(of: "[bot]", with: "") }
+
+    init?(_ n: J, verdict: String = "") {
+        id = n["id"].string
+        guard !id.isEmpty else { return nil }
+        databaseId = n["databaseId"].int
+        author = n["author"]["login"].stringOrNil ?? "ghost"
+        avatar = n["author"]["avatarUrl"].url
+        isBot = n["author"]["__typename"].string == "Bot" || author.hasSuffix("[bot]")
+        body = n["body"].string
+        createdAt = n["createdAt"].date ?? n["submittedAt"].date
+        url = n["url"].url
+        self.verdict = verdict
+    }
+}
+
+/// A conversation on one line of the diff.
+struct ReviewThread: Identifiable, Hashable, Sendable {
+    var id: String
+    var path: String
+    var line: Int?          // nil once the line is gone from the latest commit
+    var side: String        // LEFT for a removed line
+    var isResolved: Bool
+    var isOutdated: Bool
+    var comments: [GHComment]
+    /// About the whole file rather than a line.
+    var onFile = false
+
+    var key: String? { onFile ? nil : line.map { "\(path):\(side):\($0)" } }
+    var replyTo: Int? { comments.first?.databaseId }
+}
+
 struct PRDetail: Sendable {
     var ref: PRRef
     var title: String
@@ -155,6 +200,9 @@ struct PRDetail: Sendable {
     var checks: String?
     var reviewers: [(login: String, avatar: URL?, state: String)]
     var diskUsageKB: Int
+    var threads: [ReviewThread] = []
+    /// Comments on the PR as a whole and review summaries, oldest first.
+    var conversation: [GHComment] = []
 
     var summary: PRSummary {
         PRSummary(ref: ref, title: title, author: author, authorAvatar: authorAvatar, ownerAvatar: ownerAvatar,
@@ -347,6 +395,32 @@ struct Story: Sendable {
 
 // MARK: - Review
 
+/// An open comment box.
+struct Compose: Equatable {
+    enum Kind: Equatable {
+        case new
+        case reply(Int)
+        case edit(UUID)
+    }
+
+    var kind: Kind
+    var path: String
+    var line: Int
+    var side: String
+    var hunk: String
+    var thread: String? = nil
+    var inPanel = false
+
+    var key: String { "\(path):\(side):\(line)" }
+    var draftKey: String {
+        switch kind {
+        case .new: "new:\(key)"
+        case .reply: "reply:\(thread ?? key)"
+        case .edit(let id): "edit:\(id)"
+        }
+    }
+}
+
 struct PendingComment: Identifiable, Codable, Hashable, Sendable {
     var id = UUID()
     var path: String
@@ -354,4 +428,6 @@ struct PendingComment: Identifiable, Codable, Hashable, Sendable {
     var side: String // RIGHT for new and context lines, LEFT for removed ones
     var body: String
     var hunk: String
+    /// Set for a reply to someone's thread: the first comment's id. Replies go out after the review.
+    var replyTo: Int?
 }

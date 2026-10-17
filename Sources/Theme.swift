@@ -99,6 +99,11 @@ struct Surface: View {
     }
 }
 
+/// Whether the keyboard is in a text field or editor, so single-key shortcuts (j, k, n, p, x, ← →) stand aside.
+enum Typing {
+    @MainActor static var active: Bool { NSApp.keyWindow?.firstResponder is NSText }
+}
+
 /// Switches for screenshots. FATHOM_NO_HOVER=1 ignores the pointer, so a capture shows no hover state.
 enum QA {
     static let noHover = ProcessInfo.processInfo.environment["FATHOM_NO_HOVER"] == "1"
@@ -238,6 +243,15 @@ enum Fmt {
         if s < 86400 { return "\(Int(s / 3600))h" }
         if s < 86400 * 30 { return "\(Int(s / 86400))d" }
         return date.formatted(.dateTime.month(.abbreviated).day())
+    }
+
+    /// "just now", "4h ago", "on Oct 3": for a sentence.
+    static func since(_ date: Date?) -> String {
+        guard let date else { return "" }
+        let s = Date().timeIntervalSince(date)
+        if s < 60 { return "just now" }
+        if s < 86400 * 30 { return "\(ago(date)) ago" }
+        return "on \(ago(date))"
     }
 
     static func clock(_ seconds: Double) -> String {

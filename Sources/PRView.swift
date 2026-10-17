@@ -39,9 +39,11 @@ struct PRView: View {
         }
         .animation(Motion.spring, value: session.askOpen)
         .background {
-            // Esc closes the newest thing first: the question box, then a filter on the changes.
+            // Esc closes the newest thing first: a comment box, the question box, then a filter on the changes.
             Button("") {
-                if session.askOpen {
+                if session.compose != nil {
+                    session.cancelCompose(discard: false)
+                } else if session.askOpen {
                     withAnimation(Motion.spring) { session.askOpen = false }
                 } else if session.tab == .changes, session.fileFilter != nil {
                     session.clearFilter()
@@ -209,27 +211,45 @@ struct ReviewButton: View {
 
 // MARK: - Details, on demand
 
-/// Everything about the PR that isn't the change itself: who, where, its state, its description.
+/// Everything about the PR that isn't the change itself: who, where, its state, its description, and what people
+/// have said about it.
 struct InfoButton: View {
     @Bindable var session: PRSession
     @State private var open = false
     @State private var hover = false
 
     var body: some View {
+        let talk = session.detail?.conversation.count ?? 0
         Button {
             open.toggle()
         } label: {
-            Image(systemName: "info.circle")
-                .font(.system(size: 12.5, weight: .medium))
-                .foregroundStyle(open || hover ? Color.text1 : Color.text3)
-                .frame(width: 24, height: 24)
-                .contentShape(Rectangle())
+            HStack(spacing: 5) {
+                Image(systemName: "info.circle")
+                if talk > 0 {
+                    Image(systemName: "bubble.left")
+                        .font(.system(size: 10.5, weight: .medium))
+                    Text("\(talk)")
+                        .font(.mono(10.5, .semibold))
+                }
+            }
+            .font(.system(size: 12.5, weight: .medium))
+            .foregroundStyle(open || hover ? Color.text1 : Color.text3)
+            .frame(height: 24)
+            .padding(.horizontal, 4)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hover = QA.hover($0) }
-        .help("About this pull request")
+        .help(talk > 0 ? "About this pull request, and \(talk) comment\(talk == 1 ? "" : "s")" : "About this pull request")
         .popover(isPresented: $open, arrowEdge: .bottom) {
             PRInfo(session: session) { open = false }
+        }
+        .task {
+            // FATHOM_INFO=1 opens this on launch, for screenshots.
+            if session.store?.env["FATHOM_INFO"] == "1" {
+                try? await Task.sleep(for: .seconds(2.5))
+                open = true
+            }
         }
     }
 }
@@ -239,50 +259,66 @@ struct PRInfo: View {
     let dismiss: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 0) {
             if let d = session.detail {
-                HStack(spacing: 10) {
-                    Avatar(url: d.authorAvatar, name: d.author, size: 26)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(d.author)
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Color.text1)
-                        Text("Updated \(Fmt.ago(d.updatedAt)) · \(d.commitCount) commit\(d.commitCount == 1 ? "" : "s")")
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Color.text3)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 10) {
+                        Avatar(url: d.authorAvatar, name: d.author, size: 26)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(d.author)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color.text1)
+                            Text("Opened \(Fmt.since(d.createdAt)) · updated \(Fmt.since(d.updatedAt)) · \(d.commitCount) commit\(d.commitCount == 1 ? "" : "s")")
+                                .font(.system(size: 11.5))
+                                .foregroundStyle(Color.text3)
+                        }
+                        Spacer()
+                        StateTag(detail: d)
                     }
-                    Spacer()
-                    StateTag(detail: d)
-                }
-                HStack(spacing: 6) {
-                    Text(d.headRef).foregroundStyle(Color.text2)
-                    Image(systemName: "arrow.right").font(.system(size: 8, weight: .bold)).foregroundStyle(Color.text3)
-                    Text(d.baseRef).foregroundStyle(Color.text3)
-                    Spacer()
-                    if let checks = d.checks {
-                        HStack(spacing: 5) {
-                            ChecksDot(state: checks, always: true)
-                            Text("Checks \(checks.lowercased())").font(.system(size: 11)).foregroundStyle(Color.text3)
+                    HStack(spacing: 6) {
+                        Text(d.headRef).foregroundStyle(Color.text2)
+                        Image(systemName: "arrow.right").font(.system(size: 8, weight: .bold)).foregroundStyle(Color.text3)
+                        Text(d.baseRef).foregroundStyle(Color.text3)
+                        Spacer()
+                        if let checks = d.checks {
+                            HStack(spacing: 5) {
+                                ChecksDot(state: checks, always: true)
+                                Text("Checks \(checks.lowercased())").font(.system(size: 11)).foregroundStyle(Color.text3)
+                            }
                         }
                     }
+                    .font(.mono(11))
+                    .lineLimit(1)
                 }
-                .font(.mono(11))
-                .lineLimit(1)
+                .padding(18)
 
                 let body = AuthorNote.clean(d.body)
-                if !body.isEmpty {
+                if !body.isEmpty || !d.conversation.isEmpty {
+                    Rectangle().fill(Color.hair).frame(height: 0.5)
                     ScrollView {
-                        MarkdownText(text: body)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 18) {
+                            if !body.isEmpty {
+                                MarkdownText(text: body)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            if !d.conversation.isEmpty {
+                                Eyebrow("Conversation · \(d.conversation.count)")
+                                    .padding(.top, body.isEmpty ? 0 : 6)
+                                ForEach(d.conversation) { c in
+                                    CommentBubble(author: c.displayName, avatar: c.avatar, date: c.createdAt, text: c.body,
+                                                  tag: tag(c), tagTint: tint(c), link: c.url)
+                                }
+                            }
+                        }
+                        .padding(18)
                     }
-                    .frame(maxHeight: 300)
-                    .padding(12)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.04)))
+                    .frame(maxHeight: 440)
                 }
             }
+            Rectangle().fill(Color.hair).frame(height: 0.5)
             HStack(spacing: 10) {
                 if let at = session.soundedAt {
-                    Text("Read by \((session.soundedModel ?? "opus").capitalized) · \(Fmt.ago(at))")
+                    Text("Read by \((session.soundedModel ?? "opus").capitalized) \(Fmt.since(at))")
                         .font(.system(size: 11.5))
                         .foregroundStyle(Color.text3)
                 }
@@ -304,9 +340,28 @@ struct PRInfo: View {
                 .controlSize(.small)
                 .help("Open on GitHub (⇧⌘O)")
             }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
         }
-        .padding(18)
-        .frame(width: 460)
+        .frame(width: 520)
+    }
+
+    private func tag(_ c: GHComment) -> String? {
+        switch c.verdict {
+        case "APPROVED": "Approved"
+        case "CHANGES_REQUESTED": "Changes requested"
+        case "COMMENTED": c.isBot ? "Bot review" : "Review"
+        case "DISMISSED": "Dismissed"
+        default: c.isBot ? "Bot" : nil
+        }
+    }
+
+    private func tint(_ c: GHComment) -> Color {
+        switch c.verdict {
+        case "APPROVED": .added
+        case "CHANGES_REQUESTED": .changed
+        default: .calm
+        }
     }
 }
 

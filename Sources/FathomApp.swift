@@ -97,8 +97,9 @@ struct FathomCommands: Commands {
                 store.session?.askFocusTick += 1
             }
             .keyboardShortcut("k")
-            Button("Review…") { store.session?.reviewOpen = true }
-                .keyboardShortcut(.return, modifiers: .command)
+            // ⌘↩ adds the comment being written, if there is one; otherwise it opens the review.
+            Button("Review…") { store.session?.commandReturn() }
+            .keyboardShortcut(.return, modifiers: .command)
             Divider()
             Button("Read Again") { store.session?.sound() }
                 .keyboardShortcut("r", modifiers: [.command, .shift])

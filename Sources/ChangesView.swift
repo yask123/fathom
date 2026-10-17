@@ -23,7 +23,8 @@ struct DocRow: Identifiable {
         case note(String, hunk: String, top: Bool)
         case line(DiffLine, hunk: Hunk, index: Int, file: DiffFile, last: Bool)
         case comment(PendingComment)
-        case composer(key: String, path: String, line: Int, side: String, hunk: String)
+        case thread(ReviewThread, hunk: String)
+        case composer(Compose)
         case mechanical([DiffFile])
         case hunkEnd
         case finale(done: Int, total: Int)
@@ -40,6 +41,9 @@ struct RowsCache {
     var chapters: [ChapterInfo]
     var rows: [DocRow]
     var chapterOfRow: [String: Int]
+    var indexOfRow: [String: Int]
+    /// Conversations on each chapter's lines, for the rail.
+    var threadsInChapter: [Int: Int]
 }
 
 extension PRSession {
@@ -83,8 +87,9 @@ extension PRSession {
         h.combine(byFile)
         h.combine(fileFilter?.sorted() ?? [])
         h.combine(expandedSkips.sorted())
-        h.combine(composing)
-        h.combine(composingInPanel)
+        h.combine(compose?.draftKey)
+        h.combine(compose?.inPanel)
+        h.combine(detail?.threads ?? [])
         h.combine(pending.map(\.id))
         h.combine(pending.map(\.body))
         h.combine(reviewed.sorted())
@@ -94,8 +99,14 @@ extension PRSession {
         let chapters = chapterInfos
         let rows = docRows(chapters)
         var owner: [String: Int] = [:]
-        for r in rows { owner[r.id] = r.chapter }
-        let c = RowsCache(key: key, chapters: chapters, rows: rows, chapterOfRow: owner)
+        var index: [String: Int] = [:]
+        var threads: [Int: Int] = [:]
+        for (i, r) in rows.enumerated() {
+            owner[r.id] = r.chapter
+            index[r.id] = i
+            if case .thread = r.kind { threads[r.chapter, default: 0] += 1 }
+        }
+        let c = RowsCache(key: key, chapters: chapters, rows: rows, chapterOfRow: owner, indexOfRow: index, threadsInChapter: threads)
         rowsCache = c
         return c
     }
@@ -106,17 +117,39 @@ extension PRSession {
         return notes
     }
 
+    /// Your new comments by line. Replies show inside the thread they answer.
     private var commentsByLine: [String: [PendingComment]] {
         var comments: [String: [PendingComment]] = [:]
-        for c in pending { comments["\(c.path):\(c.side):\(c.line)", default: []].append(c) }
+        for c in pending where c.replyTo == nil { comments["\(c.path):\(c.side):\(c.line)", default: []].append(c) }
         return comments
+    }
+
+    /// Whether any of these hunks has a conversation on GitHub, so its chapter isn't folded away.
+    private func hasThreads(_ hunks: [String], _ threads: [String: [ReviewThread]]) -> Bool {
+        guard let diff, let all = detail?.threads, !all.isEmpty else { return false }
+        return hunks.contains { id in
+            guard let h = diff.hunk(id), let f = diff.file(ofHunk: id) else { return false }
+            if h.id == f.hunks.first?.id, all.contains(where: { $0.onFile && $0.path == f.path }) { return true }
+            return h.lines.contains { l in
+                if l.kind == .context, let old = l.old, threads["\(f.path):LEFT:\(old)"] != nil { return true }
+                let side = l.kind == .del ? "LEFT" : "RIGHT"
+                return (l.kind == .del ? l.old : l.new).map { threads["\(f.path):\(side):\($0)"] != nil } ?? false
+            }
+        }
     }
 
     /// One hunk: its file, its note, its lines, and any comments on them.
     private func hunkRows(_ h: Hunk, _ f: DiffFile, chapter: Int, notes: [String: [HunkNote]],
-                          comments: [String: [PendingComment]], inPanel: Bool = false) -> [DocRow] {
+                          comments: [String: [PendingComment]], threads: [String: [ReviewThread]],
+                          inPanel: Bool = false) -> [DocRow] {
         var rows: [DocRow] = []
         rows.append(DocRow(id: "hunk:\(h.id)", chapter: chapter, kind: .fileHeader(f, h)))
+        // Conversations about the whole file sit under its first change.
+        if h.id == f.hunks.first?.id {
+            for t in (detail?.threads ?? []) where t.onFile && t.path == f.path {
+                rows.append(DocRow(id: "thread:\(t.id)", chapter: chapter, kind: .thread(t, hunk: h.id)))
+            }
+        }
         let hn = notes[h.id] ?? []
         if let top = hn.first(where: { $0.anchor.isEmpty }) ?? hn.first {
             rows.append(DocRow(id: "note:\(h.id):top", chapter: chapter, kind: .note(top.note, hunk: h.id, top: true)))
@@ -127,12 +160,17 @@ extension PRSession {
             let side = l.kind == .del ? "LEFT" : "RIGHT"
             if let no = l.kind == .del ? l.old : l.new {
                 let key = "\(f.path):\(side):\(no)"
+                // An unchanged line can carry a thread on either side.
+                var here = threads[key] ?? []
+                if l.kind == .context, let old = l.old { here += threads["\(f.path):LEFT:\(old)"] ?? [] }
+                for t in here {
+                    rows.append(DocRow(id: "thread:\(t.id)", chapter: chapter, kind: .thread(t, hunk: h.id)))
+                }
                 for c in comments[key] ?? [] {
                     rows.append(DocRow(id: "comment:\(c.id)", chapter: chapter, kind: .comment(c)))
                 }
-                if composing == key && composingInPanel == inPanel {
-                    rows.append(DocRow(id: "composer:\(key)", chapter: chapter,
-                                       kind: .composer(key: key, path: f.path, line: no, side: side, hunk: h.id)))
+                if let c = compose, c.kind == .new, c.key == key, c.inPanel == inPanel {
+                    rows.append(DocRow(id: "composer:\(key)", chapter: chapter, kind: .composer(c)))
                 }
             }
         }
@@ -142,13 +180,14 @@ extension PRSession {
 
     func docRows(_ chapters: [ChapterInfo]) -> [DocRow] {
         guard let diff else { return [] }
-        let notes = notesByHunk, comments = commentsByLine
+        let notes = notesByHunk, comments = commentsByLine, threads = threadsByLine
         var rows: [DocRow] = []
         var shown = Set<String>()
         for ch in chapters {
             let hunks = ch.hunks.filter { id in fileFilter.map { f in diff.file(ofHunk: id).map { f.contains($0.path) } ?? false } ?? true }
             if hunks.isEmpty { continue }
             let collapsed = ch.attention == .skip && !expandedSkips.contains(ch.id) && fileFilter == nil
+                && !hasThreads(hunks, threads)
             rows.append(DocRow(id: "chapter:\(ch.id)", chapter: ch.id, kind: .chapter(ch, collapsed: collapsed)))
             if collapsed {
                 shown.formUnion(hunks)
@@ -156,7 +195,7 @@ extension PRSession {
             }
             for hid in hunks {
                 guard let h = diff.hunk(hid), let f = diff.file(ofHunk: hid), shown.insert(hid).inserted else { continue }
-                rows += hunkRows(h, f, chapter: ch.id, notes: notes, comments: comments)
+                rows += hunkRows(h, f, chapter: ch.id, notes: notes, comments: comments, threads: threads)
             }
         }
         if fileFilter == nil {
@@ -173,26 +212,35 @@ extension PRSession {
     /// One hunk's rows, for the story's "Where to look" page.
     func lookRows(_ hunk: String) -> [DocRow] {
         guard let diff, let h = diff.hunk(hunk), let f = diff.file(ofHunk: hunk) else { return [] }
-        return hunkRows(h, f, chapter: -2, notes: notesByHunk, comments: commentsByLine, inPanel: true)
+        return hunkRows(h, f, chapter: -2, notes: notesByHunk, comments: commentsByLine, threads: threadsByLine, inPanel: true)
     }
+}
+
+/// A jump through the diff, from a key, the rail, or the story.
+struct DiffJump: Equatable {
+    var id: String
+    var animated = false
+    var tick = UUID()
 }
 
 struct ChangesView: View {
     @Bindable var session: PRSession
     @State private var topRow: String?
+    @State private var jump: DiffJump?
     @State private var flash: String?
     @FocusState private var keys: Bool
 
     var body: some View {
         let cache = session.changesRows()
         HStack(alignment: .top, spacing: 14) {
-            ChapterRail(session: session, chapters: cache.chapters, chapterOfRow: cache.chapterOfRow, topRow: $topRow) { id in
-                withAnimation(Motion.spring) { topRow = "chapter:\(id)" }
+            ChapterRail(session: session, chapters: cache.chapters, chapterOfRow: cache.chapterOfRow,
+                        threads: cache.threadsInChapter, topRow: $topRow) { id in
+                jump = DiffJump(id: "chapter:\(id)")
             }
             .frame(width: 262)
             .padding(.bottom, 16)
 
-            DiffList(session: session, rows: cache.rows, topRow: $topRow)
+            DiffList(session: session, rows: cache.rows, index: cache.indexOfRow, topRow: $topRow, jump: jump)
                 .overlay(alignment: .top) {
                     if session.fileFilter != nil {
                         FilterBanner(label: session.filterLabel) { session.clearFilter() }
@@ -206,29 +254,35 @@ struct ChangesView: View {
         .focusEffectDisabled()
         .focused($keys)
         .onKeyPress(characters: CharacterSet(charactersIn: "jknpx"), phases: .down) { press in
-            guard press.modifiers.isEmpty || press.modifiers == .shift else { return .ignored }
+            // Letters typed into a comment box are words, not jumps.
+            guard !Typing.active, press.modifiers.isEmpty else { return .ignored }
             let rows = cache.rows
-            let here = rows.firstIndex { $0.id == topRow } ?? 0
-            func jump(_ prefix: String, forward: Bool) {
+            let here = topRow.flatMap { cache.indexOfRow[$0] } ?? 0
+            func move(_ prefix: String, forward: Bool) {
                 let target = forward
-                    ? rows[min(here + 1, rows.count)...].first { $0.id.hasPrefix(prefix) }
-                    : rows[..<here].last { $0.id.hasPrefix(prefix) }
-                if let t = target { withAnimation(Motion.spring) { topRow = t.id } }
+                    ? rows[min(here + 1, rows.count)...].firstIndex { $0.id.hasPrefix(prefix) }
+                    : rows[..<here].lastIndex { $0.id.hasPrefix(prefix) }
+                guard let t = target else { return }
+                // A short, even glide when the target is near; a long one through rows the list hasn't laid out
+                // yet lurches, so far jumps cut straight there.
+                jump = DiffJump(id: rows[t].id, animated: abs(t - here) < 60)
             }
             switch press.characters {
-            case "j": jump("hunk:", forward: true)
-            case "k": jump("hunk:", forward: false)
-            case "n": jump("chapter:", forward: true)
-            case "p": jump("chapter:", forward: false)
+            case "j": move("hunk:", forward: true)
+            case "k": move("hunk:", forward: false)
+            case "n": move("chapter:", forward: true)
+            case "p": move("chapter:", forward: false)
             case "x": if let c = cache.chapterOfRow[topRow ?? ""], c >= 0 { session.toggleReviewed(c) }
             default: return .ignored
             }
             return .handled
         }
         .onChange(of: session.tab) { _, tab in keys = tab == .changes }
+        // When a comment box closes, the keys come back to the diff.
+        .onChange(of: session.compose == nil) { _, closed in if closed && session.tab == .changes { keys = true } }
         .onChange(of: session.scrollTarget) { _, target in
             guard let target else { return }
-            withAnimation(Motion.spring) { topRow = target }
+            jump = DiffJump(id: target)
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(60))
                 session.scrollTarget = nil
@@ -239,7 +293,7 @@ struct ChangesView: View {
         }
         .environment(\.flashRow, flash)
         .onAppear {
-            if let t = session.scrollTarget { topRow = t }
+            if let t = session.scrollTarget { jump = DiffJump(id: t) }
             keys = session.tab == .changes
         }
     }
@@ -249,22 +303,52 @@ struct ChangesView: View {
 struct DiffList: View {
     @Bindable var session: PRSession
     let rows: [DocRow]
+    let index: [String: Int]
     @Binding var topRow: String?
+    let jump: DiffJump?
+    @State private var settling: UUID?
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(rows) { row in
-                    DocRowView(session: session, row: row)
-                        .id(row.id)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(rows) { row in
+                        DocRowView(session: session, row: row)
+                            .id(row.id)
+                    }
+                    Color.clear.frame(height: 120)
                 }
-                Color.clear.frame(height: 120)
+                .scrollTargetLayout()
+                .padding(.trailing, 20)
             }
-            .scrollTargetLayout()
-            .padding(.trailing, 20)
+            // Where you are is the first row on screen, whichever way you got there; jumps go through the proxy,
+            // which finds rows the lazy list hasn't laid out yet.
+            .onScrollTargetVisibilityChange(idType: String.self, threshold: 0.25) { ids in
+                let first = ids.min { (index[$0] ?? .max) < (index[$1] ?? .max) }
+                if let first, first != topRow { topRow = first }
+            }
+            .scrollIndicators(.automatic)
+            .onChange(of: jump) { _, j in
+                guard let j else { return }
+                settling = j.tick
+                if j.animated {
+                    withAnimation(.smooth(duration: 0.24)) { proxy.scrollTo(j.id, anchor: .top) }
+                } else {
+                    proxy.scrollTo(j.id, anchor: .top)
+                }
+                // A far jump lands by estimated row heights; once the rows there are laid out, settle exactly.
+                Task { @MainActor in
+                    for wait in j.animated ? [300] : [70, 220] {
+                        try? await Task.sleep(for: .milliseconds(wait))
+                        guard settling == j.tick else { return }
+                        proxy.scrollTo(j.id, anchor: .top)
+                    }
+                }
+            }
+            .onAppear {
+                if let j = jump { proxy.scrollTo(j.id, anchor: .top) }
+            }
         }
-        .scrollPosition(id: $topRow, anchor: .top)
-        .scrollIndicators(.automatic)
     }
 }
 
@@ -342,6 +426,7 @@ struct ChapterRail: View {
     @Bindable var session: PRSession
     let chapters: [ChapterInfo]
     let chapterOfRow: [String: Int]
+    let threads: [Int: Int]
     @Binding var topRow: String?
     let jump: (Int) -> Void
 
@@ -395,16 +480,65 @@ struct ChapterRail: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 1) {
                     ForEach(chapters) { ch in
-                        RailRow(session: session, chapter: ch, current: current == ch.id) { jump(ch.id) }
+                        RailRow(session: session, chapter: ch, current: current == ch.id, threads: threads[ch.id] ?? 0) { jump(ch.id) }
                     }
                 }
                 .padding(.horizontal, 6)
                 .padding(.bottom, 10)
             }
             .scrollIndicators(.never)
+
+            ConversationNote(session: session, threads: threads.values.reduce(0, +))
         }
         .background(Surface(radius: 20))
         .animation(Motion.spring, value: chapters.map(\.id))
+    }
+}
+
+/// Under the chapters: how many conversations there are on GitHub, and the ones on lines that have since changed.
+struct ConversationNote: View {
+    @Bindable var session: PRSession
+    let threads: Int
+
+    var body: some View {
+        let outdated = max((session.detail?.threads.count ?? 0) - threads, 0)
+        let yours = session.pending.count
+        if threads + outdated + yours > 0 {
+            VStack(alignment: .leading, spacing: 6) {
+                if threads > 0 {
+                    label("bubble.left.and.bubble.right", "\(threads) conversation\(threads == 1 ? "" : "s") on these lines", .calm)
+                }
+                if outdated > 0 {
+                    Button {
+                        NSWorkspace.shared.open(session.ref.web.appending(path: "files"))
+                    } label: {
+                        label("clock.arrow.circlepath", "\(outdated) more on GitHub, not on lines shown here", .text3, link: true, away: true)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Read these on GitHub")
+                }
+                if yours > 0 {
+                    Button { session.reviewOpen = true } label: {
+                        label("text.bubble", "\(yours) of yours waiting to be sent", .sonar, link: true)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Open your review (⌘↩)")
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .top) { Rectangle().fill(Color.hair).frame(height: 0.5) }
+        }
+    }
+
+    private func label(_ icon: String, _ text: String, _ tint: Color, link: Bool = false, away: Bool = false) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: icon).font(.system(size: 10, weight: .semibold)).foregroundStyle(tint).frame(width: 14)
+            Text(text).font(.system(size: 11.5)).foregroundStyle(link ? Color.text2 : Color.text3)
+            if away { Image(systemName: "arrow.up.right").font(.system(size: 8, weight: .bold)).foregroundStyle(Color.text3) }
+        }
+        .contentShape(Rectangle())
     }
 }
 
@@ -431,6 +565,7 @@ struct RailRow: View {
     @Bindable var session: PRSession
     let chapter: ChapterInfo
     let current: Bool
+    var threads = 0
     let action: () -> Void
     @State private var hover = false
 
@@ -459,6 +594,14 @@ struct RailRow: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 4)
+            if threads > 0 {
+                HStack(spacing: 3) {
+                    Image(systemName: "bubble.left.fill").font(.system(size: 8.5))
+                    Text("\(threads)").font(.mono(10, .semibold))
+                }
+                .foregroundStyle(Color.calm)
+                .help("\(threads) conversation\(threads == 1 ? "" : "s") on GitHub")
+            }
             if !chapter.isFile { AttentionDot(attention: chapter.attention) }
         }
         .padding(.horizontal, 8)
@@ -527,9 +670,8 @@ struct DocRowView: View {
                 }
                 Button("Comment on the first changed line") {
                     if let l = h.lines.first(where: { $0.kind != .context }) {
-                        let side = l.kind == .del ? "LEFT" : "RIGHT"
-                        session.composingInPanel = inPanel
-                        session.composing = "\(f.path):\(side):\((l.kind == .del ? l.old : l.new) ?? h.newStart)"
+                        session.startComposing(Compose(kind: .new, path: f.path, line: (l.kind == .del ? l.old : l.new) ?? h.newStart,
+                                                       side: l.kind == .del ? "LEFT" : "RIGHT", hunk: h.id, inPanel: inPanel))
                     }
                 }
                 Divider()
@@ -552,8 +694,10 @@ struct DocRowView: View {
                 .overlay { flashOverlay("line:\(h.id):\(i)") }
         case .comment(let c):
             CommentRow(session: session, comment: c)
-        case .composer(let key, let path, let line, let side, let hunk):
-            Composer(session: session, key: key, path: path, line: line, side: side, hunk: hunk)
+        case .thread(let t, let hunk):
+            ThreadView(session: session, thread: t, hunk: hunk)
+        case .composer(let c):
+            InDiff { Composer(session: session, compose: c) }
         case .mechanical(let files):
             MechanicalRow(files: files)
         case .hunkEnd:
@@ -722,26 +866,28 @@ struct LineRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            Text(line.old.map(String.init) ?? "")
-                .frame(width: 42, alignment: .trailing)
-                .foregroundStyle(Color.text3.opacity(0.55))
-            Text(line.new.map(String.init) ?? "")
-                .frame(width: 42, alignment: .trailing)
-                .foregroundStyle(Color.text3.opacity(0.55))
+            // The gutter. A click on the line numbers starts a comment, as on GitHub.
+            HStack(spacing: 0) {
+                Text(line.old.map(String.init) ?? "")
+                    .frame(width: 42, alignment: .trailing)
+                Text(line.new.map(String.init) ?? "")
+                    .frame(width: 42, alignment: .trailing)
+            }
+            .foregroundStyle(Color.text3.opacity(hover ? 0.95 : 0.5))
+            .contentShape(Rectangle())
+            .onTapGesture(perform: comment)
             ZStack {
                 if hover {
-                    Button {
-                        session.composingInPanel = inPanel
-                        session.composing = key
-                    } label: {
+                    Button(action: comment) {
                         Image(systemName: "plus")
                             .font(.system(size: 9, weight: .heavy))
                             .foregroundStyle(Color.ink)
-                            .frame(width: 15, height: 15)
-                            .background(RoundedRectangle(cornerRadius: 4).fill(Color.sonar))
+                            .frame(width: 16, height: 16)
+                            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.sonar))
                     }
                     .buttonStyle(.plain)
                     .help("Comment on this line")
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
                 } else {
                     Text(sign).foregroundStyle(signColor)
                 }
@@ -758,13 +904,13 @@ struct LineRow: View {
         .background(rowFill)
         .background(Color.white.opacity(0.03))
         .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: last ? 12 : 0, bottomTrailingRadius: last ? 12 : 0, style: .continuous))
-        .onHover { hover = QA.hover($0) }
+        .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = QA.hover(h) } }
     }
 
-    private var key: String {
+    private func comment() {
         let side = line.kind == .del ? "LEFT" : "RIGHT"
         let no = (line.kind == .del ? line.old : line.new) ?? 0
-        return "\(file.path):\(side):\(no)"
+        session.startComposing(Compose(kind: .new, path: file.path, line: no, side: side, hunk: hunk.id, inPanel: inPanel))
     }
 
     private var sign: String {
@@ -788,89 +934,403 @@ struct LineRow: View {
     }
 }
 
-struct CommentRow: View {
-    @Bindable var session: PRSession
-    let comment: PendingComment
+/// Something set into the diff between two lines: lined up with the code, on the hunk's own ground, and no wider
+/// than reads comfortably.
+struct InDiff<Content: View>: View {
+    @ViewBuilder var content: Content
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "text.bubble.fill")
-                .font(.system(size: 12))
-                .foregroundStyle(Color.sonar)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Your comment · pending")
-                    .font(.system(size: 10.5, weight: .semibold))
-                    .foregroundStyle(Color.text3)
-                Text(comment.body)
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(Color.text1)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .textSelection(.enabled)
-            }
-            Spacer()
-            Button {
-                session.removeComment(comment.id)
-            } label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.text3)
-            }
-            .buttonStyle(.plain)
-            .help("Remove this comment")
-        }
-        .padding(12)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.sonar.opacity(0.07)))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.sonar.opacity(0.2), lineWidth: 0.75))
-        .padding(.leading, 108)
-        .padding(.trailing, 14)
-        .padding(.vertical, 6)
-        .background(Color.white.opacity(0.03))
+        content
+            .frame(maxWidth: 760, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.leading, 108)
+            .padding(.trailing, 14)
+            .padding(.vertical, 7)
+            .background(Color.white.opacity(0.03))
     }
 }
 
+/// One of your comments, waiting to go out with the review. Click Edit to change it where it is.
+struct CommentRow: View {
+    @Bindable var session: PRSession
+    let comment: PendingComment
+    @Environment(\.inPanel) private var inPanel
+
+    var body: some View {
+        InDiff {
+            if let c = session.compose, c.kind == .edit(comment.id), c.inPanel == inPanel {
+                Composer(session: session, compose: c, initial: comment.body)
+            } else {
+                PendingCard(session: session, comment: comment)
+            }
+        }
+    }
+}
+
+struct PendingCard: View {
+    @Bindable var session: PRSession
+    let comment: PendingComment
+    @Environment(\.inPanel) private var inPanel
+    @State private var hover = false
+
+    var body: some View {
+        CommentBubble(author: session.store?.viewer?.login ?? "You", avatar: session.store?.viewer?.avatar,
+                      date: nil, text: comment.body, tag: "Pending", tagTint: .sonar, plain: true) {
+            HStack(spacing: 12) {
+                Button("Edit") {
+                    session.startComposing(Compose(kind: .edit(comment.id), path: comment.path, line: comment.line,
+                                                   side: comment.side, hunk: comment.hunk, inPanel: inPanel))
+                }
+                Button("Delete") { session.removeComment(comment.id) }
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 11.5, weight: .medium))
+            .foregroundStyle(Color.text3)
+            .opacity(hover ? 1 : 0)
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.sonar.opacity(0.055)))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.sonar.opacity(0.22), lineWidth: 0.75))
+        .onHover { hover = QA.hover($0) }
+    }
+}
+
+/// A conversation from GitHub on this line: everyone's comments in order, your replies waiting to go, and a way
+/// to answer. Resolved ones fold to a single line.
+struct ThreadView: View {
+    @Bindable var session: PRSession
+    let thread: ReviewThread
+    let hunk: String
+    @Environment(\.inPanel) private var inPanel
+
+    var body: some View {
+        InDiff {
+            let open = !thread.isResolved || session.openThreads.contains(thread.id)
+            VStack(alignment: .leading, spacing: 0) {
+                if open {
+                    ForEach(Array(thread.comments.enumerated()), id: \.element.id) { i, c in
+                        if i > 0 { Rectangle().fill(Color.hair).frame(height: 0.5).padding(.leading, 44) }
+                        CommentBubble(author: c.displayName, avatar: c.avatar, date: c.createdAt, text: c.body,
+                                      tag: c.isBot ? "Bot" : nil, tagTint: .calm, link: c.url)
+                            .padding(12)
+                    }
+                    ForEach(replies) { r in
+                        Rectangle().fill(Color.hair).frame(height: 0.5).padding(.leading, 44)
+                        if let c = session.compose, c.kind == .edit(r.id), c.inPanel == inPanel {
+                            Composer(session: session, compose: c, initial: r.body).padding(8)
+                        } else {
+                            PendingCard(session: session, comment: r).padding(8)
+                        }
+                    }
+                    footer
+                } else {
+                    folded
+                }
+            }
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(hex: 0x0D1218)))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.75))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+    }
+
+    private var replies: [PendingComment] {
+        session.pending.filter { $0.replyTo != nil && $0.replyTo == thread.replyTo }
+    }
+
+    @ViewBuilder private var footer: some View {
+        if let c = session.compose, case .reply = c.kind, c.thread == thread.id, c.inPanel == inPanel {
+            Composer(session: session, compose: c)
+                .padding(8)
+                .overlay(alignment: .top) { Rectangle().fill(Color.hair).frame(height: 0.5) }
+        } else {
+            HStack(spacing: 14) {
+                if let to = thread.replyTo, let line = thread.line {
+                    Button {
+                        session.startComposing(Compose(kind: .reply(to), path: thread.path, line: line, side: thread.side,
+                                                       hunk: hunk, thread: thread.id, inPanel: inPanel))
+                    } label: {
+                        Label("Reply", systemImage: "arrowshape.turn.up.left")
+                    }
+                }
+                Spacer()
+                if thread.isResolved {
+                    Button {
+                        withAnimation(Motion.snappy) { _ = session.openThreads.remove(thread.id) }
+                    } label: {
+                        Label("Resolved", systemImage: "checkmark.circle")
+                    }
+                    .help("Fold this conversation")
+                }
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 11.5, weight: .medium))
+            .foregroundStyle(Color.text3)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(Color.white.opacity(0.02))
+            .overlay(alignment: .top) { Rectangle().fill(Color.hair).frame(height: 0.5) }
+        }
+    }
+
+    private var folded: some View {
+        Button {
+            withAnimation(Motion.snappy) { _ = session.openThreads.insert(thread.id) }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.added.opacity(0.8))
+                Text("Resolved")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(Color.text2)
+                if let first = thread.comments.first {
+                    Avatar(url: first.avatar, name: first.author, size: 15)
+                    Text(GHText.firstLine(first.body))
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Color.text3)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                Text("\(thread.comments.count)")
+                    .font(.mono(10.5, .semibold))
+                    .foregroundStyle(Color.text3)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Color.text3)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 34)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Show this resolved conversation")
+    }
+}
+
+/// A comment as people read them: who, when, and what they said, with long ones folded.
+struct CommentBubble<Actions: View>: View {
+    let author: String
+    let avatar: URL?
+    let date: Date?
+    let text: String
+    var tag: String? = nil
+    var tagTint: Color = .text3
+    var link: URL? = nil
+    /// Your own words go in as written; GitHub's arrive with HTML and folded extras to tidy.
+    var plain = false
+    let actions: Actions
+    @State private var more = false
+    @State private var hover = false
+
+    init(author: String, avatar: URL?, date: Date?, text: String, tag: String? = nil, tagTint: Color = .text3,
+         link: URL? = nil, plain: Bool = false, @ViewBuilder actions: () -> Actions) {
+        self.author = author
+        self.avatar = avatar
+        self.date = date
+        self.text = text
+        self.tag = tag
+        self.tagTint = tagTint
+        self.link = link
+        self.plain = plain
+        self.actions = actions()
+    }
+
+    var body: some View {
+        let clean = plain ? text : GHText.clean(text)
+        let short = GHText.short(clean)
+        HStack(alignment: .top, spacing: 10) {
+            Avatar(url: avatar, name: author, size: 22)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 7) {
+                    Text(author)
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(Color.text1)
+                    if let tag {
+                        Text(tag)
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(tagTint)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1.5)
+                            .background(Capsule().fill(tagTint.opacity(0.12)))
+                    }
+                    if let date {
+                        Text(Fmt.ago(date))
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Color.text3)
+                    }
+                    Spacer(minLength: 8)
+                    actions
+                    if let link {
+                        Button { NSWorkspace.shared.open(link) } label: {
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 9.5, weight: .bold))
+                                .foregroundStyle(Color.text3)
+                        }
+                        .buttonStyle(.plain)
+                        .opacity(hover ? 1 : 0)
+                        .help("Open on GitHub")
+                    }
+                }
+                MarkdownText(text: more || short == nil ? clean : short ?? clean)
+                    .foregroundStyle(Color.text1.opacity(0.92))
+                if short != nil {
+                    Button(more ? "Show less" : "Show more") {
+                        withAnimation(Motion.snappy) { more.toggle() }
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(Color.calm)
+                }
+            }
+        }
+        .onHover { hover = QA.hover($0) }
+    }
+}
+
+extension CommentBubble where Actions == EmptyView {
+    init(author: String, avatar: URL?, date: Date?, text: String, tag: String? = nil, tagTint: Color = .text3, link: URL? = nil) {
+        self.init(author: author, avatar: avatar, date: date, text: text, tag: tag, tagTint: tagTint, link: link, actions: { EmptyView() })
+    }
+}
+
+/// The comment box, for a new comment, a reply, or an edit. What you type is kept if the box scrolls away or you
+/// press Esc; Cancel throws it away.
 struct Composer: View {
     @Bindable var session: PRSession
-    let key: String
-    let path: String
-    let line: Int
-    let side: String
-    let hunk: String
-    @State private var text = ""
+    let compose: Compose
+    var initial = ""
     @FocusState private var focused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            TextEditor(text: $text)
-                .font(.system(size: 12.5))
-                .scrollContentBackground(.hidden)
-                .focused($focused)
-                .frame(minHeight: 64, maxHeight: 140)
-                .padding(8)
-                .background(RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.3)))
-                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.sonar.opacity(0.35), lineWidth: 0.75))
-            HStack {
-                Text("Line \(line) · \((path as NSString).lastPathComponent)")
-                    .font(.system(size: 10.5))
+        let text = session.draft(compose.draftKey, initial: initial)
+        let empty = text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Avatar(url: session.store?.viewer?.avatar, name: session.store?.viewer?.login ?? "you", size: 18)
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.text1)
+                Text(place)
+                    .font(.system(size: 11.5))
                     .foregroundStyle(Color.text3)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                if let original = lineText {
+                    Button {
+                        let block = "```suggestion\n\(original)\n```"
+                        text.wrappedValue += (text.wrappedValue.isEmpty ? "" : "\n\n") + block + "\n"
+                        focused = true
+                    } label: {
+                        Label("Suggest a change", systemImage: "plus.forwardslash.minus")
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(Color.text2)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Propose new text for this line; the author can apply it on GitHub")
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
+
+            ZStack(alignment: .topLeading) {
+                if text.wrappedValue.isEmpty {
+                    Text(placeholder)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.text3)
+                        .padding(.leading, 5)
+                        .padding(.top, 1)
+                        .allowsHitTesting(false)
+                }
+                TextEditor(text: text)
+                    .font(.system(size: 13))
+                    .lineSpacing(3)
+                    .scrollContentBackground(.hidden)
+                    .scrollIndicators(.never)
+                    .focused($focused)
+            }
+            .frame(minHeight: 66, maxHeight: 220)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 6)
+
+            HStack(spacing: 10) {
+                Text("Markdown works · ⌘↩ \(verb) · Esc to close")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Color.text3.opacity(0.8))
                 Spacer()
-                Button("Cancel") { withAnimation(Motion.soft) { session.composing = nil } }
-                    .buttonStyle(.glass)
-                    .controlSize(.small)
-                Button("Add to review") {
-                    session.addComment(path: path, line: line, side: side, body: text, hunk: hunk)
+                Button("Cancel") { session.cancelCompose() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.text2)
+                    .padding(.horizontal, 4)
+                Button { session.commitCompose() } label: {
+                    Text(submit)
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 4)
                 }
                 .buttonStyle(.glassProminent)
                 .tint(Color(hex: 0x1F6F6B))
                 .controlSize(.small)
-                .keyboardShortcut(.return, modifiers: .command)
-                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(empty)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(Color.white.opacity(0.025))
+        }
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color(hex: 0x0E141B)))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .strokeBorder(Color.sonar.opacity(focused ? 0.5 : 0.22), lineWidth: focused ? 1 : 0.75))
+        .animation(Motion.snappy, value: focused)
+        .onAppear {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(60))
+                focused = true
             }
         }
-        .padding(.leading, 108)
-        .padding(.trailing, 14)
-        .padding(.vertical, 8)
-        .background(Color.white.opacity(0.03))
-        .onAppear { focused = true }
+    }
+
+    private var title: String {
+        switch compose.kind {
+        case .new: "Comment"
+        case .reply: "Reply"
+        case .edit: "Edit your comment"
+        }
+    }
+
+    private var place: String {
+        let name = (compose.path as NSString).lastPathComponent
+        return "\(compose.side == "LEFT" ? "removed line" : "line") \(compose.line) · \(name)"
+    }
+
+    private var placeholder: String {
+        switch compose.kind {
+        case .reply: "Reply to the thread…"
+        default: "What should the author know about this line?"
+        }
+    }
+
+    private var submit: String {
+        switch compose.kind {
+        case .new: "Add to review"
+        case .reply: "Add reply"
+        case .edit: "Save"
+        }
+    }
+
+    private var verb: String {
+        switch compose.kind {
+        case .edit: "to save"
+        default: "to add"
+        }
+    }
+
+    /// The line as it is now, for a suggested change. GitHub only takes suggestions on the new side.
+    private var lineText: String? {
+        if case .edit = compose.kind { return nil }
+        guard compose.side == "RIGHT" else { return nil }
+        return session.diff?.hunk(compose.hunk)?.lines.first { $0.kind != .del && $0.new == compose.line }?.text
     }
 }
 

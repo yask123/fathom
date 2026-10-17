@@ -278,6 +278,8 @@ struct MarkdownText: View {
                     Text(linked(s))
                         .font(.system(size: 13.5, weight: .semibold))
                         .padding(.top, 4)
+                case .code(let s, let lang) where lang == "suggestion":
+                    SuggestionBlock(lines: s.components(separatedBy: "\n"))
                 case .code(let s, let lang):
                     let lines = s.components(separatedBy: "\n")
                     let painted = Highlighter.highlight(lines, Language(path: "x.\(lang.isEmpty ? "txt" : lang)"))
@@ -402,5 +404,36 @@ extension PRSession {
             return
         }
         if let h = file.hunks.first { go(toHunk: h.id) }
+    }
+}
+
+/// A ```suggestion block: the new text for the line, as GitHub shows it.
+struct SuggestionBlock: View {
+    let lines: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Label("Suggested change", systemImage: "plus.forwardslash.minus")
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(Color.text3)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                HStack(alignment: .top, spacing: 8) {
+                    Text("+").foregroundStyle(Color.added)
+                    Text(line.isEmpty ? " " : line).foregroundStyle(Color.text1)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .font(.mono(11.5))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 1.5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.added.opacity(0.09))
+            }
+        }
+        .padding(.bottom, 4)
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.black.opacity(0.28)))
+        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color.added.opacity(0.22), lineWidth: 0.5))
     }
 }

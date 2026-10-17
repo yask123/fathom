@@ -120,6 +120,14 @@ enum GitHub {
               labels(first: 12) { nodes { name } }
               commits(last: 40) { totalCount nodes { commit { oid messageHeadline committedDate statusCheckRollup { state } } } }
               latestReviews(first: 20) { nodes { author { login avatarUrl } state } }
+              reviewThreads(first: 100) {
+                nodes {
+                  id isResolved isOutdated path line diffSide subjectType
+                  comments(first: 40) { nodes { id databaseId author { __typename login avatarUrl } body createdAt url } }
+                }
+              }
+              comments(last: 40) { nodes { id databaseId author { __typename login avatarUrl } body createdAt url } }
+              reviews(last: 30) { nodes { id databaseId author { __typename login avatarUrl } body state submittedAt url } }
             }
           }
         }
@@ -164,8 +172,30 @@ enum GitHub {
             reviewDecision: pr["reviewDecision"].stringOrNil,
             checks: pr["commits"]["nodes"].array.last?["commit"]["statusCheckRollup"]["state"].stringOrNil,
             reviewers: pr["latestReviews"]["nodes"].array.map { ($0["author"]["login"].string, $0["author"]["avatarUrl"].url, $0["state"].string) },
-            diskUsageKB: d["repository"]["diskUsage"].int
+            diskUsageKB: d["repository"]["diskUsage"].int,
+            threads: pr["reviewThreads"]["nodes"].array.compactMap { t in
+                let comments = t["comments"]["nodes"].array.compactMap { GHComment($0) }
+                guard !comments.isEmpty else { return nil }
+                return ReviewThread(id: t["id"].string, path: t["path"].string, line: t["line"].raw is NSNumber ? t["line"].int : nil,
+                                    side: t["diffSide"].stringOrNil ?? "RIGHT", isResolved: t["isResolved"].bool,
+                                    isOutdated: t["isOutdated"].bool, comments: comments,
+                                    onFile: t["subjectType"].string == "FILE")
+            },
+            conversation: conversation(pr)
         )
+    }
+
+    /// Comments on the PR and reviews that say something (or give a verdict), in the order they happened.
+    private static func conversation(_ pr: J) -> [GHComment] {
+        let comments = pr["comments"]["nodes"].array.compactMap { GHComment($0) }
+        let reviews = pr["reviews"]["nodes"].array.compactMap { r -> GHComment? in
+            let state = r["state"].string
+            guard state != "PENDING", state != "DISMISSED" || !r["body"].string.isEmpty else { return nil }
+            guard let c = GHComment(r, verdict: state) else { return nil }
+            // A review that only carried line comments says nothing here; its comments show on their lines.
+            return c.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && state == "COMMENTED" ? nil : c
+        }
+        return (comments + reviews).sorted { ($0.createdAt ?? .distantPast) < ($1.createdAt ?? .distantPast) }
     }
 
     static func diff(_ ref: PRRef) async throws -> String {
@@ -196,6 +226,14 @@ enum GitHub {
         }
         let data = try JSONSerialization.data(withJSONObject: payload)
         let out = try await ghRun(["api", "--method", "POST", "repos/\(ref.slug)/pulls/\(ref.number)/reviews", "--input", "-"], input: data)
+        return J(data: out.stdout)["html_url"].url
+    }
+
+    /// A reply in someone's thread. GitHub's review call can't carry these, so each one goes out on its own.
+    static func reply(_ ref: PRRef, to comment: Int, body: String) async throws -> URL? {
+        let data = try JSONSerialization.data(withJSONObject: ["body": body])
+        let out = try await ghRun(["api", "--method", "POST", "repos/\(ref.slug)/pulls/\(ref.number)/comments/\(comment)/replies",
+                                   "--input", "-"], input: data)
         return J(data: out.stdout)["html_url"].url
     }
 }

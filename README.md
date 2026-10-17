@@ -12,19 +12,23 @@ or API key.
 ![The story of a pull request at a glance: the problem, the idea, how it works now, the choices, the promises that change, and where to read](docs/story.png)
 
 - **Overview**: the whole PR in five sentences. Often that's enough to know what you're looking at.
-- **Problem**: how things went before, as a short sequence diagram, with the step where it hurt marked.
-- **Idea**: the key idea in a sentence, and the few parts that carry it, new ones glowing.
+- **Problem**: how things went before, as a short sequence diagram, with the step where it hurt marked. Point at an
+  actor to follow only its part.
+- **Idea**: the key idea in a sentence, and the few parts that carry it, new ones in green. Point at a part to see
+  only what it touches.
 - **Now**: the same story told again after the change, new steps in green and what travels on every arrow. Flip
   to Before to compare.
-- **Choices**: the design decisions a staff engineer would want to know about: what was chosen, over what, and why,
-  marked when the PR says so and when it's inferred.
+- **Choices**: the design decisions a staff engineer would want to know about, each drawn as a fork: what was
+  chosen, what it was chosen over, and why, marked when the PR says so and when it's inferred.
 - **Promises**: the interfaces whose shape changes (endpoints, types, tables, config), member by member.
 - **Code**: the two to four hunks to read if you read nothing else.
 
 Around the story, the app stays out of the way: pick a repository, see its open pull requests (or only the ones
-waiting for you), pick one. **Changes** has the whole diff in chapters marked *read*, *skim* or *skip*; **Ask**
-(`⌘K`) puts the repo at the PR's head in front of Claude; **Review** posts line comments and a verdict to GitHub as
-you. A PR you've read before opens instantly; a new one's story fills in within half a minute.
+waiting for you), pick one. **Changes** has the whole diff in chapters marked *read*, *skim* or *skip*, with the
+conversations already on GitHub (people's and bots') on the lines they're about; click a line number to comment, reply
+in a thread, or suggest a change. **Ask** (`⌘K`) puts the repo at the PR's head in front of Claude; **Review** posts
+your comments, replies and a verdict to GitHub as you. A PR you've read before opens instantly; a new one's story fills
+in within half a minute.
 
 ![How it works now: a sequence diagram from You to WalkingView, WalkModel, RoutePlanner and localQuestion, new steps in green with the data they carry](docs/now.png)
 
@@ -73,6 +77,7 @@ javascript:location.href='fathom://'+location.href
 | `⌘K` | Ask Claude about the PR |
 | `⌘↩` | Review |
 | `J` `K`, `N` `P`, `X` | next and previous change, next and previous chapter, mark a chapter understood |
+| click a line number | comment on that line; `⌘↩` adds it to your review, `Esc` closes the box and keeps what you typed |
 | `⇧⌘R` | read the PR again |
 | `⇧⌘O` | open on GitHub |
 | `⌘R` | refresh the inbox |
@@ -99,7 +104,7 @@ so the download link above keeps pointing at the newest one.
 | | |
 |---|---|
 | Setup | `Setup.swift` reads the login shell's environment, checks `gh api user` and `claude auth status`, and reads `claude --help` so an older Claude Code gets only the flags it understands. GitHub sign-in is `gh auth login --web` with the one-time code shown in the app |
-| GitHub | `gh api graphql` for your repositories, a repository's open PRs, the inbox and PR details, `gh pr diff` for the diff, `gh api …/reviews` to post a review |
+| GitHub | `gh api graphql` for your repositories, a repository's open PRs, the inbox and PR details (with its review threads and conversation), `gh pr diff` for the diff, `gh api …/reviews` to post a review and `…/comments/{id}/replies` for replies |
 | Outline | `claude -p --json-schema` over the diff with every hunk labelled (`f3h2`): headline, chapters, the interfaces whose shape changes, one note per hunk. Long prose and data files are trimmed to their first lines. Streams in, headline first |
 | Story | the problem as steps before (and where it hurt), the idea and the parts that carry it, the steps after with what travels, the choices (stated or inferred), and the hunks to read. `claude -p --json-schema` with read-only `Read Grep Glob` in a shallow checkout of the PR head (`git fetch --depth=1 --filter=blob:none pull/N/head`, one worktree per PR, the 12 most recent kept). It waits at most 1.5 s for the checkout, else tells it from the diff alone; pages fill in as they're written |
 | Cache | Claude's readings per PR commit in `soundings/`, each PR's details and diff in `prs/`, and the inbox in `state.json`, all under `~/Library/Application Support/Fathom`. The top of the inbox is fetched ahead in the background |
@@ -126,7 +131,8 @@ with them and captures its window; `SHOOT_QUIET=1` leaves it where it opens inst
 | `FATHOM_TAB=changes`, `FATHOM_BY_FILE=1` | start on a view |
 | `FATHOM_PAGE=idea` | open the story on a page (overview, problem, idea, now, choices, promises, code) |
 | `FATHOM_SCROLL=line:f4h1:90`, `FATHOM_GO=f3h2` | jump in Changes |
-| `FATHOM_ASK="…"` (empty just opens it), `FATHOM_REVIEW=1` | ask a question, open the review sheet |
+| `FATHOM_ASK="…"` (empty just opens it), `FATHOM_REVIEW=1`, `FATHOM_INFO=1` | ask a question, open the review sheet, open the details and conversation |
+| `FATHOM_COMMENT=path:line`, `FATHOM_DRAFT="…"`, `FATHOM_ADD=1`, `FATHOM_REPLY=<thread id>` | open a comment box on a line (filled, or added to the review), or a reply in a thread |
 | `FATHOM_WINDOW=1188x884`, `FATHOM_NO_HOVER=1` | size the window; ignore the pointer (clean screenshots) |
 | `FATHOM_SIDEBAR=0`, `FATHOM_MUTE=1` | hide the sidebar, no sonar ping |
 | `FATHOM_DUMP_PROMPT=/path` | write the reading prompt to a file |
