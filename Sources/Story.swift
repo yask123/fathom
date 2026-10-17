@@ -655,10 +655,11 @@ struct StorySequence: View {
                 }
 
                 ForEach(Array(cols.enumerated()), id: \.element) { _, a in
+                    // Hover goes on the chip itself: after .position it would cover the whole diagram.
                     ActorChip(name: a, kind: kinds[a], focused: focus == a, dimmed: focus != nil && focus != a)
                         .frame(maxWidth: colW - 8)
-                        .position(x: x(a), y: 16)
                         .onHover { h in withAnimation(.easeOut(duration: 0.18)) { focus = QA.hover(h) ? a : (focus == a ? nil : focus) } }
+                        .position(x: x(a), y: 16)
                 }
 
                 ForEach(Array(steps.enumerated()), id: \.offset) { k, step in
@@ -900,14 +901,16 @@ struct IdeaGraph: View {
 
                 ForEach(parts) { p in
                     if let c = place[p.id] {
+                        // Hover goes on the card itself: after .position it would cover the whole graph.
                         PartCard(part: p, focused: focus == p.id)
                             .frame(width: nodeW, height: nodeH)
-                            .position(c)
-                            .scaleEffect(drawn ? 1 : 0.94)
-                            .opacity(drawn ? (lit(p) ? 1 : 0.3) : 0)
+                            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .onHover { h in
                                 withAnimation(.easeOut(duration: 0.18)) { focus = QA.hover(h) ? p.id : (focus == p.id ? nil : focus) }
                             }
+                            .scaleEffect(drawn ? 1 : 0.94)
+                            .opacity(drawn ? (lit(p) ? 1 : 0.3) : 0)
+                            .position(c)
                     }
                 }
             }
