@@ -26,7 +26,15 @@ class LayerCanvas: NSView {
         guard bounds.size != builtSize, bounds.width > 1, bounds.height > 1 else { return }
         builtSize = bounds.size
         layer?.sublayers?.forEach { $0.removeFromSuperlayer() }
-        build(in: layer!, size: bounds.size)
+        // Layers hold fixed colours, so they're drawn for the current appearance and redrawn when it changes.
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            build(in: layer!, size: bounds.size)
+        }
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        rebuild()
     }
 
     func rebuild() {
@@ -122,7 +130,7 @@ final class ShimmerCanvas: LayerCanvas {
         g.frame = CGRect(origin: .zero, size: size)
         g.cornerRadius = radius
         g.masksToBounds = true
-        let base = NSColor.white.withAlphaComponent(0.045).cgColor
+        let base = NSColor(Color.wash(0.045)).cgColor
         let lit = NSColor(Color.sonar).withAlphaComponent(0.13).cgColor
         g.colors = [base, base, lit, base, base]
         g.startPoint = CGPoint(x: 0, y: 0.5)

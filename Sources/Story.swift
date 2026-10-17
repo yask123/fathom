@@ -52,7 +52,7 @@ enum StoryPage: Int, CaseIterable, Identifiable {
         case .now: .added
         case .choices: .changed
         case .promises: .calm
-        case .code: Color(hex: 0xB49CFF)
+        case .code: .merged
         }
     }
 }
@@ -599,7 +599,7 @@ struct BeforeAfter: View {
                         .frame(height: 24)
                         .background {
                             if on {
-                                RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.white.opacity(0.09))
+                                RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.wash(0.09))
                                     .matchedGeometryEffect(id: "flip", in: space)
                             }
                         }
@@ -609,7 +609,7 @@ struct BeforeAfter: View {
             }
         }
         .padding(2)
-        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.wash(0.1), lineWidth: 0.5))
     }
 }
 
@@ -675,20 +675,20 @@ struct StorySequence: View {
                     var axis = Path()
                     axis.move(to: CGPoint(x: axisX, y: top))
                     axis.addLine(to: CGPoint(x: axisX, y: bottom - 6))
-                    ctx.stroke(axis, with: .color(.white.opacity(0.22)), lineWidth: 0.75)
+                    ctx.stroke(axis, with: .color(.wash(0.22)), lineWidth: 0.75)
                     var tip = Path()
                     tip.move(to: CGPoint(x: axisX, y: bottom))
                     tip.addLine(to: CGPoint(x: axisX - 3, y: bottom - 7))
                     tip.addLine(to: CGPoint(x: axisX + 3, y: bottom - 7))
                     tip.closeSubpath()
-                    ctx.fill(tip, with: .color(.white.opacity(0.3)))
+                    ctx.fill(tip, with: .color(.wash(0.3)))
                     ctx.draw(Text("t").font(.serifItalic(14)).foregroundStyle(Color.text3), at: CGPoint(x: axisX + 9, y: bottom - 4), anchor: .leading)
                     for k in 0..<steps.count where k < shown {
                         let y = rowY(k)
                         var tick = Path()
                         tick.move(to: CGPoint(x: axisX - 3, y: y))
                         tick.addLine(to: CGPoint(x: axisX + 3, y: y))
-                        ctx.stroke(tick, with: .color(.white.opacity(0.35)), lineWidth: 0.75)
+                        ctx.stroke(tick, with: .color(.wash(0.35)), lineWidth: 0.75)
                         let hurt = k == painStep
                         ctx.draw(Text("t" + Self.subscriptDigits(k + 1)).font(.serifItalic(14))
                                     .foregroundStyle(hurt ? Color.removed : steps[k].isNew ? Color.added : Color.text3),
@@ -701,13 +701,13 @@ struct StorySequence: View {
                         p.move(to: CGPoint(x: x(a), y: headerH))
                         p.addLine(to: CGPoint(x: x(a), y: size.height - 6))
                         let on = focus == a
-                        ctx.stroke(p, with: .color(.white.opacity(on ? 0.4 : 0.16)),
+                        ctx.stroke(p, with: .color(.wash(on ? 0.4 : 0.16)),
                                    style: StrokeStyle(lineWidth: on ? 0.9 : 0.75, lineCap: .round, dash: on ? [] : [0.5, 4.5]))
                     }
                     for (k, step) in steps.enumerated() where k < shown {
                         let y = rowY(k)
                         let hurt = k == painStep
-                        let color: Color = hurt ? .removed : step.isNew ? .added : Color(hex: 0xC9CFD8)
+                        let color: Color = hurt ? .removed : step.isNew ? .added : .stroke
                         var c = ctx
                         c.opacity = lit(step) ? 1 : 0.16
                         arrow(&c, from: x(step.from), to: x(step.to), y: y, color: color, strong: hurt || step.isNew)
@@ -855,7 +855,7 @@ struct ActorHead: View {
                 .font(.serifItalic(13))
                 .foregroundStyle(Color.text3)
                 .lineLimit(1)
-            Rectangle().fill(Color.white.opacity(focused ? 0.6 : 0.3)).frame(width: 28, height: 0.75).padding(.top, 3)
+            Rectangle().fill(Color.wash(focused ? 0.6 : 0.3)).frame(width: 28, height: 0.75).padding(.top, 3)
         }
         .padding(.horizontal, 8)
         .background(Rectangle().fill(Color.paper))
@@ -946,7 +946,7 @@ struct IdeaGraph: View {
                     for (i, l) in links.enumerated() {
                         guard let a = place[l.from], let b = place[l.to] else { continue }
                         let (path, tip, dir) = curve(a, b, port[i * 2] ?? 0, port[i * 2 + 1] ?? 0)
-                        let color: Color = l.isNew ? .added : Color(hex: 0xC9CFD8)
+                        let color: Color = l.isNew ? .added : .stroke
                         var c = ctx
                         c.opacity = lit(l) ? 1 : 0.12
                         c.stroke(path, with: .color(color.opacity(l.isNew ? 0.9 : 0.5)),
@@ -1154,7 +1154,7 @@ struct PartCard: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(Rectangle().fill(Color.paper))
         .overlay(Rectangle()
-            .strokeBorder(part.isNew ? Color.added.opacity(focused ? 0.95 : 0.65) : Color.white.opacity(focused ? 0.5 : 0.24),
+            .strokeBorder(part.isNew ? Color.added.opacity(focused ? 0.95 : 0.65) : Color.wash(focused ? 0.5 : 0.24),
                           lineWidth: focused ? 1.1 : 0.75))
         .help(part.isNew ? "\(part.name) — new in this pull request" : part.name)
     }
@@ -1263,8 +1263,8 @@ struct ChoiceCard: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.white.opacity(hover ? 0.03 : 0.018)))
-        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Color.white.opacity(hover ? 0.14 : 0.09), lineWidth: 0.5))
+        .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.wash(hover ? 0.03 : 0.018)))
+        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Color.wash(hover ? 0.14 : 0.09), lineWidth: 0.5))
         .onHover { hover = QA.hover($0) }
         .animation(Motion.snappy, value: hover)
     }

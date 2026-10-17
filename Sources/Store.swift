@@ -44,6 +44,8 @@ final class AppStore {
     var windowWidth: CGFloat = 1500
     var model: String { didSet { state.model = model; persist() } }
     var ping: Bool { didSet { state.ping = ping; persist() } }
+    /// Paper by day, water by night, or whatever the Mac is set to.
+    var appearance: Appearance { didSet { state.appearance = appearance.rawValue; persist(); appearance.apply() } }
     var sounded: Set<String> = []
     var autoRead: Bool { didSet { state.autoRead = autoRead; persist(); if autoRead { readAhead() } } }
     var readingAhead: PRRef?
@@ -63,6 +65,8 @@ final class AppStore {
         model = state.model
         ping = state.ping
         autoRead = state.autoRead
+        // FATHOM_APPEARANCE=light|dark shows one for screenshots without changing the saved choice.
+        appearance = Appearance(rawValue: env["FATHOM_APPEARANCE"] ?? state.appearance) ?? .system
         recents = state.recents
         repo = state.repo
         if let r = state.repo { repoPulls = state.repoPulls[r] ?? [] }
@@ -325,6 +329,35 @@ final class Once: @unchecked Sendable {
         if taken { return false }
         taken = true
         return true
+    }
+}
+
+enum Appearance: String, CaseIterable, Identifiable {
+    case system, light, dark
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: "Match the Mac"
+        case .light: "Light"
+        case .dark: "Dark"
+        }
+    }
+
+    var scheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+
+    @MainActor func apply() {
+        switch self {
+        case .system: NSApp.appearance = nil
+        case .light: NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
     }
 }
 

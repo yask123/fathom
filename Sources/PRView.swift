@@ -137,8 +137,8 @@ struct ViewSwitch: View {
                         .frame(height: 28)
                         .background {
                             if on {
-                                Capsule().fill(Color.white.opacity(0.11))
-                                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5))
+                                Capsule().fill(Color.wash(0.11))
+                                    .overlay(Capsule().strokeBorder(Color.wash(0.1), lineWidth: 0.5))
                                     .matchedGeometryEffect(id: "pill", in: space)
                             }
                         }
@@ -370,7 +370,7 @@ struct StateTag: View {
 
     var body: some View {
         let (word, color): (String, Color) = detail.isDraft ? ("Draft", .text3)
-            : detail.state == "MERGED" ? ("Merged", Color(hex: 0xB49CFF))
+            : detail.state == "MERGED" ? ("Merged", Color.merged)
             : detail.state == "CLOSED" ? ("Closed", .removed)
             : ("Open", .added)
         Text(word)

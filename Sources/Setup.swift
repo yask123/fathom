@@ -424,7 +424,7 @@ struct ToolRow<Actions: View>: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(tone == .ready ? Color.sonar : Color.text2)
                 .frame(width: 34, height: 34)
-                .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.white.opacity(0.06)))
+                .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.wash(0.06)))
             VStack(alignment: .leading, spacing: 3) {
                 Text(name)
                     .font(.system(size: 13.5, weight: .semibold))
@@ -495,7 +495,7 @@ struct CommandChip: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
-        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black.opacity(0.28)))
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.well(0.28)))
         .hairline(10)
         .padding(.leading, 47)
     }
@@ -553,7 +553,7 @@ struct SignInPanel: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.045)))
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.wash(0.045)))
         .hairline(14)
         .padding(.leading, 47)
     }
@@ -587,6 +587,11 @@ struct SettingsView: View {
                 }
                 Toggle("Read new review requests in the background", isOn: $store.autoRead)
                 Toggle("Play a sonar ping when a reading is done", isOn: $store.ping)
+            }
+            Section("Look") {
+                Picker("Appearance", selection: $store.appearance) {
+                    ForEach(Appearance.allCases) { Text($0.title).tag($0) }
+                }
             }
             Section("On this Mac") {
                 LabeledContent("Readings, caches and checkouts") {

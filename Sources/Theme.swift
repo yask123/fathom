@@ -1,4 +1,4 @@
-// Fathom's look: deep ink water, one sonar accent, and depth hues for the layers of a system.
+// Fathom's look: deep ink water by night, warm paper by day, one sonar accent, and depth hues for the layers of a system.
 
 import AppKit
 import SwiftUI
@@ -12,25 +12,61 @@ extension Color {
                   opacity: alpha)
     }
 
-    static let ink = Color(hex: 0x06080C)
-    static let ink2 = Color(hex: 0x0C1017)
-    static let ink3 = Color(hex: 0x141A25)
-    static let hair = Color.white.opacity(0.08)
+    /// A colour for each appearance: the night one Fathom was drawn in, and a day one on warm paper.
+    static func adaptive(light: UInt32, dark: UInt32, lightAlpha: Double = 1, darkAlpha: Double = 1) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            let hex = isDark ? dark : light
+            return NSColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
+                           blue: CGFloat(hex & 0xFF) / 255, alpha: CGFloat(isDark ? darkAlpha : lightAlpha))
+        })
+    }
 
-    static let text1 = Color(hex: 0xE8EBF0)
-    static let text2 = Color(hex: 0xA2AAB7)
-    static let text3 = Color(hex: 0x6C7483)
+    /// A film over the page: white on the night water, ink on the day paper. Hairlines, hovers and wells.
+    static func wash(_ opacity: Double) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor.white.withAlphaComponent(CGFloat(opacity))
+                : NSColor(srgbRed: 0.11, green: 0.10, blue: 0.08, alpha: CGFloat(opacity * 0.8))
+        })
+    }
 
-    /// The one accent: the colour of a sonar return, kept quiet.
-    static let sonar = Color(hex: 0x6CCDC8)
+    /// A recessed field (a text box, a code block): darker water at night, a little darker paper by day.
+    static func well(_ opacity: Double) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor.black.withAlphaComponent(CGFloat(opacity))
+                : NSColor(srgbRed: 0.35, green: 0.30, blue: 0.20, alpha: CGFloat(opacity * 0.22))
+        })
+    }
+
+    /// The deepest colour, and the one text takes on top of a bright fill (a badge, a dot, a button).
+    static let ink = adaptive(light: 0xFBFAF6, dark: 0x06080C)
+    static let hair = wash(0.08)
+
+    // Day: warm paper and brown-black ink, easy on the eyes. Night: deep water.
+    static let canvas = adaptive(light: 0xF3F0E8, dark: 0x0A0D12)
+    static let sidebar = adaptive(light: 0xEBE7DE, dark: 0x0C1016)
+    static let card = adaptive(light: 0xFBF9F4, dark: 0x0D1218)
+    static let sheet = adaptive(light: 0xF6F3EC, dark: 0x0B0F16)
+
+    static let text1 = adaptive(light: 0x1C1B18, dark: 0xE8EBF0)
+    static let text2 = adaptive(light: 0x57544D, dark: 0xA2AAB7)
+    static let text3 = adaptive(light: 0x8C887F, dark: 0x6C7483)
+
+    /// The one accent: the colour of a sonar return, kept quiet. Deeper by day so it reads on paper.
+    static let sonar = adaptive(light: 0x1B7C76, dark: 0x6CCDC8)
     // Meaning, in inks rather than neons: new, changed, removed.
-    static let added = Color(hex: 0x6DC59B)
-    static let changed = Color(hex: 0xD6AC6B)
-    static let removed = Color(hex: 0xDE7B7B)
-    static let calm = Color(hex: 0x8EA4C8)
+    static let added = adaptive(light: 0x2E7A55, dark: 0x6DC59B)
+    static let changed = adaptive(light: 0x9E6418, dark: 0xD6AC6B)
+    static let removed = adaptive(light: 0xB23F37, dark: 0xDE7B7B)
+    static let calm = adaptive(light: 0x4A6491, dark: 0x8EA4C8)
+    static let merged = adaptive(light: 0x7048C2, dark: 0xB49CFF)
+    /// A plain arrow in a figure.
+    static let stroke = adaptive(light: 0x4B4943, dark: 0xC9CFD8)
 
-    static let cardTint = Color(hex: 0x0D121A, alpha: 0.5)
-    static let sidebarTint = Color(hex: 0x0A1016, alpha: 0.42)
+    static let cardTint = adaptive(light: 0xFFFFFF, dark: 0x0D121A, lightAlpha: 0.55, darkAlpha: 0.5)
+    static let sidebarTint = adaptive(light: 0xF1EDE4, dark: 0x0A1016, lightAlpha: 0.5, darkAlpha: 0.42)
 
     /// Layer hues, surface to abyss.
     static let depth: [Color] = [0x62E6DC, 0x5BB4F2, 0x7F8CF6, 0xA68AF2, 0xCB8BDF].map { Color(hex: $0) }
@@ -120,7 +156,7 @@ struct Eyebrow: View {
 /// A hairline rule.
 struct Rule: View {
     var opacity = 0.08
-    var body: some View { Rectangle().fill(Color.white.opacity(opacity)).frame(height: 0.5) }
+    var body: some View { Rectangle().fill(Color.wash(opacity)).frame(height: 0.5) }
 }
 
 /// A figure on a faint engineering grid with registration marks at its corners, and a caption under it set the
@@ -137,7 +173,7 @@ struct Figure<Content: View>: View {
                 .padding(.horizontal, 22)
                 .frame(maxWidth: .infinity)
                 .background(GridPaper())
-                .overlay(Rectangle().strokeBorder(Color.white.opacity(0.045), lineWidth: 0.5))
+                .overlay(Rectangle().strokeBorder(Color.wash(0.045), lineWidth: 0.5))
                 .overlay(CropMarks())
             if !caption.isEmpty {
                 (Text("Fig. \(number).").font(.smallCaps(14)).foregroundStyle(Color.text2)
@@ -160,7 +196,7 @@ struct CropMarks: View {
                                    (inset, size.height - inset, 1.0, -1.0), (size.width - inset, size.height - inset, -1.0, -1.0)] {
                 p.move(to: CGPoint(x: x + dx * l, y: y)); p.addLine(to: CGPoint(x: x, y: y)); p.addLine(to: CGPoint(x: x, y: y + dy * l))
             }
-            ctx.stroke(p, with: .color(.white.opacity(0.32)), lineWidth: 0.75)
+            ctx.stroke(p, with: .color(.wash(0.32)), lineWidth: 0.75)
         }
         .allowsHitTesting(false)
     }
@@ -188,7 +224,7 @@ struct RunningHead: View {
 
 /// The colour a figure's paper comes out as, for labels and parts that sit on it and mask the grid.
 extension Color {
-    static let paper = Color(hex: 0x0D1015)
+    static let paper = adaptive(light: 0xF1EEE6, dark: 0x0D1015)
 }
 
 /// Dots every 16 points, barely there: the paper the figures are drawn on.
@@ -206,9 +242,9 @@ struct GridPaper: View {
                 }
                 y += step
             }
-            ctx.fill(dots, with: .color(.white.opacity(0.07)))
+            ctx.fill(dots, with: .color(.wash(0.09)))
         }
-        .background(Color.white.opacity(0.012))
+        .background(Color.wash(0.012))
         .allowsHitTesting(false)
     }
 }
@@ -223,7 +259,7 @@ extension View {
     func hairline(_ radius: CGFloat, opacity: Double = 0.08) -> some View {
         overlay {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .strokeBorder(Color.white.opacity(opacity), lineWidth: 0.5)
+                .strokeBorder(Color.wash(opacity), lineWidth: 0.5)
         }
     }
 }
@@ -234,10 +270,10 @@ struct Surface: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: radius, style: .continuous)
-            .fill(Color(hex: 0x0A0E15).opacity(0.66))
+            .fill(Color.adaptive(light: 0xFBF9F4, dark: 0x0A0E15, lightAlpha: 0.7, darkAlpha: 0.66))
             .overlay {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.065), lineWidth: 0.75)
+                    .strokeBorder(Color.wash(0.065), lineWidth: 0.75)
             }
     }
 }
@@ -326,7 +362,7 @@ struct Avatar: View {
                 image.resizable().interpolation(.high)
             } else {
                 ZStack {
-                    Circle().fill(Color.ink3)
+                    Circle().fill(Color.wash(0.1))
                     Text(String(name.prefix(1)).uppercased())
                         .font(.system(size: size * 0.45, weight: .semibold))
                         .foregroundStyle(Color.text2)
@@ -335,7 +371,7 @@ struct Avatar: View {
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
-        .overlay(Circle().strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5))
+        .overlay(Circle().strokeBorder(Color.wash(0.1), lineWidth: 0.5))
     }
 
     private var sized: URL? {

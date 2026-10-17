@@ -12,7 +12,7 @@ struct RootView: View {
                 Sidebar()
                     .frame(width: 312)
                     .transition(.move(edge: .leading).combined(with: .opacity))
-                Rectangle().fill(Color.white.opacity(0.07)).frame(width: 0.5)
+                Rectangle().fill(Color.wash(0.07)).frame(width: 0.5)
             }
             ZStack {
                 if let session = store.session {
@@ -27,7 +27,7 @@ struct RootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .ignoresSafeArea(.container, edges: .top)
-        .containerBackground(for: .window) { Color(hex: 0x0A0D12) }
+        .containerBackground(for: .window) { Color.canvas }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { store.windowWidth = $0 }
         .task {
             // FATHOM_SETTINGS=1 opens Settings on launch, for screenshots.
@@ -116,7 +116,7 @@ struct Sidebar: View {
                                     NSPasteboard.general.setString(pr.ref.web.absoluteString, forType: .string)
                                 }
                             }
-                        Rectangle().fill(Color.white.opacity(0.04)).frame(height: 0.5).padding(.leading, 14)
+                        Rectangle().fill(Color.wash(0.04)).frame(height: 0.5).padding(.leading, 14)
                     }
                 }
             }
@@ -126,7 +126,7 @@ struct Sidebar: View {
             SidebarFooter()
         }
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(Color(hex: 0x0C1016))
+        .background(Color.sidebar)
     }
 
     private func count(_ f: AppStore.PullFilter) -> Int {
@@ -177,8 +177,8 @@ struct RepoSwitcher: View {
             }
             .padding(.horizontal, 11)
             .padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.white.opacity(hover || open ? 0.05 : 0.02)))
-            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Color.white.opacity(0.09), lineWidth: 0.5))
+            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.wash(hover || open ? 0.05 : 0.02)))
+            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Color.wash(0.09), lineWidth: 0.5))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -207,7 +207,7 @@ struct RepoList: View {
                 .font(.system(size: 13))
                 .focused($focused)
                 .padding(10)
-                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.white.opacity(0.05)))
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.wash(0.05)))
                 .padding(10)
                 .onSubmit {
                     if let first = repos.first { pick(first.slug) }
@@ -266,7 +266,7 @@ struct RepoRow: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.white.opacity(hover ? 0.06 : 0)))
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.wash(hover ? 0.06 : 0)))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -328,7 +328,7 @@ struct PullRow: View {
         .padding(.leading, 10)
         .padding(.trailing, 14)
         .padding(.vertical, 11)
-        .background(Color.white.opacity(selected ? 0.05 : hover ? 0.025 : 0))
+        .background(Color.wash(selected ? 0.05 : hover ? 0.025 : 0))
         .overlay(alignment: .leading) {
             if selected { Rectangle().fill(Color.sonar).frame(width: 1.5) }
         }
@@ -399,6 +399,11 @@ struct SidebarFooter: View {
                 }
                 .pickerStyle(.inline)
                 Divider()
+                Picker("Appearance", selection: $store.appearance) {
+                    ForEach(Appearance.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.inline)
+                Divider()
                 Toggle("Sonar ping when a reading is done", isOn: $store.ping)
                 Toggle("Read new review requests in the background", isOn: $store.autoRead)
                     .help("Fathom reads PRs waiting for you before you open them. Uses your Claude plan.")
@@ -461,11 +466,11 @@ struct LinkField: View {
         .padding(.horizontal, compact ? 11 : 16)
         .frame(height: compact ? 34 : 48)
         .background {
-            RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.black.opacity(focused ? 0.3 : 0.18))
+            RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.well(focused ? 0.3 : 0.18))
         }
         .overlay {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .strokeBorder(bad ? Color.removed.opacity(0.7) : focused ? Color.sonar.opacity(0.45) : Color.white.opacity(0.1),
+                .strokeBorder(bad ? Color.removed.opacity(0.7) : focused ? Color.sonar.opacity(0.45) : Color.wash(0.1),
                               lineWidth: focused || bad ? 1 : 0.5)
         }
         .offset(x: bad ? -4 : 0)

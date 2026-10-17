@@ -4,14 +4,15 @@ import AppKit
 import SwiftUI
 
 enum CodeInk {
-    static let text = Color(hex: 0xD3DAE5)
-    static let keyword = Color(hex: 0xC5A8FF)
-    static let type = Color(hex: 0x82D9E6)
-    static let function = Color(hex: 0x8FBBFF)
-    static let string = Color(hex: 0xE9C590)
-    static let number = Color(hex: 0xF2A988)
-    static let comment = Color(hex: 0x5F6A7C)
-    static let attr = Color(hex: 0xF3A3BC)
+    // Night: soft pastels on deep water. Day: printed inks on paper, dark enough to read without strain.
+    static let text = Color.adaptive(light: 0x2A2824, dark: 0xD3DAE5)
+    static let keyword = Color.adaptive(light: 0x7B3FA0, dark: 0xC5A8FF)
+    static let type = Color.adaptive(light: 0x1D6C82, dark: 0x82D9E6)
+    static let function = Color.adaptive(light: 0x2D58A0, dark: 0x8FBBFF)
+    static let string = Color.adaptive(light: 0x8A5410, dark: 0xE9C590)
+    static let number = Color.adaptive(light: 0xA9452A, dark: 0xF2A988)
+    static let comment = Color.adaptive(light: 0x8E8A80, dark: 0x5F6A7C)
+    static let attr = Color.adaptive(light: 0x9C3568, dark: 0xF3A3BC)
 }
 
 enum Highlighter {

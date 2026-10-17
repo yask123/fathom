@@ -553,7 +553,7 @@ struct ReadingBar: View {
             HStack(spacing: 2) {
                 Capsule().fill(Color.sonar).frame(width: max(2, geo.size.width * CGFloat(r.focus) / total))
                 Capsule().fill(Color.sonar.opacity(0.35)).frame(width: max(2, geo.size.width * CGFloat(r.skim) / total))
-                Capsule().fill(Color.white.opacity(0.1))
+                Capsule().fill(Color.wash(0.1))
             }
         }
         .frame(height: 4)
@@ -576,7 +576,7 @@ struct RailRow: View {
                 session.toggleReviewed(chapter.id)
             } label: {
                 ZStack {
-                    Circle().strokeBorder(done ? Color.added : Color.white.opacity(0.18), lineWidth: 1.2)
+                    Circle().strokeBorder(done ? Color.added : Color.wash(0.18), lineWidth: 1.2)
                     if done {
                         Circle().fill(Color.added)
                         Image(systemName: "checkmark").font(.system(size: 7.5, weight: .heavy)).foregroundStyle(Color.ink)
@@ -608,7 +608,7 @@ struct RailRow: View {
         .frame(height: 32)
         .background {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(Color.white.opacity(current ? 0.06 : hover ? 0.03 : 0))
+                .fill(Color.wash(current ? 0.06 : hover ? 0.03 : 0))
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: action)
@@ -817,7 +817,7 @@ struct FileHeader: View {
         .frame(height: 32)
         .background {
             UnevenRoundedRectangle(topLeadingRadius: 5, topTrailingRadius: 5, style: .continuous)
-                .fill(Color.white.opacity(0.05))
+                .fill(Color.wash(0.05))
         }
         .overlay(alignment: .bottom) { Rectangle().fill(Color.hair).frame(height: 0.5) }
         .onHover { hover = QA.hover($0) }
@@ -841,7 +841,7 @@ struct NoteRow: View {
         .padding(.leading, top ? 14 : 108)
         .padding(.trailing, 14)
         .padding(.vertical, top ? 8 : 5)
-        .background(Color.white.opacity(0.03))
+        .background(Color.wash(0.03))
         .background(alignment: .leading) {
             if !top {
                 Rectangle().fill(Color.sonar.opacity(0.06))
@@ -901,7 +901,7 @@ struct LineRow: View {
         .lineSpacing(2)
         .padding(.vertical, 1.5)
         .background(rowFill)
-        .background(Color.white.opacity(0.03))
+        .background(Color.wash(0.03))
         .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: last ? 5 : 0, bottomTrailingRadius: last ? 5 : 0, style: .continuous))
         .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = QA.hover(h) } }
     }
@@ -928,7 +928,7 @@ struct LineRow: View {
         switch line.kind {
         case .add: Color.added.opacity(hover ? 0.13 : 0.085)
         case .del: Color.removed.opacity(hover ? 0.13 : 0.085)
-        default: Color.white.opacity(hover ? 0.03 : 0)
+        default: Color.wash(hover ? 0.03 : 0)
         }
     }
 }
@@ -945,7 +945,7 @@ struct InDiff<Content: View>: View {
             .padding(.leading, 108)
             .padding(.trailing, 14)
             .padding(.vertical, 7)
-            .background(Color.white.opacity(0.03))
+            .background(Color.wash(0.03))
     }
 }
 
@@ -1026,8 +1026,8 @@ struct ThreadView: View {
                     folded
                 }
             }
-            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color(hex: 0x0D1218)))
-            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.75))
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.card))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.wash(0.08), lineWidth: 0.75))
             .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
     }
@@ -1066,7 +1066,7 @@ struct ThreadView: View {
             .foregroundStyle(Color.text3)
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
-            .background(Color.white.opacity(0.02))
+            .background(Color.wash(0.02))
             .overlay(alignment: .top) { Rectangle().fill(Color.hair).frame(height: 0.5) }
         }
     }
@@ -1275,9 +1275,9 @@ struct Composer: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
-            .background(Color.white.opacity(0.025))
+            .background(Color.wash(0.025))
         }
-        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color(hex: 0x0E141B)))
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.card))
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
             .strokeBorder(Color.sonar.opacity(focused ? 0.5 : 0.22), lineWidth: focused ? 1 : 0.75))
@@ -1372,8 +1372,8 @@ struct MechanicalRow: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.white.opacity(0.025)))
-        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.white.opacity(0.06), style: StrokeStyle(lineWidth: 0.75, dash: [4, 4])))
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.wash(0.025)))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.wash(0.06), style: StrokeStyle(lineWidth: 0.75, dash: [4, 4])))
         .padding(.top, 36)
     }
 }

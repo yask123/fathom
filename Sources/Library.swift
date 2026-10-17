@@ -29,6 +29,7 @@ struct SavedState: Codable {
     var model = "opus"
     var ping = true
     var autoRead = false
+    var appearance = "system"
     var inbox: CachedInbox?
     var repo: String?                             // the repository open in the sidebar
     var repoPulls: [String: [PRSummary]] = [:]    // its open PRs as last seen, for an instant list
@@ -43,6 +44,7 @@ struct SavedState: Codable {
         model = try c.decodeIfPresent(String.self, forKey: .model) ?? "opus"
         ping = try c.decodeIfPresent(Bool.self, forKey: .ping) ?? true
         autoRead = try c.decodeIfPresent(Bool.self, forKey: .autoRead) ?? false
+        appearance = (try? c.decodeIfPresent(String.self, forKey: .appearance)) ?? "system"
         inbox = try? c.decodeIfPresent(CachedInbox.self, forKey: .inbox)
         repo = try? c.decodeIfPresent(String.self, forKey: .repo)
         repoPulls = (try? c.decodeIfPresent([String: [PRSummary]].self, forKey: .repoPulls)) ?? [:]

@@ -14,12 +14,13 @@ struct FathomApp: App {
             RootView()
                 .environment(store)
                 .frame(minWidth: 1180, minHeight: 740)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(store.appearance.scheme)
                 .onOpenURL { url in
                     if let ref = PRRef.parse(url.absoluteString) { store.open(ref) }
                 }
                 .onAppear {
                     delegate.store = store
+                    store.appearance.apply()
                     // FATHOM_WINDOW=1188x884 sizes the window for screenshots.
                     if let spec = store.env["FATHOM_WINDOW"]?.split(separator: "x").compactMap({ Double($0) }), spec.count == 2 {
                         for delay in [0.3, 1.5, 3.0] {
@@ -39,7 +40,7 @@ struct FathomApp: App {
         Settings {
             SettingsView()
                 .environment(store)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(store.appearance.scheme)
         }
     }
 }
@@ -48,7 +49,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var store: AppStore?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
-        NSApp.appearance = NSAppearance(named: .darkAqua)
         // gh, git and claude read our stdin; if one exits first, a write must fail quietly, not kill the app.
         signal(SIGPIPE, SIG_IGN)
     }

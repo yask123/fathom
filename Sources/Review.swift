@@ -28,7 +28,7 @@ struct ReviewSheet: View {
                         .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(Color.text3)
                         .frame(width: 26, height: 26)
-                        .background(Circle().fill(Color.white.opacity(0.06)))
+                        .background(Circle().fill(Color.wash(0.06)))
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut(.cancelAction)
@@ -80,8 +80,7 @@ struct ReviewSheet: View {
                 summaryFocused = true
             }
         }
-        .background(Color(hex: 0x0B0F16))
-        .preferredColorScheme(.dark)
+        .background(Color.sheet)
     }
 
     /// GitHub won't take a request for changes without words.
@@ -157,8 +156,8 @@ struct ReviewSheet: View {
                     .focused($summaryFocused)
             }
             .frame(height: 110)
-            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.white.opacity(0.04)))
-            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.white.opacity(0.08), lineWidth: 0.75))
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.wash(0.04)))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.wash(0.08), lineWidth: 0.75))
         }
     }
 
@@ -186,8 +185,8 @@ struct ReviewSheet: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
-            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(on ? tint.opacity(0.1) : Color.white.opacity(0.03)))
-            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(on ? tint.opacity(0.5) : Color.white.opacity(0.07), lineWidth: 0.75))
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(on ? tint.opacity(0.1) : Color.wash(0.03)))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(on ? tint.opacity(0.5) : Color.wash(0.07), lineWidth: 0.75))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -261,7 +260,7 @@ struct PendingRow: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.black.opacity(0.25)))
+                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.well(0.25)))
             }
             TextField("", text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
@@ -271,8 +270,8 @@ struct PendingRow: View {
                 .onChange(of: text) { session.updateComment(comment.id, body: text) }
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.white.opacity(0.035)))
-        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.white.opacity(0.07), lineWidth: 0.5))
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.wash(0.035)))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.wash(0.07), lineWidth: 0.5))
         .onHover { hover = QA.hover($0) }
         .onAppear { text = comment.body }
     }

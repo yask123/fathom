@@ -28,7 +28,7 @@ struct InterfaceCard: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(Color.white.opacity(0.03))
+            .background(Color.wash(0.03))
             .overlay(alignment: .bottom) { Rule() }
 
             VStack(alignment: .leading, spacing: 4) {
@@ -70,11 +70,11 @@ struct InterfaceCard: View {
                 .padding(.bottom, 10)
         }
         .frame(maxWidth: fill ? .infinity : 252, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color(hex: 0x0B0F16).opacity(0.9)))
+        .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.card))
         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .strokeBorder(hover ? Color.calm.opacity(0.55) : Color.white.opacity(0.1), lineWidth: 0.5)
+                .strokeBorder(hover ? Color.calm.opacity(0.55) : Color.wash(0.1), lineWidth: 0.5)
         }
         .contentShape(Rectangle())
         .onHover { hover = QA.hover($0) }

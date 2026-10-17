@@ -66,7 +66,7 @@ struct AskPanel: View {
                     .foregroundStyle(Color.text3)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(RoundedRectangle(cornerRadius: 5).fill(Color.white.opacity(0.06)))
+                    .background(RoundedRectangle(cornerRadius: 5).fill(Color.wash(0.06)))
             } else {
                 Button(action: send) {
                     Image(systemName: "arrow.up")
@@ -83,7 +83,7 @@ struct AskPanel: View {
         .padding(.trailing, 10)
         .padding(.vertical, 9)
         .frame(maxWidth: 620)
-        .glassEffect(.regular.tint(Color(hex: 0x0E141D, alpha: 0.6)).interactive(), in: .capsule)
+        .glassEffect(.regular.tint(Color.adaptive(light: 0xFFFFFF, dark: 0x0E141D, lightAlpha: 0.6, darkAlpha: 0.6)).interactive(), in: .capsule)
         .overlay {
             Capsule().strokeBorder(Color.sonar.opacity(focused ? 0.4 : 0.1), lineWidth: 0.75)
                 .allowsHitTesting(false)
@@ -152,7 +152,7 @@ struct Conversation: View {
         }
         .frame(maxHeight: 440)
         .fixedSize(horizontal: false, vertical: true)
-        .glassEffect(.regular.tint(Color(hex: 0x0B1018, alpha: 0.72)), in: .rect(cornerRadius: 24, style: .continuous))
+        .glassEffect(.regular.tint(Color.adaptive(light: 0xFAF8F2, dark: 0x0B1018, lightAlpha: 0.78, darkAlpha: 0.72)), in: .rect(cornerRadius: 24, style: .continuous))
         .shadow(color: .black.opacity(0.4), radius: 30, y: 14)
     }
 }
@@ -292,8 +292,8 @@ struct MarkdownText: View {
                         .padding(12)
                     }
                     .scrollIndicators(.never)
-                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.black.opacity(0.32)))
-                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.white.opacity(0.06), lineWidth: 0.5))
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.well(0.32)))
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color.wash(0.06), lineWidth: 0.5))
                 }
             }
         }
@@ -358,7 +358,7 @@ struct MarkdownText: View {
 
     /// Inline markdown, with `path/file.ext:12` code spans turned into jump links.
     private func linked(_ s: String) -> AttributedString {
-        var a = md(s, base: failed ? .changed : .text1.opacity(0.92), code: Color(hex: 0xBFE9E4), size: 13)
+        var a = md(s, base: failed ? .changed : .text1.opacity(0.92), code: Color.adaptive(light: 0x155E59, dark: 0xBFE9E4), size: 13)
         for run in a.runs {
             guard let intent = run.inlinePresentationIntent, intent.contains(.code) else { continue }
             let code = String(a[run.range].characters)
@@ -432,7 +432,7 @@ struct SuggestionBlock: View {
             }
         }
         .padding(.bottom, 4)
-        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.black.opacity(0.28)))
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.well(0.28)))
         .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(Color.added.opacity(0.22), lineWidth: 0.5))
     }

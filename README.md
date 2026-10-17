@@ -44,8 +44,9 @@ in within half a minute.
    - **Claude Code**: `curl -fsSL https://claude.ai/install.sh | bash` ([install guide](https://code.claude.com/docs/en/setup)).
      Then press **Open Terminal to Sign In**, or run `claude auth login` yourself. Readings use your Claude plan.
 
-You can come back to this any time in **Settings** (`⌘,`), along with the model (Opus or Sonnet) and whether to read
-new review requests in the background (off by default).
+You can come back to this any time in **Settings** (`⌘,`), along with the model (Opus or Sonnet), the appearance
+(light, on warm paper, or dark; it follows your Mac unless you pick one) and whether to read new review requests in
+the background (off by default).
 
 Fathom finds `gh` and `claude` the way your Terminal does: it reads your login shell's environment once at launch, so
 Homebrew, nvm, mise, Volta, `~/.local/bin`, proxies, `GH_HOST` and `CLAUDE_CONFIG_DIR` all carry over.
@@ -135,6 +136,7 @@ with them and captures its window; `SHOOT_QUIET=1` leaves it where it opens inst
 | `FATHOM_COMMENT=path:line`, `FATHOM_DRAFT="…"`, `FATHOM_ADD=1`, `FATHOM_REPLY=<thread id>` | open a comment box on a line (filled, or added to the review), or a reply in a thread |
 | `FATHOM_WINDOW=1188x884`, `FATHOM_NO_HOVER=1` | size the window; ignore the pointer (clean screenshots) |
 | `FATHOM_SIDEBAR=0`, `FATHOM_MUTE=1` | hide the sidebar, no sonar ping |
+| `FATHOM_APPEARANCE=light` | show the light (or `dark`) appearance without changing the saved choice |
 | `FATHOM_DUMP_PROMPT=/path` | write the reading prompt to a file |
 
 ## Website

@@ -83,7 +83,7 @@ struct WaitingRow: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
-            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.white.opacity(hover ? 0.04 : 0)))
+            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.wash(hover ? 0.04 : 0)))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
