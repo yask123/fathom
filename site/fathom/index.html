@@ -7,14 +7,14 @@
 <meta name="description" content="Fathom is a Mac app that reads a GitHub pull request as a story: what was wrong, the idea that fixes it, how it works now, and the choices it makes. Built for reviewing code that agents write.">
 <meta property="og:title" content="Fathom: Don’t read the diff. Fathom it.">
 <meta property="og:description" content="A Mac app that tells a pull request back as a short paper: the problem, the idea, how it works now, the choices it makes. Free and open source.">
-<meta property="og:image" content="https://yask.dev/fathom/assets/og-v10.jpg">
+<meta property="og:image" content="https://yask.dev/fathom/assets/og-v11.jpg">
 <meta property="og:url" content="https://yask.dev/fathom">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://yask.dev/fathom/assets/og-v10.jpg">
+<meta name="twitter:image" content="https://yask.dev/fathom/assets/og-v11.jpg">
 <link rel="icon" type="image/png" href="/fathom/assets/favicon.png">
 <link rel="apple-touch-icon" href="/fathom/assets/apple-touch-icon.png">
-<link rel="preload" as="image" href="/fathom/assets/v7-overview.webp">
+<link rel="preload" as="image" href="/fathom/assets/v8-overview-day.webp">
 <meta name="theme-color" content="#F7F6F2">
 <meta name="color-scheme" content="light">
 <script>
@@ -211,6 +211,7 @@ footer button:hover, footer a:hover { color: var(--ink); }
       <a href="#method">Method</a>
       <a href="#anatomy">Anatomy</a>
       <a href="#review">Review</a>
+      <a href="#appearance">Appearance</a>
       <a href="#install">Install</a>
     </nav>
     <a class="btn sm" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg">Download</a>
@@ -226,16 +227,16 @@ footer button:hover, footer a:hover { color: var(--ink); }
       <a class="btn" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg>Download for Mac</a>
       <a class="btn ghost" href="https://github.com/yask123/fathom">View source</a>
     </div>
-    <p class="meta"><span>v0.5</span><span>Notarized</span><span>macOS 26+</span><span>Free, MIT</span></p>
+    <p class="meta"><span>v0.6</span><span>Notarized</span><span>macOS 26+</span><span>Free, MIT</span></p>
   </section>
 
   <figure id="fig1">
     <div class="panel">
       <div class="stack">
-        <img class="shot on" src="/fathom/assets/v7-overview.webp" width="2400" height="1500" fetchpriority="high" alt="A reading’s title page: the pull request’s title, a byline, an abstract with run-in heads Problem, Idea and Now, and a table of contents.">
-        <img class="shot" src="/fathom/assets/v7-problem-fig.webp" width="2400" height="1500" loading="lazy" alt="The problem as a sequence diagram: actors across the top, time running down an axis, and the step where navigation stopped marked in red.">
-        <img class="shot" src="/fathom/assets/v7-idea.webp" width="2400" height="1500" loading="lazy" alt="The idea: WalkModel.generate with arrows to five parts, four of them new in green, each arrow labelled with what it does.">
-        <img class="shot" src="/fathom/assets/v7-now.webp" width="2400" height="1500" loading="lazy" alt="How it works now: the same sequence after the change, new steps in green, what each carries in angle brackets.">
+        <img class="shot on" src="/fathom/assets/v8-overview-day.webp" data-day="/fathom/assets/v8-overview-day.webp" data-night="/fathom/assets/v7-overview.webp" width="2400" height="1500" fetchpriority="high" alt="A reading’s title page: the pull request’s title, a byline, an abstract with run-in heads Problem, Idea and Now, and a table of contents.">
+        <img class="shot" src="/fathom/assets/v8-problem-day.webp" data-day="/fathom/assets/v8-problem-day.webp" data-night="/fathom/assets/v7-problem-fig.webp" width="2400" height="1500" loading="lazy" alt="The problem as a sequence diagram: actors across the top, time running down an axis, and the step where navigation stopped marked in red.">
+        <img class="shot" src="/fathom/assets/v8-idea-day.webp" data-day="/fathom/assets/v8-idea-day.webp" data-night="/fathom/assets/v7-idea.webp" width="2400" height="1500" loading="lazy" alt="The idea: WalkModel.generate with arrows to five parts, four of them new in green, each arrow labelled with what it does.">
+        <img class="shot" src="/fathom/assets/v8-now-day.webp" data-day="/fathom/assets/v8-now-day.webp" data-night="/fathom/assets/v7-now.webp" width="2400" height="1500" loading="lazy" alt="How it works now: the same sequence after the change, new steps in green, what each carries in angle brackets.">
       </div>
     </div>
     <div class="tabs" role="group" aria-label="Views of Figure 1">
@@ -329,7 +330,7 @@ footer button:hover, footer a:hover { color: var(--ink); }
   </section>
 
   <figure class="wide">
-    <div class="panel"><img class="shot" src="/fathom/assets/v7-choices.webp" width="2400" height="1500" loading="lazy" decoding="async" alt="Choices it makes: four cards, each with what was chosen, what it was chosen over, and why."></div>
+    <div class="panel"><img class="shot" src="/fathom/assets/v8-choices-day.webp" data-day="/fathom/assets/v8-choices-day.webp" data-night="/fathom/assets/v7-choices.webp" width="2400" height="1500" loading="lazy" decoding="async" alt="Choices it makes: four cards, each with what was chosen, what it was chosen over, and why."></div>
     <figcaption><span class="label accent">Fig. 3</span><p>Choices it makes, each drawn as a fork: the road taken, the road not taken, and the reason. Every card links to the code it describes.</p></figcaption>
   </figure>
 
@@ -353,8 +354,21 @@ footer button:hover, footer a:hover { color: var(--ink); }
   </section>
 
   <figure class="wide">
-    <div class="panel"><img class="shot" src="/fathom/assets/v7-changes.webp" width="2000" height="1250" loading="lazy" decoding="async" alt="Changes: chapters on the left; on the right the WalkModel changes with a short note above each, a pending review comment under one line and a comment box open under another."></div>
+    <div class="panel"><img class="shot" src="/fathom/assets/v8-changes-day.webp" data-day="/fathom/assets/v8-changes-day.webp" data-night="/fathom/assets/v7-changes.webp" width="2000" height="1250" loading="lazy" decoding="async" alt="Changes: chapters on the left; on the right the WalkModel changes with a short note above each, a pending review comment under one line and a comment box open under another."></div>
     <figcaption><span class="label accent">Fig. 4</span><p>Changes, regrouped into chapters. A comment waiting to be sent sits under one line; a new one is being written under another.</p></figcaption>
+  </figure>
+
+  <section class="section" id="appearance">
+    <div class="side"><span class="label"><b>05</b>Appearance</span></div>
+    <div class="body">
+      <h2>On paper by day, <em>on water by night</em></h2>
+      <p>Fathom reads as well at noon as at midnight. The light appearance is warm paper and ink rather than white, with the colours that mark what is new, broken and changed deepened to read on paper, and code set in printed inks. The dark one is deep water. It follows your Mac, or you can choose one in Settings.</p>
+    </div>
+  </section>
+
+  <figure class="wide">
+    <div class="panel"><img class="shot" src="/fathom/assets/v8-daynight.webp" width="2400" height="1500" loading="lazy" decoding="async" alt="The same page of a reading, the problem as a sequence diagram, shown half in the light appearance on warm paper and half in the dark appearance."></div>
+    <figcaption><span class="label accent">Fig. 5</span><p>The same reading by day and by night: the problem of walkai #46, light on the left, dark on the right.</p></figcaption>
   </figure>
 
   <div class="numbers" aria-label="By the numbers">
@@ -364,7 +378,7 @@ footer button:hover, footer a:hover { color: var(--ink); }
   </div>
 
   <section class="section" id="principle">
-    <div class="side"><span class="label"><b>05</b>Principle</span></div>
+    <div class="side"><span class="label"><b>06</b>Principle</span></div>
     <div class="body">
       <blockquote class="principle"><p>Fathom never tells you whether the code is good. It shows you what the code does.</p></blockquote>
       <p>So there are <span class="struck">no verdicts</span>, <span class="struck">no risk scores</span> and <span class="struck">no robot approvals</span>. A choice the pull request does not state is marked <i>inferred</i>, and every figure links back to the lines it was drawn from.</p>
@@ -372,7 +386,7 @@ footer button:hover, footer a:hover { color: var(--ink); }
   </section>
 
   <section class="section" id="install">
-    <div class="side"><span class="label"><b>06</b>Install</span></div>
+    <div class="side"><span class="label"><b>07</b>Install</span></div>
     <div class="body">
       <h2>Free, open source, <em>yours in a minute</em></h2>
       <ol class="steps">
@@ -411,7 +425,16 @@ footer button:hover, footer a:hover { color: var(--ink); }
 <script>
 (() => {
   const theme = document.getElementById('theme');
-  const label = () => { theme.textContent = document.documentElement.dataset.theme === 'dark' ? 'Light' : 'Dark'; };
+  // Screenshots match the page: the app's light appearance on paper, its dark one in the dark edition.
+  const shotsFor = () => {
+    const night = document.documentElement.dataset.theme === 'dark';
+    document.querySelectorAll('img[data-day]').forEach((img) => {
+      const want = night ? img.dataset.night : img.dataset.day;
+      if (img.getAttribute('src') !== want) img.setAttribute('src', want);
+    });
+  };
+  shotsFor();
+  const label = () => { theme.textContent = document.documentElement.dataset.theme === 'dark' ? 'Light' : 'Dark'; shotsFor(); };
   theme.addEventListener('click', () => {
     const dark = document.documentElement.dataset.theme !== 'dark';
     if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
