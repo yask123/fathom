@@ -15,9 +15,12 @@
 <link rel="icon" type="image/png" href="/fathom/assets/favicon.png">
 <link rel="apple-touch-icon" href="/fathom/assets/apple-touch-icon.png">
 <link rel="preload" as="image" href="/fathom/assets/v7-overview.webp">
-<meta name="theme-color" content="#F5F2EA" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#101216" media="(prefers-color-scheme: dark)">
-<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F5F2EA">
+<meta name="color-scheme" content="light">
+<script>
+  // The page is set on paper; the dark edition is there for whoever asks for it from the footer.
+  try { if (localStorage.getItem('fathom-theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -30,14 +33,9 @@
   --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   --measure: 640px;
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: #101216; --plate: #15181D; --ink: #E7E3D9; --ink-2: #BDB8AD; --ink-3: #8C887F;
-    --rule: rgba(231, 227, 217, .13); --rule-2: rgba(231, 227, 217, .3);
-    --accent: #A9BEDF; --new: #7CC7A0; --hurt: #E08A8A;
-  }
-}
+/* The dark edition, chosen from the footer. */
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --paper: #101216; --plate: #15181D; --ink: #E7E3D9; --ink-2: #BDB8AD; --ink-3: #8C887F;
   --rule: rgba(231, 227, 217, .13); --rule-2: rgba(231, 227, 217, .3);
   --accent: #A9BEDF; --new: #7CC7A0; --hurt: #E08A8A;
@@ -216,6 +214,8 @@ ol.refs .t { font-style: italic; }
 .final p { margin: 10px auto 0; max-width: 520px; color: var(--ink-2); font-style: italic; }
 .final .actions { margin-top: 26px; }
 footer { border-top: .5px solid var(--rule); margin-top: 60px; }
+footer .theme { appearance: none; background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-decoration: underline; text-decoration-thickness: .5px; text-underline-offset: .18em; text-decoration-color: var(--rule-2); }
+footer .theme:hover { color: var(--accent); }
 footer .in { max-width: 1080px; margin: 0 auto; padding: 22px 28px 40px; display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; font-size: 15px; color: var(--ink-3); }
 
 @media (max-width: 860px) { .head nav { display: none; } .head .dl { margin-left: auto; } }
@@ -440,7 +440,7 @@ footer .in { max-width: 1080px; margin: 0 auto; padding: 22px 28px 40px; display
 
 <footer>
   <div class="in">
-    <span>Set in STIX Two Text and IBM Plex Mono.</span>
+    <span>Set in STIX Two Text and IBM Plex Mono. <button class="theme" id="theme" type="button">Read in the dark</button></span>
     <span>Made by <a href="https://yask.dev">Yask Srivastava</a>, 2026.</span>
   </div>
 </footer>
@@ -448,6 +448,18 @@ footer .in { max-width: 1080px; margin: 0 auto; padding: 22px 28px 40px; display
 <script>
 (() => {
   // The running head gets its rule once the title has scrolled away.
+  // Paper by default; the footer switches to the dark edition and remembers it.
+  const theme = document.getElementById('theme');
+  const label = () => { theme.textContent = document.documentElement.dataset.theme === 'dark' ? 'Read on paper' : 'Read in the dark'; };
+  theme.addEventListener('click', () => {
+    const dark = document.documentElement.dataset.theme !== 'dark';
+    if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
+    try { localStorage.setItem('fathom-theme', dark ? 'dark' : 'light'); } catch (e) {}
+    document.querySelector('meta[name="theme-color"]').content = dark ? '#101216' : '#F5F2EA';
+    label();
+  });
+  label();
+
   const head = document.getElementById('head');
   const onScroll = () => head.classList.toggle('ruled', scrollY > 24);
   addEventListener('scroll', onScroll, { passive: true }); onScroll();
