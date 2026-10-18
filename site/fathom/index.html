@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Fathom: See the system, not the diff</title>
-<meta name="description" content="Fathom is a Mac app that turns a GitHub pull request into the system it changes: every part and how they talk, how a request ran before and runs now, what it trades and what could break. Built for reviewing code that agents write.">
-<meta property="og:title" content="Fathom: Don’t read the diff. Fathom it.">
-<meta property="og:description" content="A Mac app that turns a pull request into the system it changes: before and after, the design, the trade-offs, the risks and the open questions. Free and open source.">
-<meta property="og:image" content="https://yask.dev/fathom/assets/og-v13.jpg">
+<title>Fathom: AI writes the code. You review the system.</title>
+<meta name="description" content="Fathom turns a pull request into the system it changes: parts, wires, before and after, trade-offs and risks. AI reads every line; you review the design. Free Mac app.">
+<meta property="og:title" content="Fathom: AI writes the code. You review the system.">
+<meta property="og:description" content="AI reads every line. You review the design. A free Mac app that turns pull requests into the systems they change.">
+<meta property="og:image" content="https://yask.dev/fathom/assets/og-v14.jpg">
 <meta property="og:url" content="https://yask.dev/fathom">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://yask.dev/fathom/assets/og-v13.jpg">
+<meta name="twitter:image" content="https://yask.dev/fathom/assets/og-v14.jpg">
 <link rel="icon" type="image/png" href="/fathom/assets/favicon.png">
 <link rel="apple-touch-icon" href="/fathom/assets/apple-touch-icon.png">
 <meta name="theme-color" content="#F5F3EE">
@@ -67,11 +67,11 @@ h1 em, h2 em { font-style: italic; color: var(--sig); }
 .btn.sm { height: 36px; padding: 0 16px; font-size: 14px; }
 
 /* Hero */
-.hero { position: relative; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 24px; align-items: center; min-height: calc(100svh - 64px); padding: 24px 0 40px; }
+.hero { position: relative; display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 6fr); gap: 24px; align-items: center; min-height: calc(100svh - 64px); padding: 24px 0 40px; }
 .hero-copy { position: relative; z-index: 2; padding-bottom: 24px; }
 .eyebrow { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 26px; }
 .eyebrow i { width: 7px; height: 7px; border-radius: 50%; background: var(--sig); box-shadow: 0 0 0 4px color-mix(in srgb, var(--sig) 18%, transparent); }
-h1 { font-size: clamp(46px, 6.1vw, 82px); line-height: .98; letter-spacing: -.035em; }
+h1 { font-size: clamp(42px, 4.5vw, 64px); line-height: 1.02; letter-spacing: -.033em; }
 h1 em { display: block; }
 .lede { margin: 26px 0 0; max-width: 34em; font-size: 18.5px; line-height: 1.6; color: var(--ink-2); }
 .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
@@ -97,11 +97,13 @@ h1 em { display: block; }
 .phase { flex: none; font: 500 10.5px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 6px 9px; border-radius: 999px; color: var(--del); background: color-mix(in srgb, var(--del) 10%, transparent); transition: color .4s, background .4s; }
 .phase.after { color: var(--add); background: color-mix(in srgb, var(--add) 12%, transparent); }
 .cap .cap-text { font-family: var(--serif); font-size: 16px; font-style: italic; }
-.proof { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); }
-.proof div { padding: 22px 0 26px; display: flex; gap: 14px; align-items: baseline; }
-.proof div + div { padding-left: 28px; border-left: 1px solid var(--line); }
-.proof b { font: 400 30px/1 var(--serif); letter-spacing: -.02em; }
-.proof span { font-size: 14px; color: var(--ink-2); line-height: 1.4; }
+.strip { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 26px 0; }
+.strip div { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 14px; align-items: end; }
+.strip .label { grid-column: 1 / -1; margin-bottom: 10px; }
+.strip b { font: 400 54px/.9 var(--serif); letter-spacing: -.03em; }
+.strip span:last-child { font: italic 400 20px/1 var(--serif); color: var(--ink-2); padding-bottom: 4px; }
+.strip .you b, .strip .you span:last-child { color: var(--sig); }
+.strip i { font-style: normal; font-size: 22px; color: var(--ink-3); padding: 0 28px; }
 
 /* Sections */
 section.block { padding-top: 140px; }
@@ -110,25 +112,18 @@ section.block { padding-top: 140px; }
 .head h2 { font-size: clamp(36px, 4.4vw, 58px); line-height: 1.04; margin-top: 18px; }
 .head p { margin: 22px 0 0; font-size: 18.5px; color: var(--ink-2); max-width: 36em; }
 
-.shift { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 72px; align-items: end; }
-.shift .body p { margin: 0 0 18px; font-size: 18px; color: var(--ink-2); }
-.shift .body p:first-child { color: var(--ink); font-family: var(--serif); font-size: 23px; line-height: 1.45; letter-spacing: -.01em; }
-.funnel { margin-top: 72px; display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: stretch; gap: 0; }
-.funnel .cell { padding: 28px 26px 30px; border-radius: 18px; background: var(--card); box-shadow: 0 0 0 1px var(--line); }
-.funnel .cell .v { margin-top: 16px; font: 400 44px/1 var(--serif); letter-spacing: -.03em; }
-.funnel .cell .v small { font-size: 18px; color: var(--ink-3); margin-left: 6px; letter-spacing: 0; }
-.funnel .cell p { margin: 12px 0 0; font-size: 15px; color: var(--ink-2); line-height: 1.5; }
-.funnel .arrow { display: grid; place-items: center; width: 64px; color: var(--ink-3); }
-.funnel .arrow svg { width: 30px; height: 12px; }
-.funnel .cell.last { background: color-mix(in srgb, var(--sig) 7%, var(--card)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--sig) 28%, transparent); }
-.funnel .cell.last .v { color: var(--sig); }
-.diffwall { margin-top: 18px; height: 54px; display: flex; flex-direction: column; gap: 3px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 40%, transparent); mask-image: linear-gradient(#000 40%, transparent); }
-.diffwall i { display: block; flex: none; height: 3px; border-radius: 2px; background: var(--line-2); }
-.diffwall i.a { background: color-mix(in srgb, var(--add) 55%, transparent); }
-.diffwall i.d { background: color-mix(in srgb, var(--del) 55%, transparent); }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 56px; }
+.split .col { border-radius: 20px; padding: 30px 32px 34px; background: var(--card); box-shadow: 0 0 0 1px var(--line); }
+.split .col.you { background: color-mix(in srgb, var(--sig) 7%, var(--card)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--sig) 28%, transparent); }
+.split ul { list-style: none; margin: 18px 0 0; padding: 0; }
+.split li { padding: 14px 0; border-top: 1px solid var(--line); font-size: 18px; color: var(--ink-2); display: flex; gap: 12px; align-items: baseline; }
+.split li:first-child { border-top: 0; }
+.split .col:not(.you) li::before { content: '✓'; font: 500 13px var(--mono); color: var(--ink-3); }
+.split .you li { font: 400 26px/1.2 var(--serif); letter-spacing: -.015em; color: var(--ink); }
+.split .you li:last-child { color: var(--sig); font-style: italic; }
 
 /* The scroll story */
-.story { position: relative; height: 430vh; margin-top: 120px; }
+.story { position: relative; height: 360vh; margin-top: 120px; }
 .pin { position: sticky; top: 0; height: 100svh; overflow: hidden; display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 24px; align-items: center; }
 .story-copy { position: relative; }
 .steps { position: relative; height: 340px; }
@@ -146,7 +141,7 @@ section.block { padding-top: 140px; }
 /* The reading */
 .show { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 64px; margin-top: 70px; }
 .items { display: flex; flex-direction: column; }
-.item { min-height: 62svh; display: flex; flex-direction: column; justify-content: center; padding: 24px 0; opacity: .32; transition: opacity .45s; }
+.item { min-height: 44svh; display: flex; flex-direction: column; justify-content: center; padding: 24px 0; opacity: .32; transition: opacity .45s; }
 .item.on { opacity: 1; }
 .item .n { font: 500 12px var(--mono); letter-spacing: .1em; color: var(--ink-3); text-transform: uppercase; }
 .item.on .n { color: var(--sig); }
@@ -204,9 +199,8 @@ footer a { color: var(--ink-2); }
 @media (max-width: 980px) {
   .hero { grid-template-columns: minmax(0, 1fr); min-height: 0; padding-top: 40px; }
   .stage { height: 72vw; min-height: 340px; }
-  .shift, .hood, .install { grid-template-columns: minmax(0, 1fr); gap: 36px; }
-  .funnel { grid-template-columns: minmax(0, 1fr); }
-  .funnel .arrow { width: auto; height: 40px; transform: rotate(90deg); }
+  .hood, .install, .split { grid-template-columns: minmax(0, 1fr); gap: 36px; }
+  .split { gap: 14px; }
   .pin { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); align-content: start; padding-top: 70px; gap: 0; }
   .pin .stage { order: -1; height: 50svh; min-height: 0; }
   .steps { height: 230px; }
@@ -221,8 +215,13 @@ footer a { color: var(--ink-2); }
 @media (max-width: 640px) {
   .wrap { padding: 0 16px; }
   body { font-size: 16px; }
-  .proof { grid-template-columns: minmax(0, 1fr); }
-  .proof div + div { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
+  .strip { grid-template-columns: 1fr auto 1fr auto 1fr; padding: 20px 0; }
+  .strip b { font-size: 36px; }
+  .strip span:last-child { font-size: 15px; }
+  .strip div { grid-template-columns: minmax(0, 1fr); }
+  .strip .label { font-size: 9.5px; letter-spacing: .08em; }
+  .strip i { padding: 0 8px; font-size: 16px; }
+  .split .you li { font-size: 22px; }
   .trust { grid-template-columns: minmax(0, 1fr); }
   section.block { padding-top: 96px; }
   .lp { font-size: 9px; padding: 2px 4px; }
@@ -248,10 +247,9 @@ footer a { color: var(--ink-2); }
   <div class="wrap">
     <a class="brand" href="#top"><img src="/fathom/assets/icon-512.webp" alt="" width="26" height="26">Fathom</a>
     <nav class="links" aria-label="Sections">
-      <a href="#shift">Why</a>
-      <a href="#story">How it reads</a>
-      <a href="#reading">The reading</a>
-      <a href="#hood">Under the hood</a>
+      <a href="#why">Why</a>
+      <a href="#story">How it works</a>
+      <a href="#reading">The pages</a>
       <a href="#install">Install</a>
     </nav>
     <a class="btn sm" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg">Download</a>
@@ -262,58 +260,54 @@ footer a { color: var(--ink-2); }
   <div class="wrap">
     <section class="hero">
       <div class="hero-copy">
-        <p class="eyebrow label"><i></i>Fathom for Mac · free and open source</p>
-        <h1>Don’t read the diff. <em>Fathom it.</em></h1>
-        <p class="lede">Fathom turns a pull request into the system it changes: every part and how they talk, how a request ran before and runs now, what it trades and what could break. Review AI‑written code at the level that matters, in minutes.</p>
+        <p class="eyebrow label"><i></i>Fathom · pull request review for the AI era</p>
+        <h1>AI writes the code. <em>You review the system.</em></h1>
+        <p class="lede">Fathom turns any pull request into the system it changes, so your review goes where it matters.</p>
         <div class="cta">
           <a class="btn" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg>Download for Mac</a>
           <a class="btn ghost" href="https://github.com/yask123/fathom">View source</a>
         </div>
-        <p class="fine">v0.7 · macOS 26+ · Apple silicon and Intel · runs on your own GitHub CLI and Claude Code</p>
+        <p class="fine">Free · open source · macOS 26+</p>
       </div>
       <div class="stage" id="hero-stage" role="img" aria-label="An exploded drawing of a system in three layers: the iOS app, its API server and OpenAI, with the parts of a pull request as blocks built from their changed lines. A request travels the wires: before the change it stops at WalkModel; after, a new part answers it on the phone and the rest goes through the server.">
         <canvas></canvas>
         <div class="labels"></div>
         <img class="fallback" src="/fathom/assets/v9-design-day.webp" data-day="/fathom/assets/v9-design-day.webp" data-night="/fathom/assets/v9-design.webp" alt="">
-        <div class="cap"><span class="phase">Before</span><span class="cap-text">A question mid-walk reaches WalkModel, which resets the route and stops navigation.</span></div>
+        <div class="cap"><span class="phase">Before</span><span class="cap-text">A question mid-walk resets the route.</span></div>
       </div>
     </section>
-    <div class="proof">
-      <div><b>3</b><span>readings in parallel: the outline, the story, and a referee’s</span></div>
-      <div><b>7</b><span>pages, each one sentence and one figure</span></div>
-      <div><b>0</b><span>servers or accounts. Your GitHub, your Claude plan</span></div>
+    <div class="strip" aria-label="One pull request, three ways">
+      <div><span class="label">The diff</span><b>32</b><span>files</span></div>
+      <i aria-hidden="true">→</i>
+      <div><span class="label">The system</span><b>7</b><span>parts</span></div>
+      <i aria-hidden="true">→</i>
+      <div class="you"><span class="label sig">Needs you</span><b>4</b><span>questions</span></div>
     </div>
   </div>
 
-  <section class="block wrap" id="shift">
-    <div class="shift">
-      <div class="head">
-        <p class="label sig">Why</p>
-        <h2>Code got cheap. <em>Understanding didn’t.</em></h2>
-      </div>
-      <div class="body">
-        <p>Agents write pull requests faster than anyone can read them, and a bot can check that they do what they say.</p>
-        <p>What no bot can decide is whether the design is right: what it touches, what it gives up, what it could break once it ships. That is the reviewer’s job now, and a diff is the wrong shape for it. It is ordered by file, not by thought, and every line weighs the same.</p>
-      </div>
+  <section class="block wrap" id="why">
+    <div class="head">
+      <p class="label sig">Why</p>
+      <h2>Let AI read every line. <em>You judge the design.</em></h2>
     </div>
-    <div class="funnel" aria-label="One pull request, three ways">
-      <div class="cell">
-        <span class="label">The diff</span>
-        <div class="v">32<small>files</small></div>
-        <p>+2,894 −148 lines, in the order the files sort.</p>
-        <div class="diffwall" aria-hidden="true" id="wall"></div>
+    <div class="split">
+      <div class="col">
+        <span class="label">Fathom</span>
+        <ul>
+          <li>Reads the diff and the repo</li>
+          <li>Maps the parts and how they talk</li>
+          <li>Replays the request, before and after</li>
+          <li>Scores trade-offs, finds the risks</li>
+        </ul>
       </div>
-      <div class="arrow" aria-hidden="true"><svg viewBox="0 0 30 12" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M0 6h28M23 1.5 28 6l-5 4.5"/></svg></div>
-      <div class="cell">
-        <span class="label">The system</span>
-        <div class="v">7<small>parts</small></div>
-        <p>in 3 processes, with every boundary the change crosses marked.</p>
-      </div>
-      <div class="arrow" aria-hidden="true"><svg viewBox="0 0 30 12" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M0 6h28M23 1.5 28 6l-5 4.5"/></svg></div>
-      <div class="cell last">
-        <span class="label sig">Your judgement</span>
-        <div class="v">4<small>questions</small></div>
-        <p>worth your time, and 4 hazards, 2 of them unguarded.</p>
+      <div class="col you">
+        <span class="label sig">You</span>
+        <ul>
+          <li>Is this the right design?</li>
+          <li>Is the trade-off worth it?</li>
+          <li>Can we undo it?</li>
+          <li>Ship it?</li>
+        </ul>
       </div>
     </div>
   </section>
@@ -321,12 +315,12 @@ footer a { color: var(--ink-2); }
   <section class="story" id="story" aria-label="From lines to a system">
     <div class="wrap pin">
       <div class="story-copy">
-        <p class="label sig story-label">How it reads</p>
+        <p class="label sig story-label">How it works</p>
         <div class="steps">
-          <article class="step on" data-i="0"><span class="n">01</span><h3>A pull request arrives as a list.</h3><p>Thirty-two files of changes, sorted by name. The idea is in there somewhere, spread across every one of them.</p></article>
-          <article class="step" data-i="1"><span class="n">02</span><h3>Fathom finds the parts.</h3><p>It reads the diff and the repository, and gathers the lines into the parts they change, in the processes they run in. Mechanical churn falls away.</p></article>
-          <article class="step" data-i="2"><span class="n">03</span><h3>And how they talk.</h3><p>Calls, data and contracts between the parts, with every crossing of a process boundary marked: the places a change can break someone else.</p></article>
-          <article class="step" data-i="3"><span class="n">04</span><h3>Then shows you what changed.</h3><p>The same request, before and after. Before, a question mid-walk stopped navigation. After, it’s answered on the phone, and the walk goes on.</p></article>
+          <article class="step on" data-i="0"><span class="n">01</span><h3>A diff is a list.</h3><p>32 files, sorted by name.</p></article>
+          <article class="step" data-i="1"><span class="n">02</span><h3>Fathom finds the parts.</h3><p>Lines become the parts they change. Noise falls away.</p></article>
+          <article class="step" data-i="2"><span class="n">03</span><h3>And how they talk.</h3><p>Every call. Every boundary crossed.</p></article>
+          <article class="step" data-i="3"><span class="n">04</span><h3>Then what changed.</h3><p>The same request, before and after.</p></article>
         </div>
         <div class="ticks" aria-hidden="true"><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i></div>
       </div>
@@ -341,19 +335,18 @@ footer a { color: var(--ink-2); }
 
   <section class="block wrap" id="reading">
     <div class="head">
-      <p class="label sig">The reading</p>
-      <h2>Seven pages. <em>One sentence and one figure each.</em></h2>
-      <p>Every pull request is read the same way, as a short paper you referee, so you always know where to look. Each figure links back to the lines it was drawn from.</p>
+      <p class="label sig">The pages</p>
+      <h2>Seven pages. <em>No walls of text.</em></h2>
     </div>
     <div class="show">
       <div class="items">
-        <div class="item on" data-i="0"><span class="n">Abstract</span><h3>Vital signs first.</h3><p>What kind of change, whether a revert would undo it, how risky, how far it reaches, what’s still open. Then the whole pull request in three sentences: <i>Problem</i>, <i>Move</i>, <i>Price</i>.</p><img src="/fathom/assets/v9-abstract-day.webp" data-day="/fathom/assets/v9-abstract-day.webp" data-night="/fathom/assets/v9-abstract.webp" width="2400" height="1500" loading="lazy" alt="The abstract page"></div>
-        <div class="item" data-i="1"><span class="n">01 · Behaviour</span><h3>Behaviour, as a diff.</h3><p>One journey through the system, before and after, marked the way a code diff marks lines: + added, − gone, ~ changed. Red marks where it broke.</p><img src="/fathom/assets/v9-behaviour-day.webp" data-day="/fathom/assets/v9-behaviour-day.webp" data-night="/fathom/assets/v9-behaviour.webp" width="2400" height="1500" loading="lazy" alt="The behaviour page"></div>
-        <div class="item" data-i="2"><span class="n">02 · Design</span><h3>The system, as a blueprint.</h3><p>Each process a box, what crosses between the parts on every wire, every boundary crossing marked. Then Box 1 teaches the engineering idea the change rests on.</p><img src="/fathom/assets/v9-design-day.webp" data-day="/fathom/assets/v9-design-day.webp" data-night="/fathom/assets/v9-design.webp" width="2400" height="1500" loading="lazy" alt="The design page"></div>
-        <div class="item" data-i="3"><span class="n">03 · Trade-offs</span><h3>Every decision, scored.</h3><p>The options as columns, what separates them as rows. The road taken is shaded, and it has to lose somewhere. Stated or inferred, always marked.</p><img src="/fathom/assets/v9-tradeoffs-day.webp" data-day="/fathom/assets/v9-tradeoffs-day.webp" data-night="/fathom/assets/v9-tradeoffs.webp" width="2400" height="1500" loading="lazy" alt="The trade-offs page"></div>
-        <div class="item" data-i="4"><span class="n">04 · Risk</span><h3>A one-way door, or two?</h3><p>Whether a revert undoes it, and each hazard by likelihood and impact, with its trigger and what guards it. Filled marks have nothing guarding them.</p><img src="/fathom/assets/v9-risk-day.webp" data-day="/fathom/assets/v9-risk-day.webp" data-night="/fathom/assets/v9-risk.webp" width="2400" height="1500" loading="lazy" alt="The risk page"></div>
-        <div class="item" data-i="5"><span class="n">05 · Questions</span><h3>The questions worth asking.</h3><p>What the diff leaves open. Settle it yourself, have Fathom dig into the repository, or send it to the author as a comment on the code.</p><img src="/fathom/assets/v9-questions-day.webp" data-day="/fathom/assets/v9-questions-day.webp" data-night="/fathom/assets/v9-questions.webp" width="2400" height="1500" loading="lazy" alt="The questions page"></div>
-        <div class="item" data-i="6"><span class="n">Changes</span><h3>And when you want the lines.</h3><p>The whole diff regrouped into chapters by purpose, marked read, skim or skip, with GitHub’s conversations on the lines they’re about. Comment, reply, suggest, and send one review under your name.</p><img src="/fathom/assets/v8-changes-day.webp" data-day="/fathom/assets/v8-changes-day.webp" data-night="/fathom/assets/v7-changes.webp" width="2000" height="1250" loading="lazy" alt="The changes view"></div>
+        <div class="item on" data-i="0"><span class="n">Abstract</span><h3>Vital signs.</h3><p>Kind, risk, reach, reversibility. The PR in three sentences.</p><img src="/fathom/assets/v9-abstract-day.webp" data-day="/fathom/assets/v9-abstract-day.webp" data-night="/fathom/assets/v9-abstract.webp" width="2400" height="1500" loading="lazy" alt="The abstract page"></div>
+        <div class="item" data-i="1"><span class="n">01 · Behaviour</span><h3>Behaviour, as a diff.</h3><p>+ added, − gone, ~ changed. Red where it broke.</p><img src="/fathom/assets/v9-behaviour-day.webp" data-day="/fathom/assets/v9-behaviour-day.webp" data-night="/fathom/assets/v9-behaviour.webp" width="2400" height="1500" loading="lazy" alt="The behaviour page"></div>
+        <div class="item" data-i="2"><span class="n">02 · Design</span><h3>The system, as a blueprint.</h3><p>Processes, parts, every boundary crossed.</p><img src="/fathom/assets/v9-design-day.webp" data-day="/fathom/assets/v9-design-day.webp" data-night="/fathom/assets/v9-design.webp" width="2400" height="1500" loading="lazy" alt="The design page"></div>
+        <div class="item" data-i="3"><span class="n">03 · Trade-offs</span><h3>Every decision, scored.</h3><p>What it chose, and what it gave up.</p><img src="/fathom/assets/v9-tradeoffs-day.webp" data-day="/fathom/assets/v9-tradeoffs-day.webp" data-night="/fathom/assets/v9-tradeoffs.webp" width="2400" height="1500" loading="lazy" alt="The trade-offs page"></div>
+        <div class="item" data-i="4"><span class="n">04 · Risk</span><h3>A one-way door?</h3><p>Hazards by likelihood and impact. Unguarded ones filled.</p><img src="/fathom/assets/v9-risk-day.webp" data-day="/fathom/assets/v9-risk-day.webp" data-night="/fathom/assets/v9-risk.webp" width="2400" height="1500" loading="lazy" alt="The risk page"></div>
+        <div class="item" data-i="5"><span class="n">05 · Questions</span><h3>Questions worth asking.</h3><p>Ask Fathom to dig, or ask the author.</p><img src="/fathom/assets/v9-questions-day.webp" data-day="/fathom/assets/v9-questions-day.webp" data-night="/fathom/assets/v9-questions.webp" width="2400" height="1500" loading="lazy" alt="The questions page"></div>
+        <div class="item" data-i="6"><span class="n">Changes</span><h3>The lines, when you want them.</h3><p>Chaptered by purpose. One review, under your name.</p><img src="/fathom/assets/v8-changes-day.webp" data-day="/fathom/assets/v8-changes-day.webp" data-night="/fathom/assets/v7-changes.webp" width="2000" height="1250" loading="lazy" alt="The changes view"></div>
       </div>
       <div class="frame" aria-hidden="true">
         <div class="stack">
@@ -373,8 +366,8 @@ footer a { color: var(--ink-2); }
     <div class="hood">
       <div class="head">
         <p class="label sig">Under the hood</p>
-        <h2>Three readings, <em>in parallel, on your Mac.</em></h2>
-        <p>Fathom labels every hunk of the diff and asks your own Claude Code for three things at once: an outline, the story, and a referee’s reading. The story and the referee look around a read-only checkout, so figures name real types, and a risk is checked against who actually calls the code before it is named.</p>
+        <h2>Three readings. <em>Under a minute.</em></h2>
+        <p>Your Claude Code reads the PR three ways at once, with a read-only look at the repo.</p>
       </div>
       <div>
         <div class="pipe">
@@ -400,9 +393,9 @@ footer a { color: var(--ink-2); }
           </svg>
         </div>
         <div class="trust">
-          <div><h3>Your GitHub</h3><p>Through <code>gh</code> and your login. A review is posted only when you submit it.</p></div>
-          <div><h3>Your Claude</h3><p>Through Claude Code on your plan, with read-only tools and none of your MCP servers or hooks.</p></div>
-          <div><h3>Nothing else</h3><p>No servers, no analytics. Readings stay in your Library folder.</p></div>
+          <div><h3>Your GitHub</h3><p>Posts only when you submit.</p></div>
+          <div><h3>Your Claude plan</h3><p>Read-only. No MCP, no hooks.</p></div>
+          <div><h3>No servers</h3><p>Readings stay on your Mac.</p></div>
         </div>
       </div>
     </div>
@@ -411,8 +404,8 @@ footer a { color: var(--ink-2); }
   <section class="block wrap">
     <div class="principle">
       <p class="label sig">Principle</p>
-      <blockquote>Fathom never tells you whether to ship. <em>It shows you what you’d be shipping.</em></blockquote>
-      <p>So there are <span class="struck">no verdicts</span>, <span class="struck">no generic advice</span> and <span class="struck">no robot approvals</span>. A risk is named only when the diff shows it, with its trigger and what guards it. A reason the pull request doesn’t state is marked <i>inferred</i>.</p>
+      <blockquote>It never tells you to ship. <em>It shows you what you’re shipping.</em></blockquote>
+      <p><span class="struck">No verdicts.</span> <span class="struck">No generic advice.</span> <span class="struck">No robot approvals.</span></p>
     </div>
   </section>
 
@@ -421,17 +414,17 @@ footer a { color: var(--ink-2); }
       <div class="head">
         <p class="label sig">Install</p>
         <h2>Yours in <em>a minute.</em></h2>
-        <p>Free and open source under the MIT licence. Signed and notarized by Apple.</p>
+        <p>Free, open source, notarized.</p>
         <div class="cta">
           <a class="btn" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg>Download for Mac</a>
           <a class="btn ghost" href="https://github.com/yask123/fathom">View source</a>
         </div>
       </div>
       <ol class="steps-list">
-        <li><span><b>Download Fathom</b>, drag it into Applications and open it.</span></li>
-        <li><span><b>Install the GitHub CLI</b>, then press Sign In to GitHub in Fathom. It shows a one-time code and finishes by itself.<pre>brew install gh</pre></span></li>
-        <li><span><b>Install Claude Code</b> and sign in once. Readings use your Claude plan.<pre>curl -fsSL https://claude.ai/install.sh | bash</pre></span></li>
-        <li><span><b>Pick a repository</b>, then a pull request. Or paste a link.</span></li>
+        <li><span><b>Download</b> and open Fathom.</span></li>
+        <li><span><b>GitHub CLI</b>, then Sign In in the app.<pre>brew install gh</pre></span></li>
+        <li><span><b>Claude Code</b>, signed in once.<pre>curl -fsSL https://claude.ai/install.sh | bash</pre></span></li>
+        <li><span><b>Open a pull request.</b></span></li>
       </ol>
     </div>
     <div class="close">
@@ -445,7 +438,7 @@ footer a { color: var(--ink-2); }
 
 <footer>
   <div class="wrap">
-    <span>Fathom · made by <a href="https://yask.dev">Yask Srivastava</a>, 2026 · every figure is Fathom reading walkai #46</span>
+    <span>Fathom · made by <a href="https://yask.dev">Yask Srivastava</a>, 2026 · figures: Fathom reading walkai #46</span>
     <span><a href="https://github.com/yask123/fathom">GitHub</a> · <button id="theme" type="button">Dark</button></span>
   </div>
 </footer>
@@ -475,19 +468,6 @@ footer a { color: var(--ink-2); }
   const nav = document.getElementById('nav');
   const ruled = () => nav.classList.toggle('ruled', scrollY > 8);
   addEventListener('scroll', ruled, { passive: true }); ruled();
-
-  // A wall of diff, for scale.
-  const wall = document.getElementById('wall');
-  let s = 11;
-  const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
-  for (let k = 0; k < 14; k++) {
-    const i = document.createElement('i');
-    const v = r();
-    i.className = v < .45 ? 'a' : v < .55 ? 'd' : '';
-    i.style.width = `${30 + r() * 65}%`;
-    i.style.marginLeft = `${Math.floor(r() * 4) * 4}%`;
-    wall.appendChild(i);
-  }
 
   // The reading: the screenshot follows the item in the middle of the screen.
   const items = [...document.querySelectorAll('.item')];
@@ -624,8 +604,8 @@ const AFTER_A = [['vm', 1], ['ml', 1], ['ml', -1], ['vm', -1]];
 const AFTER_B = [['vm', 1], ['mp', 1], ['pa', 1], ['al', 1], ['al', -1], ['pa', -1], ['mp', -1], ['vm', -1]];
 const LOOP = 17;
 const CAPTIONS = {
-  before: 'A question mid-walk reaches WalkModel, which resets the route and stops navigation.',
-  after: 'Common questions are answered on the phone; the rest go to the server with context. The walk goes on.',
+  before: 'A question mid-walk resets the route.',
+  after: 'A new part answers on the phone. The walk goes on.',
 };
 
 class SystemScene {
@@ -796,7 +776,7 @@ class SystemScene {
     this.arrive.rotation.x = -Math.PI / 2;
     this.arrive.position.set(part.view.x, top(part.view) + .02, part.view.z);
     s.add(this.ripple, this.arrive);
-    this.pain = this.label('lx', 'reset() stops navigation before the question is read', this.cross.position.clone());
+    this.pain = this.label('lx', 'reset() stops navigation', this.cross.position.clone());
 
     this.recolor();
   }
