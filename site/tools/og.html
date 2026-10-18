@@ -5,21 +5,20 @@
 <title>Fathom OG</title>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&family=Geist:wght@400..600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; background: #F7F6F2; }
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; background: #F5F3EE; }
   .og { position: relative; width: 1200px; height: 630px; overflow: hidden; color: #121212; font-family: 'Newsreader', serif; }
   .brand { position: absolute; left: 64px; top: 52px; display: flex; align-items: center; gap: 12px; font: 600 22px/1 'Geist', sans-serif; letter-spacing: -.01em; }
   .brand img { width: 34px; height: 34px; border-radius: 8px; }
   .label { position: absolute; left: 64px; top: 150px; display: flex; align-items: center; gap: 10px; font: 500 15px/1 'Geist Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: #8A8882; }
-  .label i { width: 7px; height: 7px; border-radius: 50%; background: #C2452D; }
+  .label i { width: 7px; height: 7px; border-radius: 50%; background: #1B7C76; }
   h1 { position: absolute; left: 62px; top: 180px; width: 500px; margin: 0; font: 400 68px/1.02 'Newsreader', serif; letter-spacing: -.03em; font-variation-settings: "opsz" 72; }
   h1 .l1 { display: block; text-wrap: balance; }
-  h1 em { display: block; font-style: italic; color: #C2452D; letter-spacing: -.02em; }
+  h1 em { display: block; font-style: italic; color: #1B7C76; letter-spacing: -.02em; }
   .dek { position: absolute; left: 64px; top: 428px; width: 470px; margin: 0; font-size: 23px; line-height: 1.45; color: #4E4D49; }
   .meta { position: absolute; left: 64px; bottom: 50px; font: 400 15px/1 'Geist Mono', monospace; color: #8A8882; }
-  .panel { position: absolute; left: 610px; top: 96px; width: 600px; height: 440px; padding: 30px; background: #EEECE6; border-radius: 22px; }
-  .panel img { display: block; width: 560px; border-radius: 10px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .1), 0 24px 50px -28px rgba(0, 0, 0, .5); }
-  .cap { position: absolute; left: 640px; top: 558px; font: 500 13px/1 'Geist Mono', monospace; letter-spacing: .08em; color: #C2452D; }
-  .cap span { font: 400 17px/1 'Newsreader', serif; letter-spacing: 0; color: #4E4D49; margin-left: 14px; }
+  .sys { position: absolute; right: 18px; top: 40px; height: 560px; width: auto; }
+  .cap { position: absolute; left: 640px; top: 572px; font: 500 13px/1 'Geist Mono', monospace; letter-spacing: .08em; color: #1B7C76; }
+  .cap span { font: italic 400 17px/1 'Newsreader', serif; letter-spacing: 0; color: #4E4D49; margin-left: 14px; }
 </style>
 </head>
 <body>
@@ -27,10 +26,10 @@
   <div class="brand"><img src="/fathom/assets/icon-512.webp" alt="">Fathom</div>
   <div class="label"><i></i>A Mac app for code review</div>
   <h1><span class="l1">Don’t read the diff.</span> <em>Fathom it.</em></h1>
-  <p class="dek">A pull request, read as a short paper you referee: before and after, the trade-offs, the risks.</p>
+  <p class="dek">See the system a pull request changes: every part, how they talk, before and after.</p>
   <div class="meta">Free · open source · macOS</div>
-  <div class="panel"><img src="/fathom/assets/v9-abstract-day.webp" alt=""></div>
-  <div class="cap">FIG. 1<span>The abstract of a reading.</span></div>
+  <img class="sys" src="hero-system.png" alt="">
+  <div class="cap">FIG. 1<span>walkai #46, read as the system it changes.</span></div>
 </div>
 </body>
 </html>

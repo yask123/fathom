@@ -3,485 +3,1074 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Fathom: Don’t read the diff</title>
-<meta name="description" content="Fathom is a Mac app that reads a GitHub pull request as a short paper you referee: its behaviour before and after, the design and the idea it rests on, what it trades, what could go wrong, and what is still open. Built for reviewing code that agents write.">
+<title>Fathom: See the system, not the diff</title>
+<meta name="description" content="Fathom is a Mac app that turns a GitHub pull request into the system it changes: every part and how they talk, how a request ran before and runs now, what it trades and what could break. Built for reviewing code that agents write.">
 <meta property="og:title" content="Fathom: Don’t read the diff. Fathom it.">
-<meta property="og:description" content="A Mac app that reads a pull request as a short paper you referee: before and after, the design, the trade-offs, the risks and the open questions. Free and open source.">
-<meta property="og:image" content="https://yask.dev/fathom/assets/og-v12.jpg">
+<meta property="og:description" content="A Mac app that turns a pull request into the system it changes: before and after, the design, the trade-offs, the risks and the open questions. Free and open source.">
+<meta property="og:image" content="https://yask.dev/fathom/assets/og-v13.jpg">
 <meta property="og:url" content="https://yask.dev/fathom">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://yask.dev/fathom/assets/og-v12.jpg">
+<meta name="twitter:image" content="https://yask.dev/fathom/assets/og-v13.jpg">
 <link rel="icon" type="image/png" href="/fathom/assets/favicon.png">
 <link rel="apple-touch-icon" href="/fathom/assets/apple-touch-icon.png">
-<link rel="preload" as="image" href="/fathom/assets/v9-abstract-day.webp">
-<meta name="theme-color" content="#F7F6F2">
-<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#F5F3EE">
 <script>
-  // Light by default; the dark edition is a link in the footer, remembered per visitor.
+  // Light by default; the dark edition is a switch in the footer, remembered per visitor.
   try { if (localStorage.getItem('fathom-theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {}
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&family=Geist:wght@400..600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&family=Geist:wght@300..650&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js">
 <style>
 :root {
-  --bg: #F7F6F2; --panel: #EEECE6; --card: #FBFAF7; --ink: #121212; --ink-2: #4E4D49; --ink-3: #8A8882;
-  --line: #E2E0D9; --line-2: #CFCCC3;
-  --accent: #C2452D; --new: #2F7A55; --hurt: #B23B32;
+  --bg: #F5F3EE; --bg-2: #EDEAE2; --card: #FBFAF7; --ink: #17171A; --ink-2: #514F49; --ink-3: #8A877F;
+  --line: rgba(23, 23, 26, .09); --line-2: rgba(23, 23, 26, .16);
+  --sig: #1B7C76; --add: #2E7A55; --del: #B23F37; --chg: #9E6418;
   --serif: 'Newsreader', 'Iowan Old Style', Charter, Georgia, serif;
   --sans: 'Geist', ui-sans-serif, -apple-system, system-ui, sans-serif;
   --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --shot: 0 0 0 1px rgba(23, 23, 26, .08), 0 2px 4px rgba(23, 23, 26, .04), 0 40px 80px -40px rgba(40, 32, 18, .35);
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0F0F0E; --panel: #181816; --card: #141412; --ink: #EDEBE6; --ink-2: #B4B1A9; --ink-3: #7F7C75;
-  --line: #262522; --line-2: #36352F; --accent: #E2775F; --new: #7FC6A0; --hurt: #E08A80;
+  --bg: #0A0D12; --bg-2: #10151C; --card: #121821; --ink: #E9ECF1; --ink-2: #A6AEBB; --ink-3: #6E7685;
+  --line: rgba(233, 236, 241, .08); --line-2: rgba(233, 236, 241, .15);
+  --sig: #6CCDC8; --add: #6DC59B; --del: #DE7B7B; --chg: #D6AC6B;
+  --shot: 0 0 0 1px rgba(255, 255, 255, .07), 0 40px 90px -40px rgba(0, 0, 0, .8);
 }
-
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 76px; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 400 18px/1.65 var(--serif); font-optical-sizing: auto;
-  font-kerning: normal; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
-::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
-a { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: .2em; text-decoration-color: var(--line-2); }
-a:hover { text-decoration-color: var(--accent); }
-.wrap { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
-.label { font: 500 11.5px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
-.label.accent { color: var(--accent); }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 76px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 17px/1.6 var(--sans); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; overflow-x: hidden; }
+a { color: inherit; }
+img { display: block; max-width: 100%; height: auto; }
+.wrap { width: 100%; max-width: 1240px; margin: 0 auto; padding: 0 32px; }
+.label { font: 500 11.5px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+.label.sig { color: var(--sig); }
+h1, h2, h3 { font-family: var(--serif); font-weight: 400; letter-spacing: -.022em; margin: 0; font-optical-sizing: auto; }
+h1 em, h2 em { font-style: italic; color: var(--sig); }
 
-/* Navigation */
-.nav { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 86%, transparent);
-  -webkit-backdrop-filter: saturate(1.4) blur(14px); backdrop-filter: saturate(1.4) blur(14px); border-bottom: 1px solid transparent; transition: border-color .25s; }
+/* Nav */
+.nav { position: sticky; top: 0; z-index: 30; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: saturate(1.4) blur(14px); -webkit-backdrop-filter: saturate(1.4) blur(14px); border-bottom: 1px solid transparent; transition: border-color .3s; }
 .nav.ruled { border-bottom-color: var(--line); }
-.nav .wrap { height: 60px; display: flex; align-items: center; gap: 30px; }
-.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font: 600 15px/1 var(--sans); letter-spacing: -.01em; }
-.brand img { width: 24px; height: 24px; border-radius: 6px; }
-.nav .links { display: flex; gap: 24px; margin-left: auto; font: 400 14px/1 var(--sans); }
-.nav .links a { text-decoration: none; color: var(--ink-2); }
-.nav .links a:hover { color: var(--ink); }
-
-.btn { display: inline-flex; align-items: center; gap: 9px; height: 42px; padding: 0 18px; border-radius: 8px; background: var(--ink); color: var(--bg);
-  text-decoration: none; font: 500 14.5px/1 var(--sans); letter-spacing: -.005em; transition: background .2s, transform .2s; }
-.btn:hover { background: color-mix(in srgb, var(--ink) 84%, var(--accent)); }
-.btn:active { transform: translateY(1px); }
-.btn.sm { height: 34px; padding: 0 13px; font-size: 13.5px; border-radius: 7px; }
+.nav .wrap { display: flex; align-items: center; height: 64px; gap: 28px; }
+.brand { display: flex; align-items: center; gap: 10px; font: 600 16px var(--sans); letter-spacing: -.01em; text-decoration: none; }
+.brand img { width: 26px; height: 26px; border-radius: 7px; }
+.links { display: flex; gap: 24px; margin-left: auto; }
+.links a { font-size: 14px; color: var(--ink-2); text-decoration: none; }
+.links a:hover { color: var(--ink); }
+.btn { display: inline-flex; align-items: center; gap: 9px; height: 44px; padding: 0 20px; border-radius: 999px; background: var(--ink); color: var(--bg); font: 500 15px var(--sans); text-decoration: none; border: 0; cursor: pointer; transition: transform .2s, box-shadow .2s; box-shadow: 0 1px 0 rgba(255,255,255,.1) inset, 0 10px 24px -12px rgba(0,0,0,.45); }
+.btn:hover { transform: translateY(-1px); }
+.btn svg { width: 16px; height: 16px; }
 .btn.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-2); }
-.btn.ghost:hover { box-shadow: inset 0 0 0 1px var(--ink-3); background: transparent; }
-.btn svg { width: 14px; height: 14px; }
+.btn.sm { height: 36px; padding: 0 16px; font-size: 14px; }
 
 /* Hero */
-.hero { padding: 88px 0 56px; }
-.hero .label { display: inline-flex; align-items: center; gap: 10px; }
-.hero .label i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-h1 { margin: 22px 0 0; max-width: 820px; font: 400 clamp(40px, 5.6vw, 68px)/1.04 var(--serif); letter-spacing: -.028em; font-variation-settings: "opsz" 72; text-wrap: balance; }
-h1 em { font-style: italic; color: var(--accent); letter-spacing: -.02em; }
-.dek { margin: 22px 0 0; max-width: 620px; font-size: 20px; line-height: 1.55; color: var(--ink-2); text-wrap: pretty; }
-.cta { margin: 32px 0 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-.meta { margin: 20px 0 0; font: 400 12.5px/1.6 var(--mono); color: var(--ink-3); letter-spacing: .01em; }
-.meta span + span::before { content: "·"; margin: 0 10px; color: var(--line-2); }
+.hero { position: relative; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 24px; align-items: center; min-height: calc(100svh - 64px); padding: 24px 0 40px; }
+.hero-copy { position: relative; z-index: 2; padding-bottom: 24px; }
+.eyebrow { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 26px; }
+.eyebrow i { width: 7px; height: 7px; border-radius: 50%; background: var(--sig); box-shadow: 0 0 0 4px color-mix(in srgb, var(--sig) 18%, transparent); }
+h1 { font-size: clamp(46px, 6.1vw, 82px); line-height: .98; letter-spacing: -.035em; }
+h1 em { display: block; }
+.lede { margin: 26px 0 0; max-width: 34em; font-size: 18.5px; line-height: 1.6; color: var(--ink-2); }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+.fine { margin: 22px 0 0; font: 400 12.5px/1.5 var(--mono); color: var(--ink-3); }
+.stage { position: relative; height: min(78svh, 760px); min-height: 460px; }
+.hero .stage { margin-right: min(0px, calc((1240px - 100vw) / 2 - 32px)); }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.stage .fallback { display: none; position: absolute; inset: 10% 0; width: 100%; height: 80%; object-fit: contain; border-radius: 12px; }
+.stage.no-gl canvas, .stage.no-gl .labels { display: none; }
+.stage.no-gl .fallback { display: block; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.labels > span { position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform, opacity; }
+.lp { font: 500 11.5px/1 var(--mono); color: var(--ink); padding: 4px 7px; border-radius: 5px; background: color-mix(in srgb, var(--bg) 86%, transparent); box-shadow: 0 0 0 1px var(--line); }
+.lp.new { color: var(--add); box-shadow: 0 0 0 1px color-mix(in srgb, var(--add) 40%, transparent); }
+.lp.ctx { color: var(--ink-3); }
+.lp b { font: 500 9.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; margin-left: 6px; }
+.lz { font: 500 10.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
+.lw { font: italic 400 14px/1 var(--serif); color: var(--ink-2); text-shadow: 0 0 6px var(--bg), 0 0 3px var(--bg); }
+.lw.wire { font: 400 11px/1 var(--mono); font-style: normal; color: var(--sig); }
+.lx { font: italic 400 14.5px/1.25 var(--serif); color: var(--del); width: 200px; white-space: normal !important; text-shadow: 0 0 6px var(--bg), 0 0 3px var(--bg); }
+.lf { font: 500 11px/1 var(--mono); color: var(--ink-3); letter-spacing: .04em; }
+.cap { position: absolute; left: 0; bottom: 4px; display: flex; align-items: baseline; gap: 12px; max-width: 520px; font-size: 14.5px; line-height: 1.45; color: var(--ink-2); transition: opacity .4s; }
+.phase { flex: none; font: 500 10.5px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 6px 9px; border-radius: 999px; color: var(--del); background: color-mix(in srgb, var(--del) 10%, transparent); transition: color .4s, background .4s; }
+.phase.after { color: var(--add); background: color-mix(in srgb, var(--add) 12%, transparent); }
+.cap .cap-text { font-family: var(--serif); font-size: 16px; font-style: italic; }
+.proof { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+.proof div { padding: 22px 0 26px; display: flex; gap: 14px; align-items: baseline; }
+.proof div + div { padding-left: 28px; border-left: 1px solid var(--line); }
+.proof b { font: 400 30px/1 var(--serif); letter-spacing: -.02em; }
+.proof span { font-size: 14px; color: var(--ink-2); line-height: 1.4; }
 
-/* Figures */
-figure { margin: 0; }
-.panel { background: var(--panel); border-radius: 16px; padding: clamp(14px, 3vw, 36px); }
-.shot { display: block; width: 100%; height: auto; border-radius: 9px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .1), 0 24px 50px -28px rgba(0, 0, 0, .45), 0 8px 16px -10px rgba(0, 0, 0, .2); }
-.stack { position: relative; aspect-ratio: 2400 / 1500; }
-.stack .shot { position: absolute; inset: 0; opacity: 0; transition: opacity .6s ease; }
-.stack .shot.on { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .stack .shot { transition: none; } }
-figcaption { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 0 16px; margin: 16px 2px 0; max-width: 820px; }
-figcaption .label { padding-top: 5px; }
-figcaption p { margin: 0; font-size: 15.5px; line-height: 1.55; color: var(--ink-2); }
-.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 2px 0; }
-.tabs button { appearance: none; border: 0; background: transparent; cursor: pointer; height: 32px; padding: 0 12px; border-radius: 7px;
-  font: 500 13px/1 var(--sans); color: var(--ink-3); box-shadow: inset 0 0 0 1px var(--line); transition: color .2s, background .2s, box-shadow .2s; }
-.tabs button span { font-family: var(--mono); font-weight: 400; margin-right: 6px; color: var(--ink-3); }
-.tabs button:hover { color: var(--ink); }
-.tabs button[aria-pressed="true"] { color: var(--ink); background: var(--card); box-shadow: inset 0 0 0 1px var(--line-2), 0 1px 2px rgba(0, 0, 0, .05); }
-.tabs button[aria-pressed="true"] span { color: var(--accent); }
+/* Sections */
+section.block { padding-top: 140px; }
+.head p.label { margin: 0; font-size: 11.5px; line-height: 1; color: var(--sig); }
+.head { max-width: 760px; }
+.head h2 { font-size: clamp(36px, 4.4vw, 58px); line-height: 1.04; margin-top: 18px; }
+.head p { margin: 22px 0 0; font-size: 18.5px; color: var(--ink-2); max-width: 36em; }
 
-/* Sections: a label in the margin, the text beside it */
-.section { display: grid; grid-template-columns: 200px minmax(0, 680px); gap: 0 56px; padding: 96px 0 0; }
-.section > .side { position: relative; }
-.section > .side .label { position: sticky; top: 92px; display: block; padding-top: 10px; }
-.section > .side .label b { display: block; font-weight: 500; color: var(--accent); margin-bottom: 6px; }
-h2 { margin: 0; font: 400 clamp(28px, 3.2vw, 38px)/1.15 var(--serif); letter-spacing: -.02em; font-variation-settings: "opsz" 60; text-wrap: balance; }
-h2 em { font-style: italic; color: var(--accent); }
-.body p { margin: 18px 0 0; text-wrap: pretty; }
-.body p:first-of-type { margin-top: 20px; }
-.lede { font-size: 20px; color: var(--ink); }
-.fn { font: 500 11px/0 var(--mono); color: var(--accent); vertical-align: super; margin-left: 1px; }
-.footnote { margin-top: 26px !important; padding-top: 14px; border-top: 1px solid var(--line); font-size: 15px; color: var(--ink-3); }
-.footnote .fn { vertical-align: baseline; margin-right: 6px; font-size: 11px; }
-.wide { margin-top: 48px; }
+.shift { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 72px; align-items: end; }
+.shift .body p { margin: 0 0 18px; font-size: 18px; color: var(--ink-2); }
+.shift .body p:first-child { color: var(--ink); font-family: var(--serif); font-size: 23px; line-height: 1.45; letter-spacing: -.01em; }
+.funnel { margin-top: 72px; display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: stretch; gap: 0; }
+.funnel .cell { padding: 28px 26px 30px; border-radius: 18px; background: var(--card); box-shadow: 0 0 0 1px var(--line); }
+.funnel .cell .v { margin-top: 16px; font: 400 44px/1 var(--serif); letter-spacing: -.03em; }
+.funnel .cell .v small { font-size: 18px; color: var(--ink-3); margin-left: 6px; letter-spacing: 0; }
+.funnel .cell p { margin: 12px 0 0; font-size: 15px; color: var(--ink-2); line-height: 1.5; }
+.funnel .arrow { display: grid; place-items: center; width: 64px; color: var(--ink-3); }
+.funnel .arrow svg { width: 30px; height: 12px; }
+.funnel .cell.last { background: color-mix(in srgb, var(--sig) 7%, var(--card)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--sig) 28%, transparent); }
+.funnel .cell.last .v { color: var(--sig); }
+.diffwall { margin-top: 18px; height: 54px; display: flex; flex-direction: column; gap: 3px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 40%, transparent); mask-image: linear-gradient(#000 40%, transparent); }
+.diffwall i { display: block; flex: none; height: 3px; border-radius: 2px; background: var(--line-2); }
+.diffwall i.a { background: color-mix(in srgb, var(--add) 55%, transparent); }
+.diffwall i.d { background: color-mix(in srgb, var(--del) 55%, transparent); }
 
-/* Figure 2, drawn */
-.diagram { width: 100%; height: auto; display: block; }
-.diagram .box { fill: var(--card); stroke: var(--line-2); stroke-width: 1; }
-.diagram .box.new { stroke: var(--new); stroke-width: 1.2; }
-.diagram .name { font: 500 14px var(--mono); fill: var(--ink); }
-.diagram .role { font: italic 400 16px var(--serif); fill: var(--ink-2); }
-.diagram .kind { font: 500 11px var(--mono); letter-spacing: .06em; fill: var(--ink-3); text-transform: uppercase; }
-.diagram .edge { fill: none; stroke: var(--ink-3); stroke-width: 1; }
-.diagram .head { fill: var(--ink-3); }
-.diagram .lbl { font: italic 400 15.5px var(--serif); fill: var(--ink-2); paint-order: stroke; stroke: var(--panel); stroke-width: 6px; stroke-linejoin: round; }
-.diagram .axis { stroke: var(--line-2); stroke-width: 1; }
-.diagram .tick { font: 400 12.5px var(--mono); fill: var(--ink-3); }
-.diagram.tall { display: none; }
+/* The scroll story */
+.story { position: relative; height: 430vh; margin-top: 120px; }
+.pin { position: sticky; top: 0; height: 100svh; overflow: hidden; display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 24px; align-items: center; }
+.story-copy { position: relative; }
+.steps { position: relative; height: 340px; }
+.step { position: absolute; inset: 0 0 auto 0; opacity: 0; transform: translateY(18px); transition: opacity .5s, transform .5s; pointer-events: none; }
+.step.on { opacity: 1; transform: none; }
+.step .n { font: 500 12px var(--mono); color: var(--sig); letter-spacing: .1em; }
+.step h3 { margin-top: 16px; font-size: clamp(30px, 3.2vw, 44px); line-height: 1.06; letter-spacing: -.028em; }
+.step p { margin: 18px 0 0; font-size: 17.5px; color: var(--ink-2); max-width: 26em; }
+.ticks { display: flex; gap: 8px; margin-top: 28px; }
+.ticks i { width: 28px; height: 3px; border-radius: 3px; background: var(--line-2); overflow: hidden; position: relative; }
+.ticks i b { position: absolute; inset: 0; width: 0; background: var(--ink); }
+.story .stage { height: 86svh; min-height: 420px; }
+.story-label { margin: 0 0 40px; }
 
-/* Anatomy */
-.parts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
-.part { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px 22px; }
-.part .label { color: var(--accent); }
-.part h3 { margin: 10px 0 0; font: 500 20px/1.25 var(--serif); letter-spacing: -.01em; }
-.part p { margin: 6px 0 0 !important; font-size: 16px; line-height: 1.55; color: var(--ink-2); }
+/* The reading */
+.show { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 64px; margin-top: 70px; }
+.items { display: flex; flex-direction: column; }
+.item { min-height: 62svh; display: flex; flex-direction: column; justify-content: center; padding: 24px 0; opacity: .32; transition: opacity .45s; }
+.item.on { opacity: 1; }
+.item .n { font: 500 12px var(--mono); letter-spacing: .1em; color: var(--ink-3); text-transform: uppercase; }
+.item.on .n { color: var(--sig); }
+.item h3 { margin-top: 14px; font-size: 32px; line-height: 1.1; letter-spacing: -.024em; }
+.item p { margin: 14px 0 0; font-size: 16.5px; color: var(--ink-2); }
+.item img { display: none; }
+.frame { position: sticky; top: 12svh; height: 76svh; display: flex; align-items: center; }
+.frame .stack { position: relative; width: 100%; aspect-ratio: 1.6; }
+.frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 14px; box-shadow: var(--shot); opacity: 0; transform: translateY(10px) scale(.99); transition: opacity .55s, transform .55s; }
+.frame img.on { opacity: 1; transform: none; }
 
-/* Keys */
-.keys { width: 100%; margin-top: 28px; border-collapse: collapse; font-size: 16px; }
-.keys caption { caption-side: top; text-align: left; padding-bottom: 10px; }
-.keys td { padding: 11px 0; border-top: 1px solid var(--line); vertical-align: middle; }
-.keys tr:last-child td { border-bottom: 1px solid var(--line); }
-.keys td:first-child { width: 120px; }
-kbd { display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 6px; margin-right: 4px; border-radius: 6px;
-  font: 500 12px/1 var(--mono); color: var(--ink); background: var(--card); box-shadow: inset 0 0 0 1px var(--line-2), 0 1px 0 var(--line-2); }
-
-/* Numbers */
-.numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 96px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.numbers > div { padding: 30px 28px 28px; border-right: 1px solid var(--line); }
-.numbers > div:last-child { border-right: 0; }
-.numbers .v { font: 400 54px/1 var(--serif); letter-spacing: -.03em; font-variation-settings: "opsz" 72; }
-.numbers .v small { font: 400 15px/1 var(--mono); color: var(--ink-3); margin-left: 6px; letter-spacing: 0; }
-.numbers p { margin: 12px 0 0; font-size: 15.5px; line-height: 1.5; color: var(--ink-2); }
+/* Under the hood */
+.hood { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 64px; align-items: start; }
+.pipe { border-radius: 20px; background: var(--card); box-shadow: 0 0 0 1px var(--line); padding: 26px 22px 18px; }
+.pipe svg { width: 100%; height: auto; display: block; }
+.pipe .box { fill: var(--bg); stroke: var(--line-2); }
+.pipe .box.new { stroke: var(--sig); }
+.pipe .name { font: 500 13.5px var(--mono); fill: var(--ink); }
+.pipe .role { font: italic 400 15px var(--serif); fill: var(--ink-2); }
+.pipe .kind { font: 500 10px var(--mono); letter-spacing: .1em; text-transform: uppercase; fill: var(--ink-3); }
+.pipe .edge { fill: none; stroke: var(--line-2); stroke-width: 1.2; }
+.pipe .flow { fill: none; stroke: var(--sig); stroke-width: 1.6; stroke-dasharray: 3 14; stroke-linecap: round; animation: flow 1.4s linear infinite; }
+.pipe .tick { font: 400 11.5px var(--mono); fill: var(--ink-3); }
+.pipe .axis { stroke: var(--line-2); }
+@keyframes flow { to { stroke-dashoffset: -17; } }
+.trust { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 28px; }
+.trust div { padding: 22px 22px 24px; border-radius: 16px; background: var(--card); box-shadow: 0 0 0 1px var(--line); }
+.trust h3 { font-size: 21px; letter-spacing: -.015em; }
+.trust p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.55; color: var(--ink-2); }
+.trust code { font: 12.5px var(--mono); }
 
 /* Principle */
-blockquote.principle { margin: 26px 0 0; padding: 4px 0 4px 24px; border-left: 2px solid var(--accent); }
-blockquote.principle p { margin: 0 !important; font: italic 400 clamp(24px, 2.6vw, 30px)/1.3 var(--serif); letter-spacing: -.012em; color: var(--ink); text-wrap: balance; }
-.struck { text-decoration: line-through; text-decoration-color: var(--accent); text-decoration-thickness: 1.5px; }
+.principle { max-width: 900px; margin: 0 auto; text-align: center; }
+.principle blockquote { margin: 26px 0 0; font: 400 clamp(32px, 3.8vw, 50px)/1.15 var(--serif); letter-spacing: -.025em; }
+.principle blockquote em { color: var(--sig); }
+.principle p { margin: 26px auto 0; max-width: 40em; font-size: 17px; color: var(--ink-2); }
+.struck { text-decoration: line-through; text-decoration-color: var(--del); text-decoration-thickness: 1.5px; }
 
 /* Install */
-ol.steps { list-style: none; margin: 26px 0 0; padding: 0; counter-reset: s; }
-ol.steps li { counter-increment: s; display: grid; grid-template-columns: 36px minmax(0, 1fr); padding: 14px 0; border-top: 1px solid var(--line); }
-ol.steps li:last-child { border-bottom: 1px solid var(--line); }
-ol.steps li::before { content: counter(s, decimal-leading-zero); font: 500 12px/2.1 var(--mono); color: var(--accent); }
-pre { margin: 10px 0 0; padding: 12px 14px; border-radius: 8px; background: var(--panel); overflow-x: auto; font: 400 13.5px/1.5 var(--mono); }
-.refs { margin: 34px 0 0; padding: 0; list-style: none; font-size: 15.5px; color: var(--ink-2); }
-.refs li { display: grid; grid-template-columns: 36px minmax(0, 1fr); padding: 4px 0; overflow-wrap: anywhere; }
-.refs li span:first-child { font: 400 12.5px/1.9 var(--mono); color: var(--ink-3); }
-
-/* Close */
-.close { margin-top: 120px; padding: 64px 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 32px; align-items: end; }
-.close h2 { font-size: clamp(30px, 3.6vw, 44px); }
-.close p { margin: 10px 0 0; color: var(--ink-2); }
+.install { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 64px; }
+.steps-list { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+.steps-list li { counter-increment: s; display: grid; grid-template-columns: 44px minmax(0, 1fr); padding: 22px 0; border-top: 1px solid var(--line); font-size: 16.5px; color: var(--ink-2); }
+.steps-list li::before { content: counter(s, decimal-leading-zero); font: 500 12px/1.9 var(--mono); color: var(--sig); }
+.steps-list b { color: var(--ink); font-weight: 500; }
+.steps-list pre { margin: 12px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--card); box-shadow: 0 0 0 1px var(--line); font: 13px/1.4 var(--mono); color: var(--ink); overflow-x: auto; }
+.close { margin: 150px 0 0; padding: 70px 0 80px; border-top: 1px solid var(--line); display: flex; align-items: end; justify-content: space-between; gap: 40px; flex-wrap: wrap; }
+.close h2 { font-size: clamp(40px, 5vw, 68px); line-height: 1; letter-spacing: -.035em; }
+.close h2 em { color: var(--sig); }
 footer { border-top: 1px solid var(--line); }
-footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 24px; padding-top: 22px; padding-bottom: 40px; font: 400 12.5px/1.6 var(--mono); color: var(--ink-3); }
-footer button { appearance: none; border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: .2em; text-decoration-color: var(--line-2); }
-footer button:hover, footer a:hover { color: var(--ink); }
+footer .wrap { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding-top: 26px; padding-bottom: 40px; font-size: 13.5px; color: var(--ink-3); }
+footer a { color: var(--ink-2); }
+#theme { font: inherit; color: var(--ink-2); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 
-@media (max-width: 960px) {
-  .nav .links { display: none; }
+/* Narrow */
+@media (max-width: 980px) {
+  .hero { grid-template-columns: minmax(0, 1fr); min-height: 0; padding-top: 40px; }
+  .stage { height: 72vw; min-height: 340px; }
+  .shift, .hood, .install { grid-template-columns: minmax(0, 1fr); gap: 36px; }
+  .funnel { grid-template-columns: minmax(0, 1fr); }
+  .funnel .arrow { width: auto; height: 40px; transform: rotate(90deg); }
+  .pin { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); align-content: start; padding-top: 70px; gap: 0; }
+  .pin .stage { order: -1; height: 50svh; min-height: 0; }
+  .steps { height: 230px; }
+  .story-label { display: none; }
+  .show { grid-template-columns: minmax(0, 1fr); gap: 0; margin-top: 30px; }
+  .frame { display: none; }
+  .item { min-height: 0; opacity: 1; padding: 34px 0; }
+  .item img { display: block; margin-top: 22px; border-radius: 10px; box-shadow: var(--shot); }
+  .links { display: none; }
   .nav .btn { margin-left: auto; }
-  .section { grid-template-columns: minmax(0, 1fr); padding-top: 72px; }
-  .section > .side .label { position: static; padding: 0 0 14px; }
-  .section > .side .label b { display: inline; margin: 0 8px 0 0; }
 }
-@media (max-width: 720px) { .diagram.wide { display: none; } .diagram.tall { display: block; max-width: 420px; margin: 0 auto; } }
 @media (max-width: 640px) {
-  body { font-size: 17.5px; }
   .wrap { padding: 0 16px; }
-  .hero { padding: 52px 0 40px; }
-  .dek { font-size: 18.5px; }
-  h1 .l1, h1 em { display: block; text-wrap: balance; }
-  .parts, .numbers { grid-template-columns: minmax(0, 1fr); }
-  .numbers > div { border-right: 0; border-bottom: 1px solid var(--line); padding: 24px 4px; }
-  .numbers > div:last-child { border-bottom: 0; }
-  figcaption { grid-template-columns: minmax(0, 1fr); gap: 6px; }
-  .close { grid-template-columns: minmax(0, 1fr); }
-  .meta span + span::before { margin: 0 6px; }
+  body { font-size: 16px; }
+  .proof { grid-template-columns: minmax(0, 1fr); }
+  .proof div + div { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
+  .trust { grid-template-columns: minmax(0, 1fr); }
+  section.block { padding-top: 96px; }
+  .lp { font-size: 9px; padding: 2px 4px; }
+  .lp b { font-size: 7.5px; margin-left: 4px; }
+  .lz { font-size: 8.5px; }
+  .lf { font-size: 9px; }
+  .cap { font-size: 13px; }
+  .cap .cap-text { font-size: 14px; }
+  .step h3 { font-size: 27px; }
+  .step p { font-size: 15.5px; }
+  .lw, .lx { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .step, .item, .frame img { transition: none; }
+  .pipe .flow { animation: none; }
 }
 </style>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js" } }</script>
 </head>
 <body>
 
 <header class="nav" id="nav">
   <div class="wrap">
-    <a class="brand" href="#top"><img src="/fathom/assets/icon-512.webp" alt="" width="24" height="24">Fathom</a>
+    <a class="brand" href="#top"><img src="/fathom/assets/icon-512.webp" alt="" width="26" height="26">Fathom</a>
     <nav class="links" aria-label="Sections">
-      <a href="#premise">Premise</a>
-      <a href="#method">Method</a>
-      <a href="#anatomy">Anatomy</a>
-      <a href="#review">Review</a>
-      <a href="#appearance">Appearance</a>
+      <a href="#shift">Why</a>
+      <a href="#story">How it reads</a>
+      <a href="#reading">The reading</a>
+      <a href="#hood">Under the hood</a>
       <a href="#install">Install</a>
     </nav>
     <a class="btn sm" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg">Download</a>
   </div>
 </header>
 
-<main class="wrap" id="top">
-  <section class="hero">
-    <span class="label"><i></i>A Mac app for code review</span>
-    <h1><span class="l1">Don’t read the diff.</span> <em>Fathom it.</em></h1>
-    <p class="dek">Fathom reads a pull request as a short paper you referee: how the system behaved before and after, the idea it rests on, what it trades, what could go wrong, and what is still open. One sentence and one figure at a time.</p>
-    <div class="cta">
-      <a class="btn" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg>Download for Mac</a>
-      <a class="btn ghost" href="https://github.com/yask123/fathom">View source</a>
-    </div>
-    <p class="meta"><span>v0.7</span><span>Notarized</span><span>macOS 26+</span><span>Free, MIT</span></p>
-  </section>
-
-  <figure id="fig1">
-    <div class="panel">
-      <div class="stack">
-        <img class="shot on" src="/fathom/assets/v9-abstract-day.webp" data-day="/fathom/assets/v9-abstract-day.webp" data-night="/fathom/assets/v9-abstract.webp" width="2400" height="1500" fetchpriority="high" alt="A reading’s abstract: the title, a strip of vital signs (Feature, a one-way door, high risk, seven parts, four open questions), the run-in sentences Problem, Move and Price, and the contents.">
-        <img class="shot" src="/fathom/assets/v9-behaviour-day.webp" data-day="/fathom/assets/v9-behaviour-day.webp" data-night="/fathom/assets/v9-behaviour.webp" width="2400" height="1500" loading="lazy" alt="Behaviour as a diff: one sequence diagram of the journey before and after, a gutter of plus, minus and tilde signs, old steps struck through, and the step where navigation stopped marked in red.">
-        <img class="shot" src="/fathom/assets/v9-design-day.webp" data-day="/fathom/assets/v9-design-day.webp" data-night="/fathom/assets/v9-design.webp" width="2400" height="1500" loading="lazy" alt="The design as a blueprint: dashed boxes for the iOS app, the Next.js server and OpenAI, the parts inside them, and arrows labelled with what crosses between them.">
-        <img class="shot" src="/fathom/assets/v9-risk-day.webp" data-day="/fathom/assets/v9-risk-day.webp" data-night="/fathom/assets/v9-risk.webp" width="2400" height="1500" loading="lazy" alt="Risk: titled A one-way door, a three by three likelihood and impact matrix with four numbered hazards, and each hazard with when, then and what guards it.">
+<main id="top">
+  <div class="wrap">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow label"><i></i>Fathom for Mac · free and open source</p>
+        <h1>Don’t read the diff. <em>Fathom it.</em></h1>
+        <p class="lede">Fathom turns a pull request into the system it changes: every part and how they talk, how a request ran before and runs now, what it trades and what could break. Review AI‑written code at the level that matters, in minutes.</p>
+        <div class="cta">
+          <a class="btn" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg>Download for Mac</a>
+          <a class="btn ghost" href="https://github.com/yask123/fathom">View source</a>
+        </div>
+        <p class="fine">v0.7 · macOS 26+ · Apple silicon and Intel · runs on your own GitHub CLI and Claude Code</p>
       </div>
-    </div>
-    <div class="tabs" role="group" aria-label="Views of Figure 1">
-      <button type="button" data-i="0" aria-pressed="true"><span>a</span>Abstract</button>
-      <button type="button" data-i="1" aria-pressed="false"><span>b</span>Behaviour</button>
-      <button type="button" data-i="2" aria-pressed="false"><span>c</span>Design</button>
-      <button type="button" data-i="3" aria-pressed="false"><span>d</span>Risk</button>
-    </div>
-    <figcaption><span class="label accent">Fig. 1</span><p id="subcap">The abstract of a reading: the change’s vital signs, then Problem, Move and Price, then the contents.</p></figcaption>
-  </figure>
-
-  <section class="section" id="premise">
-    <div class="side"><span class="label"><b>01</b>Premise</span></div>
-    <div class="body">
-      <h2>Agents write the lines. <em>You own the shape.</em></h2>
-      <p class="lede">When an agent writes the code and a bot checks that it does what it says, reading a diff line by line is no longer the reviewer’s job. The job is judgement.</p>
-      <p>What was wrong before, and how does the system behave now? What idea does the change rest on, what does it give up, and what could go wrong once it ships? A diff answers none of these directly: it is ordered by file rather than by thought, and gives every line the same weight.</p>
-      <p>Fathom reorders the change into the shape you would draw on a whiteboard for a colleague, draws it, and sets out what a referee would weigh. Whether to ship it stays your call.<span class="fn">1</span></p>
-      <p class="footnote"><span class="fn">1</span>Every figure here is Fathom reading one of the author’s own pull requests, walkai #46, unedited.</p>
-    </div>
-  </section>
-
-  <section class="section" id="method">
-    <div class="side"><span class="label"><b>02</b>Method</span></div>
-    <div class="body">
-      <h2>How a reading is made</h2>
-      <p>Fathom fetches the pull request and its diff through your GitHub CLI, labels every hunk, and asks Claude, through your own Claude Code, for three things at once: an outline of the change, its story, and a referee’s reading. The story and the referee get read-only access to a shallow checkout of the pull request, so the figures name real types and functions, and the referee can check who calls what before it names a risk. It is told never to invent problems or give generic advice. Everything streams onto the page as it is written, and is kept on your Mac.</p>
-    </div>
-  </section>
-
-  <figure class="wide">
-    <div class="panel">
-      <svg class="diagram wide" viewBox="0 0 1060 400" role="img" aria-label="GitHub sends the pull request and its diff to Fathom, which labels every hunk and sends it to three Claude runs at once: the outline, the story and the referee, the last two with a read-only checkout. All three stream into the reading, kept on your Mac. A time axis marks 0, about 2, about 25 and about 45 seconds.">
-        <defs><marker id="ah" viewBox="0 0 10 8" refX="9.5" refY="4" markerWidth="10" markerHeight="8" orient="auto-start-reverse"><path class="head" d="M0 0 L10 4 L0 8 L2.6 4 Z"/></marker></defs>
-        <path class="edge" d="M190 183 L298 183" marker-end="url(#ah)"/>
-        <path class="edge" d="M480 174 C 535 174, 530 55, 588 55" marker-end="url(#ah)"/>
-        <path class="edge" d="M480 183 L588 183" marker-end="url(#ah)"/>
-        <path class="edge" d="M480 192 C 535 192, 530 311, 588 311" marker-end="url(#ah)"/>
-        <path class="edge" d="M770 55 C 825 55, 820 174, 878 174" marker-end="url(#ah)"/>
-        <path class="edge" d="M770 183 L878 183" marker-end="url(#ah)"/>
-        <path class="edge" d="M770 311 C 825 311, 820 192, 878 192" marker-end="url(#ah)"/>
-        <text class="lbl" x="244" y="172" text-anchor="middle">the diff</text>
-        <text class="lbl" x="520" y="96" text-anchor="end">every hunk, labelled</text>
-        <text class="lbl" x="520" y="282" text-anchor="end">and a checkout</text>
-        <text class="lbl" x="836" y="96">streams in</text>
-        <g transform="translate(10 148)"><rect class="box" width="180" height="70" rx="8"/><text class="name" x="16" y="29">github.com</text><text class="role" x="16" y="52">the pull request</text></g>
-        <g transform="translate(300 148)"><rect class="box" width="180" height="70" rx="8"/><text class="name" x="16" y="29">Fathom</text><text class="role" x="16" y="52">parses and labels</text></g>
-        <g transform="translate(590 20)"><rect class="box" width="180" height="70" rx="8"/><text class="name" x="16" y="29">claude -p</text><text class="kind" x="164" y="28" text-anchor="end">outline</text><text class="role" x="16" y="52">headline, chapters</text></g>
-        <g transform="translate(590 148)"><rect class="box" width="180" height="70" rx="8"/><text class="name" x="16" y="29">claude -p</text><text class="kind" x="164" y="28" text-anchor="end">story</text><text class="role" x="16" y="52">behaviour, design</text></g>
-        <g transform="translate(590 276)"><rect class="box" width="180" height="70" rx="8"/><text class="name" x="16" y="29">claude -p</text><text class="kind" x="164" y="28" text-anchor="end">referee</text><text class="role" x="16" y="52">trade-offs, risk</text></g>
-        <g transform="translate(880 148)"><rect class="box new" width="170" height="70" rx="8"/><text class="name" x="16" y="29">the reading</text><text class="role" x="16" y="52">kept on your Mac</text></g>
-        <path class="axis" d="M10 366 L1044 366"/>
-        <path class="head" d="M1052 366 L1043 362.5 L1045.5 366 L1043 369.5 Z"/>
-        <g class="axis"><path d="M100 361 L100 371"/><path d="M390 361 L390 371"/><path d="M680 361 L680 371"/><path d="M965 361 L965 371"/></g>
-        <text class="tick" x="100" y="392" text-anchor="middle">0 s</text>
-        <text class="tick" x="390" y="392" text-anchor="middle">≈2 s · diff on screen</text>
-        <text class="tick" x="680" y="392" text-anchor="middle">≈25 s · the figures</text>
-        <text class="tick" x="965" y="392" text-anchor="middle">≈45 s · the referee</text>
-      </svg>
-      <svg class="diagram tall" viewBox="0 0 360 610" role="img" aria-label="GitHub, then Fathom, then three Claude runs side by side, the outline, the story and the referee, then the reading.">
-        <defs><marker id="ah2" viewBox="0 0 10 8" refX="9.5" refY="4" markerWidth="10" markerHeight="8" orient="auto-start-reverse"><path class="head" d="M0 0 L10 4 L0 8 L2.6 4 Z"/></marker></defs>
-        <path class="edge" d="M180 80 L180 146" marker-end="url(#ah2)"/>
-        <path class="edge" d="M140 218 C 140 255, 62 250, 62 288" marker-end="url(#ah2)"/>
-        <path class="edge" d="M180 218 L180 288" marker-end="url(#ah2)"/>
-        <path class="edge" d="M220 218 C 220 255, 298 250, 298 288" marker-end="url(#ah2)"/>
-        <path class="edge" d="M62 360 C 62 400, 140 395, 140 438" marker-end="url(#ah2)"/>
-        <path class="edge" d="M180 360 L180 438" marker-end="url(#ah2)"/>
-        <path class="edge" d="M298 360 C 298 400, 220 395, 220 438" marker-end="url(#ah2)"/>
-        <text class="lbl" x="190" y="118">the diff</text>
-        <text class="tick" x="180" y="552" text-anchor="middle">≈25 s to the figures</text>
-        <text class="tick" x="180" y="574" text-anchor="middle">≈45 s to the referee</text>
-        <g transform="translate(60 10)"><rect class="box" width="240" height="70" rx="8"/><text class="name" x="16" y="29">github.com</text><text class="role" x="16" y="52">the pull request</text></g>
-        <g transform="translate(60 148)"><rect class="box" width="240" height="70" rx="8"/><text class="name" x="16" y="29">Fathom</text><text class="role" x="16" y="52">parses and labels</text></g>
-        <g transform="translate(6 290)"><rect class="box" width="112" height="70" rx="8"/><text class="name" x="12" y="29">claude -p</text><text class="role" x="12" y="52">the outline</text></g>
-        <g transform="translate(124 290)"><rect class="box" width="112" height="70" rx="8"/><text class="name" x="12" y="29">claude -p</text><text class="role" x="12" y="52">the story</text></g>
-        <g transform="translate(242 290)"><rect class="box" width="112" height="70" rx="8"/><text class="name" x="12" y="29">claude -p</text><text class="role" x="12" y="52">the referee</text></g>
-        <g transform="translate(60 440)"><rect class="box new" width="240" height="70" rx="8"/><text class="name" x="16" y="29">the reading</text><text class="role" x="16" y="52">kept on your Mac</text></g>
-      </svg>
-    </div>
-    <figcaption><span class="label accent">Fig. 2</span><p>How a reading is made. Three runs of Claude Code work in parallel, two of them with a read-only checkout; each page fills in as it is written. Times are typical for a pull request of a few thousand lines.</p></figcaption>
-  </figure>
-
-  <section class="section" id="anatomy">
-    <div class="side"><span class="label"><b>03</b>Anatomy</span></div>
-    <div class="body">
-      <h2>Seven pages, <em>the same every time</em></h2>
-      <p>A reading opens on an abstract: the change’s vital signs, and the whole pull request in three sentences, <i>Problem</i>, <i>Move</i> and <i>Price</i>. Then six pages, each one sentence and one figure, so you always know where to look.</p>
-      <div class="parts">
-        <div class="part"><span class="label">01</span><h3>Behaviour</h3><p>One journey through the system, before and after, as a diff: steps added, gone and changed, and where it broke.</p></div>
-        <div class="part"><span class="label">02</span><h3>Design</h3><p>Where each part runs and what crosses between them, as a blueprint. Then Box 1, the engineering idea it rests on.</p></div>
-        <div class="part"><span class="label">03</span><h3>Trade-offs</h3><p>Each decision as a ruled table: the options scored on what separates them, and why this one won.</p></div>
-        <div class="part"><span class="label">04</span><h3>Risk</h3><p>A one-way or two-way door, and each hazard by likelihood and impact, with its trigger and what guards it.</p></div>
-        <div class="part"><span class="label">05</span><h3>Questions</h3><p>What the diff leaves open. Settle it, have Fathom look into it, or put it to the author as a comment.</p></div>
-        <div class="part"><span class="label">06</span><h3>Evidence</h3><p>The passages to read if you read nothing else, with notes in the margin beside the lines.</p></div>
+      <div class="stage" id="hero-stage" role="img" aria-label="An exploded drawing of a system in three layers: the iOS app, its API server and OpenAI, with the parts of a pull request as blocks built from their changed lines. A request travels the wires: before the change it stops at WalkModel; after, a new part answers it on the phone and the rest goes through the server.">
+        <canvas></canvas>
+        <div class="labels"></div>
+        <img class="fallback" src="/fathom/assets/v9-design-day.webp" data-day="/fathom/assets/v9-design-day.webp" data-night="/fathom/assets/v9-design.webp" alt="">
+        <div class="cap"><span class="phase">Before</span><span class="cap-text">A question mid-walk reaches WalkModel, which resets the route and stops navigation.</span></div>
       </div>
+    </section>
+    <div class="proof">
+      <div><b>3</b><span>readings in parallel: the outline, the story, and a referee’s</span></div>
+      <div><b>7</b><span>pages, each one sentence and one figure</span></div>
+      <div><b>0</b><span>servers or accounts. Your GitHub, your Claude plan</span></div>
     </div>
-  </section>
-
-  <figure class="wide">
-    <div class="panel"><img class="shot" src="/fathom/assets/v9-tradeoffs-day.webp" data-day="/fathom/assets/v9-tradeoffs-day.webp" data-night="/fathom/assets/v9-tradeoffs.webp" width="2400" height="1500" loading="lazy" decoding="async" alt="What it trades: the price as the title, then each decision as a ruled table, the options as columns, criteria as rows, scored with Harvey balls, the chosen column shaded, and why it won."></div>
-    <figcaption><span class="label accent">Fig. 3</span><p>What it trades. Each decision is scored on what separates its options, the road taken is shaded, and it has to lose somewhere. Every table links to the code where the choice lives.</p></figcaption>
-  </figure>
-
-  <figure class="wide">
-    <div class="panel"><img class="shot" src="/fathom/assets/v9-questions-day.webp" data-day="/fathom/assets/v9-questions-day.webp" data-night="/fathom/assets/v9-questions.webp" width="2400" height="1500" loading="lazy" decoding="async" alt="Four questions this change leaves open, each with why it matters and the actions Ask Fathom, Ask the author, Read the code and Settle."></div>
-    <figcaption><span class="label accent">Fig. 4</span><p>The questions a change leaves open. Ask Fathom to look into one, or put it to the author: a comment opens on the code with the question written in.</p></figcaption>
-  </figure>
-
-  <section class="section" id="review">
-    <div class="side"><span class="label"><b>04</b>Review</span></div>
-    <div class="body">
-      <h2>When you want the lines, <em>they make sense</em></h2>
-      <p>When a reading sends you to the code, <i>Changes</i> has the whole diff regrouped into chapters by purpose, each marked read, skim or skip, with a short note above every change. What people and review bots have already said on GitHub sits on the lines it is about. Click a line number to comment, reply in a thread, or suggest a change, and send it all as one review, under your own name.</p>
-      <table class="keys">
-        <caption class="label">Table 1 · Keys</caption>
-        <tbody>
-          <tr><td><kbd>J</kbd><kbd>K</kbd></td><td>Next and previous change</td></tr>
-          <tr><td><kbd>N</kbd><kbd>P</kbd></td><td>Next and previous chapter</td></tr>
-          <tr><td><kbd>X</kbd></td><td>Mark a chapter understood</td></tr>
-          <tr><td><kbd>⌘</kbd><kbd>↩</kbd></td><td>Add a comment, or open the review</td></tr>
-          <tr><td><kbd>⌘</kbd><kbd>K</kbd></td><td>Ask Claude about the pull request</td></tr>
-          <tr><td><kbd>←</kbd><kbd>→</kbd></td><td>Turn the pages of a reading</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <figure class="wide">
-    <div class="panel"><img class="shot" src="/fathom/assets/v8-changes-day.webp" data-day="/fathom/assets/v8-changes-day.webp" data-night="/fathom/assets/v7-changes.webp" width="2000" height="1250" loading="lazy" decoding="async" alt="Changes: chapters on the left; on the right the WalkModel changes with a short note above each, a pending review comment under one line and a comment box open under another."></div>
-    <figcaption><span class="label accent">Fig. 5</span><p>Changes, regrouped into chapters. A comment waiting to be sent sits under one line; a new one is being written under another.</p></figcaption>
-  </figure>
-
-  <section class="section" id="appearance">
-    <div class="side"><span class="label"><b>05</b>Appearance</span></div>
-    <div class="body">
-      <h2>On paper by day, <em>on water by night</em></h2>
-      <p>Fathom reads as well at noon as at midnight. The light appearance is warm paper and ink rather than white, with the colours that mark what is new, broken and changed deepened to read on paper, and code set in printed inks. The dark one is deep water. It follows your Mac, or you can choose one in Settings.</p>
-    </div>
-  </section>
-
-  <figure class="wide">
-    <div class="panel"><img class="shot" src="/fathom/assets/v9-daynight.webp" width="2400" height="1500" loading="lazy" decoding="async" alt="The same page of a reading, behaviour before and after as a diff, shown half in the light appearance on warm paper and half in the dark appearance."></div>
-    <figcaption><span class="label accent">Fig. 6</span><p>The same reading by day and by night: the behaviour of walkai #46, light on the left, dark on the right.</p></figcaption>
-  </figure>
-
-  <div class="numbers" aria-label="By the numbers">
-    <div><div class="v">30<small>s</small></div><p>From a pull request link to its figures. The referee’s pages follow within the minute.</p></div>
-    <div><div class="v">0<small>s</small></div><p>To open it again. Readings are kept on your Mac.</p></div>
-    <div><div class="v">0<small>keys</small></div><p>No account or server. It runs on your GitHub CLI and Claude plan.</p></div>
   </div>
 
-  <section class="section" id="principle">
-    <div class="side"><span class="label"><b>06</b>Principle</span></div>
-    <div class="body">
-      <blockquote class="principle"><p>Fathom never tells you whether to ship. It shows you what you would be shipping.</p></blockquote>
-      <p>So there are <span class="struck">no verdicts</span>, <span class="struck">no generic advice</span> and <span class="struck">no robot approvals</span>. A risk is named only when the diff shows it, with its trigger and what guards it; a reason the pull request does not state is marked <i>inferred</i>; and every figure links back to the lines it was drawn from.</p>
+  <section class="block wrap" id="shift">
+    <div class="shift">
+      <div class="head">
+        <p class="label sig">Why</p>
+        <h2>Code got cheap. <em>Understanding didn’t.</em></h2>
+      </div>
+      <div class="body">
+        <p>Agents write pull requests faster than anyone can read them, and a bot can check that they do what they say.</p>
+        <p>What no bot can decide is whether the design is right: what it touches, what it gives up, what it could break once it ships. That is the reviewer’s job now, and a diff is the wrong shape for it. It is ordered by file, not by thought, and every line weighs the same.</p>
+      </div>
+    </div>
+    <div class="funnel" aria-label="One pull request, three ways">
+      <div class="cell">
+        <span class="label">The diff</span>
+        <div class="v">32<small>files</small></div>
+        <p>+2,894 −148 lines, in the order the files sort.</p>
+        <div class="diffwall" aria-hidden="true" id="wall"></div>
+      </div>
+      <div class="arrow" aria-hidden="true"><svg viewBox="0 0 30 12" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M0 6h28M23 1.5 28 6l-5 4.5"/></svg></div>
+      <div class="cell">
+        <span class="label">The system</span>
+        <div class="v">7<small>parts</small></div>
+        <p>in 3 processes, with every boundary the change crosses marked.</p>
+      </div>
+      <div class="arrow" aria-hidden="true"><svg viewBox="0 0 30 12" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M0 6h28M23 1.5 28 6l-5 4.5"/></svg></div>
+      <div class="cell last">
+        <span class="label sig">Your judgement</span>
+        <div class="v">4<small>questions</small></div>
+        <p>worth your time, and 4 hazards, 2 of them unguarded.</p>
+      </div>
     </div>
   </section>
 
-  <section class="section" id="install">
-    <div class="side"><span class="label"><b>07</b>Install</span></div>
-    <div class="body">
-      <h2>Free, open source, <em>yours in a minute</em></h2>
-      <ol class="steps">
-        <li><span><a href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg">Download Fathom</a>, drag it into Applications and open it. It is signed and notarized by Apple.</span></li>
-        <li><span>Install the GitHub CLI, then press <i>Sign In to GitHub</i> in Fathom. It shows a one-time code and finishes by itself.<pre>brew install gh</pre></span></li>
-        <li><span>Install Claude Code and sign in once. Readings use your Claude plan.<pre>curl -fsSL https://claude.ai/install.sh | bash</pre></span></li>
-        <li><span>Pick a repository, then a pull request. Or paste a link.</span></li>
-      </ol>
-      <ol class="refs">
-        <li><span>[1]</span><span>GitHub CLI. <a href="https://cli.github.com">cli.github.com</a></span></li>
-        <li><span>[2]</span><span>Claude Code. <a href="https://code.claude.com/docs/en/setup">code.claude.com</a></span></li>
-        <li><span>[3]</span><span>Fathom, source and releases, MIT licence. <a href="https://github.com/yask123/fathom">github.com/yask123/fathom</a></span></li>
-      </ol>
+  <section class="story" id="story" aria-label="From lines to a system">
+    <div class="wrap pin">
+      <div class="story-copy">
+        <p class="label sig story-label">How it reads</p>
+        <div class="steps">
+          <article class="step on" data-i="0"><span class="n">01</span><h3>A pull request arrives as a list.</h3><p>Thirty-two files of changes, sorted by name. The idea is in there somewhere, spread across every one of them.</p></article>
+          <article class="step" data-i="1"><span class="n">02</span><h3>Fathom finds the parts.</h3><p>It reads the diff and the repository, and gathers the lines into the parts they change, in the processes they run in. Mechanical churn falls away.</p></article>
+          <article class="step" data-i="2"><span class="n">03</span><h3>And how they talk.</h3><p>Calls, data and contracts between the parts, with every crossing of a process boundary marked: the places a change can break someone else.</p></article>
+          <article class="step" data-i="3"><span class="n">04</span><h3>Then shows you what changed.</h3><p>The same request, before and after. Before, a question mid-walk stopped navigation. After, it’s answered on the phone, and the walk goes on.</p></article>
+        </div>
+        <div class="ticks" aria-hidden="true"><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i></div>
+      </div>
+      <div class="stage" id="story-stage" role="img" aria-label="The lines of a diff fly up from a page and stack into the parts they change, on three layers; wires draw between the parts; then a request travels them, before and after the change.">
+        <canvas></canvas>
+        <div class="labels"></div>
+        <img class="fallback" src="/fathom/assets/v9-behaviour-day.webp" data-day="/fathom/assets/v9-behaviour-day.webp" data-night="/fathom/assets/v9-behaviour.webp" alt="">
+        <div class="cap" style="opacity: 0"><span class="phase">Before</span><span class="cap-text"></span></div>
+      </div>
     </div>
   </section>
 
-  <section class="close">
-    <div>
-      <h2>Review the shape, <em>not the lines.</em></h2>
-      <p>Free and open source, for macOS 26 or later.</p>
+  <section class="block wrap" id="reading">
+    <div class="head">
+      <p class="label sig">The reading</p>
+      <h2>Seven pages. <em>One sentence and one figure each.</em></h2>
+      <p>Every pull request is read the same way, as a short paper you referee, so you always know where to look. Each figure links back to the lines it was drawn from.</p>
     </div>
-    <div class="cta" style="margin: 0">
-      <a class="btn" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg>Download for Mac</a>
-      <a class="btn ghost" href="https://github.com/yask123/fathom">View source</a>
+    <div class="show">
+      <div class="items">
+        <div class="item on" data-i="0"><span class="n">Abstract</span><h3>Vital signs first.</h3><p>What kind of change, whether a revert would undo it, how risky, how far it reaches, what’s still open. Then the whole pull request in three sentences: <i>Problem</i>, <i>Move</i>, <i>Price</i>.</p><img src="/fathom/assets/v9-abstract-day.webp" data-day="/fathom/assets/v9-abstract-day.webp" data-night="/fathom/assets/v9-abstract.webp" width="2400" height="1500" loading="lazy" alt="The abstract page"></div>
+        <div class="item" data-i="1"><span class="n">01 · Behaviour</span><h3>Behaviour, as a diff.</h3><p>One journey through the system, before and after, marked the way a code diff marks lines: + added, − gone, ~ changed. Red marks where it broke.</p><img src="/fathom/assets/v9-behaviour-day.webp" data-day="/fathom/assets/v9-behaviour-day.webp" data-night="/fathom/assets/v9-behaviour.webp" width="2400" height="1500" loading="lazy" alt="The behaviour page"></div>
+        <div class="item" data-i="2"><span class="n">02 · Design</span><h3>The system, as a blueprint.</h3><p>Each process a box, what crosses between the parts on every wire, every boundary crossing marked. Then Box 1 teaches the engineering idea the change rests on.</p><img src="/fathom/assets/v9-design-day.webp" data-day="/fathom/assets/v9-design-day.webp" data-night="/fathom/assets/v9-design.webp" width="2400" height="1500" loading="lazy" alt="The design page"></div>
+        <div class="item" data-i="3"><span class="n">03 · Trade-offs</span><h3>Every decision, scored.</h3><p>The options as columns, what separates them as rows. The road taken is shaded, and it has to lose somewhere. Stated or inferred, always marked.</p><img src="/fathom/assets/v9-tradeoffs-day.webp" data-day="/fathom/assets/v9-tradeoffs-day.webp" data-night="/fathom/assets/v9-tradeoffs.webp" width="2400" height="1500" loading="lazy" alt="The trade-offs page"></div>
+        <div class="item" data-i="4"><span class="n">04 · Risk</span><h3>A one-way door, or two?</h3><p>Whether a revert undoes it, and each hazard by likelihood and impact, with its trigger and what guards it. Filled marks have nothing guarding them.</p><img src="/fathom/assets/v9-risk-day.webp" data-day="/fathom/assets/v9-risk-day.webp" data-night="/fathom/assets/v9-risk.webp" width="2400" height="1500" loading="lazy" alt="The risk page"></div>
+        <div class="item" data-i="5"><span class="n">05 · Questions</span><h3>The questions worth asking.</h3><p>What the diff leaves open. Settle it yourself, have Fathom dig into the repository, or send it to the author as a comment on the code.</p><img src="/fathom/assets/v9-questions-day.webp" data-day="/fathom/assets/v9-questions-day.webp" data-night="/fathom/assets/v9-questions.webp" width="2400" height="1500" loading="lazy" alt="The questions page"></div>
+        <div class="item" data-i="6"><span class="n">Changes</span><h3>And when you want the lines.</h3><p>The whole diff regrouped into chapters by purpose, marked read, skim or skip, with GitHub’s conversations on the lines they’re about. Comment, reply, suggest, and send one review under your name.</p><img src="/fathom/assets/v8-changes-day.webp" data-day="/fathom/assets/v8-changes-day.webp" data-night="/fathom/assets/v7-changes.webp" width="2000" height="1250" loading="lazy" alt="The changes view"></div>
+      </div>
+      <div class="frame" aria-hidden="true">
+        <div class="stack">
+          <img class="on" src="/fathom/assets/v9-abstract-day.webp" data-day="/fathom/assets/v9-abstract-day.webp" data-night="/fathom/assets/v9-abstract.webp" alt="">
+          <img src="/fathom/assets/v9-behaviour-day.webp" data-day="/fathom/assets/v9-behaviour-day.webp" data-night="/fathom/assets/v9-behaviour.webp" alt="" loading="lazy">
+          <img src="/fathom/assets/v9-design-day.webp" data-day="/fathom/assets/v9-design-day.webp" data-night="/fathom/assets/v9-design.webp" alt="" loading="lazy">
+          <img src="/fathom/assets/v9-tradeoffs-day.webp" data-day="/fathom/assets/v9-tradeoffs-day.webp" data-night="/fathom/assets/v9-tradeoffs.webp" alt="" loading="lazy">
+          <img src="/fathom/assets/v9-risk-day.webp" data-day="/fathom/assets/v9-risk-day.webp" data-night="/fathom/assets/v9-risk.webp" alt="" loading="lazy">
+          <img src="/fathom/assets/v9-questions-day.webp" data-day="/fathom/assets/v9-questions-day.webp" data-night="/fathom/assets/v9-questions.webp" alt="" loading="lazy">
+          <img src="/fathom/assets/v8-changes-day.webp" data-day="/fathom/assets/v8-changes-day.webp" data-night="/fathom/assets/v7-changes.webp" alt="" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block wrap" id="hood">
+    <div class="hood">
+      <div class="head">
+        <p class="label sig">Under the hood</p>
+        <h2>Three readings, <em>in parallel, on your Mac.</em></h2>
+        <p>Fathom labels every hunk of the diff and asks your own Claude Code for three things at once: an outline, the story, and a referee’s reading. The story and the referee look around a read-only checkout, so figures name real types, and a risk is checked against who actually calls the code before it is named.</p>
+      </div>
+      <div>
+        <div class="pipe">
+          <svg viewBox="0 0 730 380" role="img" aria-label="GitHub sends the diff to Fathom, which labels every hunk and runs three Claude readings at once, the outline, the story and the referee, which stream into the reading kept on your Mac. About 25 seconds to the figures, 45 to the referee.">
+            <path class="edge" d="M118 165 L166 165"/><path class="flow" d="M118 165 L166 165"/>
+            <path class="edge" d="M296 158 C 334 158, 334 50, 372 50"/><path class="flow" d="M296 158 C 334 158, 334 50, 372 50"/>
+            <path class="edge" d="M296 165 L372 165"/><path class="flow" d="M296 165 L372 165"/>
+            <path class="edge" d="M296 172 C 334 172, 334 280, 372 280"/><path class="flow" d="M296 172 C 334 172, 334 280, 372 280"/>
+            <path class="edge" d="M546 50 C 580 50, 580 158, 612 158"/><path class="flow" d="M546 50 C 580 50, 580 158, 612 158"/>
+            <path class="edge" d="M546 165 L612 165"/><path class="flow" d="M546 165 L612 165"/>
+            <path class="edge" d="M546 280 C 580 280, 580 172, 612 172"/><path class="flow" d="M546 280 C 580 280, 580 172, 612 172"/>
+            <g transform="translate(4 135)"><rect class="box" width="114" height="60" rx="10"/><text class="name" x="14" y="26">github</text><text class="role" x="14" y="46">the PR</text></g>
+            <g transform="translate(168 135)"><rect class="box" width="128" height="60" rx="10"/><text class="name" x="14" y="26">Fathom</text><text class="role" x="14" y="46">labels hunks</text></g>
+            <g transform="translate(374 20)"><rect class="box" width="172" height="60" rx="10"/><text class="name" x="14" y="26">claude -p</text><text class="kind" x="160" y="25" text-anchor="end">outline</text><text class="role" x="14" y="46">chapters</text></g>
+            <g transform="translate(374 135)"><rect class="box" width="172" height="60" rx="10"/><text class="name" x="14" y="26">claude -p</text><text class="kind" x="160" y="25" text-anchor="end">story</text><text class="role" x="14" y="46">behaviour, design</text></g>
+            <g transform="translate(374 250)"><rect class="box" width="172" height="60" rx="10"/><text class="name" x="14" y="26">claude -p</text><text class="kind" x="160" y="25" text-anchor="end">referee</text><text class="role" x="14" y="46">trade-offs, risk</text></g>
+            <g transform="translate(614 135)"><rect class="box new" width="112" height="60" rx="10"/><text class="name" x="14" y="26">reading</text><text class="role" x="14" y="46">on your Mac</text></g>
+            <path class="axis" d="M4 352 L726 352"/>
+            <text class="tick" x="4" y="374">0 s</text>
+            <text class="tick" x="168" y="374">≈2 s diff</text>
+            <text class="tick" x="374" y="374">≈25 s figures</text>
+            <text class="tick" x="726" y="374" text-anchor="end">≈45 s referee</text>
+          </svg>
+        </div>
+        <div class="trust">
+          <div><h3>Your GitHub</h3><p>Through <code>gh</code> and your login. A review is posted only when you submit it.</p></div>
+          <div><h3>Your Claude</h3><p>Through Claude Code on your plan, with read-only tools and none of your MCP servers or hooks.</p></div>
+          <div><h3>Nothing else</h3><p>No servers, no analytics. Readings stay in your Library folder.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block wrap">
+    <div class="principle">
+      <p class="label sig">Principle</p>
+      <blockquote>Fathom never tells you whether to ship. <em>It shows you what you’d be shipping.</em></blockquote>
+      <p>So there are <span class="struck">no verdicts</span>, <span class="struck">no generic advice</span> and <span class="struck">no robot approvals</span>. A risk is named only when the diff shows it, with its trigger and what guards it. A reason the pull request doesn’t state is marked <i>inferred</i>.</p>
+    </div>
+  </section>
+
+  <section class="block wrap" id="install">
+    <div class="install">
+      <div class="head">
+        <p class="label sig">Install</p>
+        <h2>Yours in <em>a minute.</em></h2>
+        <p>Free and open source under the MIT licence. Signed and notarized by Apple.</p>
+        <div class="cta">
+          <a class="btn" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg>Download for Mac</a>
+          <a class="btn ghost" href="https://github.com/yask123/fathom">View source</a>
+        </div>
+      </div>
+      <ol class="steps-list">
+        <li><span><b>Download Fathom</b>, drag it into Applications and open it.</span></li>
+        <li><span><b>Install the GitHub CLI</b>, then press Sign In to GitHub in Fathom. It shows a one-time code and finishes by itself.<pre>brew install gh</pre></span></li>
+        <li><span><b>Install Claude Code</b> and sign in once. Readings use your Claude plan.<pre>curl -fsSL https://claude.ai/install.sh | bash</pre></span></li>
+        <li><span><b>Pick a repository</b>, then a pull request. Or paste a link.</span></li>
+      </ol>
+    </div>
+    <div class="close">
+      <h2>Review the system, <br><em>not the lines.</em></h2>
+      <div class="cta" style="margin: 0">
+        <a class="btn" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg>Download for Mac</a>
+      </div>
     </div>
   </section>
 </main>
 
 <footer>
   <div class="wrap">
-    <span>Fathom · made by <a href="https://yask.dev">Yask Srivastava</a>, 2026</span>
-    <span>Set in Newsreader, Geist and Geist Mono · <button id="theme" type="button">Dark</button></span>
+    <span>Fathom · made by <a href="https://yask.dev">Yask Srivastava</a>, 2026 · every figure is Fathom reading walkai #46</span>
+    <span><a href="https://github.com/yask123/fathom">GitHub</a> · <button id="theme" type="button">Dark</button></span>
   </div>
 </footer>
 
 <script>
 (() => {
-  const theme = document.getElementById('theme');
-  // Screenshots match the page: the app's light appearance on paper, its dark one in the dark edition.
-  const shotsFor = () => {
-    const night = document.documentElement.dataset.theme === 'dark';
-    document.querySelectorAll('img[data-day]').forEach((img) => {
-      const want = night ? img.dataset.night : img.dataset.day;
-      if (img.getAttribute('src') !== want) img.setAttribute('src', want);
-    });
-  };
-  shotsFor();
-  const label = () => { theme.textContent = document.documentElement.dataset.theme === 'dark' ? 'Light' : 'Dark'; shotsFor(); };
-  theme.addEventListener('click', () => {
-    const dark = document.documentElement.dataset.theme !== 'dark';
-    if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
-    try { localStorage.setItem('fathom-theme', dark ? 'dark' : 'light'); } catch (e) {}
-    document.querySelector('meta[name="theme-color"]').content = dark ? '#0F0F0E' : '#F7F6F2';
-    label();
+  // Theme: light by default, dark on request; screenshots follow.
+  const root = document.documentElement, theme = document.getElementById('theme');
+  const night = () => root.dataset.theme === 'dark';
+  const shots = () => document.querySelectorAll('img[data-day]').forEach((img) => {
+    const want = night() ? img.dataset.night : img.dataset.day;
+    if (img.getAttribute('src') !== want) img.setAttribute('src', want);
   });
-  label();
+  const sync = () => {
+    theme.textContent = night() ? 'Light' : 'Dark';
+    document.querySelector('meta[name="theme-color"]').content = night() ? '#0A0D12' : '#F5F3EE';
+    shots();
+    dispatchEvent(new Event('fathom-theme'));
+  };
+  theme.addEventListener('click', () => {
+    if (night()) delete root.dataset.theme; else root.dataset.theme = 'dark';
+    try { localStorage.setItem('fathom-theme', night() ? 'dark' : 'light'); } catch (e) {}
+    sync();
+  });
+  sync();
 
   const nav = document.getElementById('nav');
-  const onScroll = () => nav.classList.toggle('ruled', scrollY > 8);
-  addEventListener('scroll', onScroll, { passive: true }); onScroll();
+  const ruled = () => nav.classList.toggle('ruled', scrollY > 8);
+  addEventListener('scroll', ruled, { passive: true }); ruled();
 
-  // Figure 1: four views. They turn by themselves while in view, until you pick one.
-  const shots = [...document.querySelectorAll('#fig1 .stack .shot')];
-  const buttons = [...document.querySelectorAll('#fig1 .tabs button')];
-  const caption = document.getElementById('subcap');
-  const captions = [
-    'The abstract of a reading: the change’s vital signs, then Problem, Move and Price, then the contents.',
-    'Behaviour as a diff: one journey, before and after. + a step added, − one gone, ~ one changed, with what it was struck through. Red marks where it broke.',
-    'The design as a blueprint: each process a box, what crosses between the parts on every arrow, and each crossing of a process boundary marked.',
-    'Risk: whether a revert would undo it, and each hazard by likelihood and impact. A filled mark has nothing in the change guarding it.',
-  ];
-  let i = 0, picked = false, visible = false;
-  const show = (n) => {
-    i = n;
-    shots.forEach((s, k) => s.classList.toggle('on', k === n));
-    buttons.forEach((b, k) => b.setAttribute('aria-pressed', String(k === n)));
-    caption.textContent = captions[n];
-  };
-  buttons.forEach((b) => b.addEventListener('click', () => { picked = true; show(+b.dataset.i); }));
-  new IntersectionObserver(([e]) => { visible = e.isIntersecting; }, { threshold: 0.5 }).observe(document.getElementById('fig1'));
-  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    setInterval(() => { if (visible && !picked && !document.hidden) show((i + 1) % shots.length); }, 6500);
+  // A wall of diff, for scale.
+  const wall = document.getElementById('wall');
+  let s = 11;
+  const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let k = 0; k < 14; k++) {
+    const i = document.createElement('i');
+    const v = r();
+    i.className = v < .45 ? 'a' : v < .55 ? 'd' : '';
+    i.style.width = `${30 + r() * 65}%`;
+    i.style.marginLeft = `${Math.floor(r() * 4) * 4}%`;
+    wall.appendChild(i);
   }
+
+  // The reading: the screenshot follows the item in the middle of the screen.
+  const items = [...document.querySelectorAll('.item')];
+  const frames = [...document.querySelectorAll('.frame img')];
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (!e.isIntersecting) return;
+      const n = +e.target.dataset.i;
+      items.forEach((it, k) => it.classList.toggle('on', k === n));
+      frames.forEach((f, k) => f.classList.toggle('on', k === n));
+    });
+  }, { rootMargin: '-45% 0px -45% 0px' });
+  items.forEach((it) => io.observe(it));
 })();
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+// Colours, matching the app's two appearances.
+const PALETTES = {
+  light: { ink: 0x1C1B18, ink2: 0x57544D, ink3: 0x8C887F, paper: 0xE7E3D8, face: 0xF7F5F0, add: 0x2E7A55, del: 0xB23F37, ctx: 0xC9C3B7, sig: 0x1B7C76, addT: 0x5E9C7D, delT: 0xC87068 },
+  dark: { ink: 0xE8EBF0, ink2: 0xA2AAB7, ink3: 0x6C7483, paper: 0x1A2330, face: 0x0E131A, add: 0x6DC59B, del: 0xDE7B7B, ctx: 0x343D4A, sig: 0x6CCDC8, addT: 0x4E9C7A, delT: 0xB0625F },
+};
+const pal = () => PALETTES[document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'];
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// The system walkai #46 changes, as Fathom reads it: three processes, the parts in them, and the wires between.
+const H = 0.56;
+const PLANES = [
+  { id: 'app', name: 'iOS app', y: 3.3 },
+  { id: 'api', name: 'API server', y: 0 },
+  { id: 'ai', name: 'OpenAI', y: -3.3 },
+];
+const PARTS = [
+  { id: 'view', name: 'WalkingView', plane: 'app', x: -3.5, z: -0.8, w: 2.1, d: 1.15, state: 'changed', lines: 12 },
+  { id: 'model', name: 'WalkModel', plane: 'app', x: -0.4, z: -0.8, w: 2.1, d: 1.15, state: 'changed', lines: 20 },
+  { id: 'plan', name: 'RoutePlanner', plane: 'app', x: 2.9, z: -0.8, w: 2.1, d: 1.15, state: 'changed', lines: 9 },
+  { id: 'local', name: 'localQuestion', plane: 'app', x: 1.15, z: 1.3, w: 1.9, d: 1.05, state: 'new', lines: 12 },
+  { id: 'api', name: 'explore-v1', plane: 'api', x: 2.9, z: -0.75, w: 2.1, d: 1.15, state: 'changed', lines: 15 },
+  { id: 'gate', name: 'enforceRouteContract', plane: 'api', x: -0.6, z: -0.75, w: 2.9, d: 1.15, state: 'changed', lines: 7 },
+  { id: 'llm', name: 'Responses API', plane: 'ai', x: 2.9, z: -0.75, w: 2.1, d: 1.15, state: 'context', lines: 0 },
+];
+const WIRES = [
+  { id: 'vm', from: 'view', to: 'model', label: 'generate(query)', at: .5 },
+  { id: 'ml', from: 'model', to: 'local', label: 'common questions', state: 'new', at: .55 },
+  { id: 'mp', from: 'model', to: 'plan', label: 'context JSON', at: .5 },
+  { id: 'pa', from: 'plan', to: 'api', label: '⟨conversation-v4⟩', cross: true },
+  { id: 'ag', from: 'api', to: 'gate' },
+  { id: 'al', from: 'api', to: 'llm', label: '⟨outputSchema⟩', cross: true },
+];
+const part = Object.fromEntries(PARTS.map((p) => [p.id, p]));
+const planeY = (id) => PLANES.find((p) => p.id === id).y;
+const top = (p) => planeY(p.plane) + 0.03 + H;
+
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const smooth = (t) => { t = clamp(t); return t * t * (3 - 2 * t); };
+const ease = (t) => { t = clamp(t); return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
+const span = (t, a, b) => clamp((t - a) / (b - a));
+
+let seed = 46;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+// Each part is built from the lines that change it; a few files of churn belong to no part at all.
+const BARS = [];
+for (const p of PARTS) {
+  for (let j = 0; j < p.lines; j++) {
+    const v = rnd();
+    BARS.push({ part: p.id, j, kind: p.state === 'new' ? 'add' : v < .42 ? 'add' : v < .56 ? 'del' : 'ctx' });
+  }
+}
+for (let k = 0; k < 44; k++) BARS.push({ part: null, kind: rnd() < .55 ? 'add' : 'ctx' });
+// Lay them out on a page as files: each part's lines in one or two runs, the churn in three.
+{
+  const files = [];
+  for (const p of PARTS) {
+    const mine = BARS.filter((b) => b.part === p.id);
+    if (!mine.length) continue;
+    const cut = mine.length > 12 ? Math.floor(mine.length / 2) : mine.length;
+    files.push(mine.slice(0, cut));
+    if (cut < mine.length) files.push(mine.slice(cut));
+  }
+  const noise = BARS.filter((b) => !b.part);
+  files.push(noise.slice(0, 16), noise.slice(16, 30), noise.slice(30));
+  files.sort(() => rnd() - .5);
+  let row = 0;
+  const perCol = 58;
+  for (const f of files) {
+    for (const b of f) {
+      const col = Math.floor(row / perCol), r = row % perCol;
+      const indent = Math.floor(rnd() * 4);
+      b.len = .5 + rnd() * 2.6;
+      b.px = (col === 0 ? -4.6 : 0.4) + indent * .22 + b.len / 2;
+      b.pz = -3.0 + r * .105;
+      row++;
+    }
+    row++;
+  }
+  BARS.forEach((b, i) => { b.delay = (i * 7919 % BARS.length) / BARS.length; });
+}
+
+function curve(w) {
+  const a = part[w.from], b = part[w.to];
+  if (!w.cross) {
+    const s = new THREE.Vector3(a.x, top(a), a.z), e = new THREE.Vector3(b.x, top(b), b.z);
+    const lift = 0.75 + s.distanceTo(e) * .1;
+    return new THREE.CubicBezierCurve3(s, s.clone().setY(s.y + lift), e.clone().setY(e.y + lift), e);
+  }
+  // Out of the front of the part, down through its process's floor, and onto the next part.
+  const ya = planeY(a.plane), zf = a.z + a.d / 2;
+  return new THREE.CatmullRomCurve3([
+    new THREE.Vector3(a.x, ya + 0.03 + H * .35, zf),
+    new THREE.Vector3(a.x, ya + 0.02, zf + .32),
+    new THREE.Vector3(a.x, ya - .55, zf + .34),
+    new THREE.Vector3(b.x, top(b) + .35, b.z + .05),
+    new THREE.Vector3(b.x, top(b), b.z),
+  ], false, 'centripetal');
+}
+
+function radialTexture(inner, outer) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, inner); g.addColorStop(1, outer);
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// The before and after of one request, as hops along the wires.
+const BEFORE = [['vm', 1]];
+const AFTER_A = [['vm', 1], ['ml', 1], ['ml', -1], ['vm', -1]];
+const AFTER_B = [['vm', 1], ['mp', 1], ['pa', 1], ['al', 1], ['al', -1], ['pa', -1], ['mp', -1], ['vm', -1]];
+const LOOP = 17;
+const CAPTIONS = {
+  before: 'A question mid-walk reaches WalkModel, which resets the route and stops navigation.',
+  after: 'Common questions are answered on the phone; the rest go to the server with context. The walk goes on.',
+};
+
+class SystemScene {
+  constructor(stage, mode) {
+    this.stage = stage;
+    this.mode = mode;
+    this.canvas = stage.querySelector('canvas');
+    this.labelsEl = stage.querySelector('.labels');
+    this.capEl = stage.querySelector('.cap');
+    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
+    this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    this.renderer.setClearColor(0x000000, 0);
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 200);
+    this.mats = [];
+    this.labels = [];
+    this.progress = mode === 'hero' ? 1 : 0;
+    this.mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+    this.clock = mode === 'hero' ? 0 : 0;
+    this.last = performance.now();
+    this.build();
+    this.resize();
+    new ResizeObserver(() => this.resize()).observe(stage);
+    addEventListener('fathom-theme', () => this.recolor());
+    if (mode === 'hero') {
+      stage.addEventListener('pointermove', (e) => {
+        const r = stage.getBoundingClientRect();
+        this.mouse.tx = (e.clientX - r.left) / r.width - .5;
+        this.mouse.ty = (e.clientY - r.top) / r.height - .5;
+      });
+      stage.addEventListener('pointerleave', () => { this.mouse.tx = 0; this.mouse.ty = 0; });
+    }
+    this.visible = false;
+    new IntersectionObserver(([e]) => {
+      this.visible = e.isIntersecting;
+      if (this.visible && !this.raf) { this.last = performance.now(); this.tick(); }
+    }, { rootMargin: '120px' }).observe(stage);
+    this.frame(0);
+  }
+
+  mat(kind, key, opacity = 1, extra = {}) {
+    const P = pal();
+    const common = { color: P[key], transparent: true, opacity, depthWrite: false };
+    const m = kind === 'dash' ? new THREE.LineDashedMaterial({ ...common, dashSize: extra.dash ?? .12, gapSize: extra.gap ?? .09 })
+      : kind === 'line' ? new THREE.LineBasicMaterial(common)
+      : new THREE.MeshBasicMaterial({ ...common, side: THREE.DoubleSide, map: extra.map ?? null, depthWrite: extra.depthWrite ?? false });
+    m.userData = { key, base: opacity };
+    this.mats.push(m);
+    return m;
+  }
+
+  label(cls, html, pos) {
+    const el = document.createElement('span');
+    el.className = cls;
+    el.innerHTML = html;
+    this.labelsEl.appendChild(el);
+    const l = { el, pos, alpha: 1, shown: -1, cls };
+    this.labels.push(l);
+    return l;
+  }
+
+  build() {
+    const s = this.scene;
+    this.planes = PLANES.map((p) => {
+      const g = new THREE.Group();
+      const W = 10.6, D = 4.2;
+      const face = new THREE.Mesh(new THREE.PlaneGeometry(W, D), this.mat('mesh', 'paper', .5));
+      face.rotation.x = -Math.PI / 2;
+      face.position.set(.1, p.y, .2);
+      face.renderOrder = -2;
+      g.add(face);
+      const pts = [[-W / 2, -D / 2], [W / 2, -D / 2], [W / 2, D / 2], [-W / 2, D / 2], [-W / 2, -D / 2]].map(([x, z]) => new THREE.Vector3(x + .1, p.y + .002, z + .2));
+      const edge = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), this.mat('dash', 'ink', .42));
+      edge.computeLineDistances();
+      g.add(edge);
+      const grid = [];
+      for (let x = -W / 2 + .6; x < W / 2; x += .6) grid.push(new THREE.Vector3(x + .1, p.y + .001, -D / 2 + .2), new THREE.Vector3(x + .1, p.y + .001, D / 2 + .2));
+      for (let z = -D / 2 + .6; z < D / 2; z += .6) grid.push(new THREE.Vector3(-W / 2 + .1, p.y + .001, z + .2), new THREE.Vector3(W / 2 + .1, p.y + .001, z + .2));
+      const gridLines = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(grid), this.mat('line', 'ink', .05));
+      g.add(gridLines);
+      s.add(g);
+      const lab = this.label('lz', p.name, new THREE.Vector3(-W / 2 + .1, p.y, D / 2 + .2));
+      return { g, lab, mats: [face.material, edge.material, gridLines.material] };
+    });
+
+    // The page a diff arrives on.
+    {
+      const W = 10.2, D = 6.8;
+      const pts = [[-W / 2, -D / 2], [W / 2, -D / 2], [W / 2, D / 2], [-W / 2, D / 2], [-W / 2, -D / 2]].map(([x, z]) => new THREE.Vector3(x, 0, z));
+      this.page = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), this.mat('dash', 'ink', .35));
+      this.page.computeLineDistances();
+      s.add(this.page);
+      this.pageFace = new THREE.Mesh(new THREE.PlaneGeometry(W, D), this.mat('mesh', 'paper', .35));
+      this.pageFace.rotation.x = -Math.PI / 2;
+      this.pageFace.position.y = -.002;
+      s.add(this.pageFace);
+      this.pageLabel = this.label('lf', 'walkai #46 · +2,894 −148 · 32 files', new THREE.Vector3(-W / 2, 0, -D / 2));
+    }
+
+    // Lines of code: bars on the page, strata in the parts.
+    this.bars = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }), BARS.length);
+    this.bars.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    s.add(this.bars);
+    this.caps = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }), PARTS.length);
+    this.caps.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    s.add(this.caps);
+
+    const shadowTex = radialTexture('rgba(0,0,0,0.9)', 'rgba(0,0,0,0)');
+    this.parts = PARTS.map((p) => {
+      const g = new THREE.Group();
+      const box = new THREE.EdgesGeometry(new THREE.BoxGeometry(p.w, H, p.d));
+      const key = p.state === 'new' ? 'add' : p.state === 'context' ? 'ink3' : 'ink';
+      const edges = new THREE.LineSegments(box, p.state === 'context' ? this.mat('dash', key, .7, { dash: .07, gap: .06 }) : this.mat('line', key, p.state === 'new' ? .95 : .78));
+      if (p.state === 'context') edges.computeLineDistances();
+      edges.position.y = H / 2;
+      g.add(edges);
+      const shadow = new THREE.Mesh(new THREE.PlaneGeometry(p.w * 1.35, p.d * 1.6), this.mat('mesh', 'ink', .1, { map: shadowTex }));
+      shadow.rotation.x = -Math.PI / 2;
+      shadow.position.y = -.025;
+      g.add(shadow);
+      g.position.set(p.x, planeY(p.plane) + .03, p.z);
+      s.add(g);
+      const tag = p.state === 'new' ? '<b>new</b>' : '';
+      const lab = this.label(`lp${p.state === 'new' ? ' new' : p.state === 'context' ? ' ctx' : ''}`, p.name + tag, new THREE.Vector3(p.x - p.w / 2, planeY(p.plane) + .01, p.z + p.d / 2 + .12));
+      return { p, g, edges, shadow, lab };
+    });
+
+    this.wires = WIRES.map((w) => {
+      const c = curve(w);
+      const pts = c.getPoints(90);
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), this.mat('line', w.state === 'new' ? 'add' : 'ink', w.state === 'new' ? .95 : .5));
+      s.add(line);
+      let port = null;
+      if (w.cross) {
+        const a = part[w.from];
+        const y = planeY(a.plane) + .004, z = a.z + a.d / 2 + .32, r = .16;
+        const sq = [[-r, -r], [r, -r], [r, r], [-r, r], [-r, -r]].map(([dx, dz]) => new THREE.Vector3(a.x + dx, y, z + dz));
+        port = new THREE.Line(new THREE.BufferGeometry().setFromPoints(sq), this.mat('line', 'ink', .75));
+        s.add(port);
+      }
+      const lab = w.label ? this.label(w.cross ? 'lw wire' : 'lw', w.label, c.getPoint(w.cross ? .55 : (w.at ?? .5)).add(new THREE.Vector3(w.cross ? .3 : 0, w.cross ? 0 : .14, 0))) : null;
+      return { w, c, line, n: pts.length, port, lab };
+    });
+    this.wire = Object.fromEntries(this.wires.map((x) => [x.w.id, x]));
+
+    // The request, travelling.
+    const halo = radialTexture('rgba(255,255,255,1)', 'rgba(255,255,255,0)');
+    this.pulse = new THREE.Mesh(new THREE.SphereGeometry(.075, 20, 14), this.mat('mesh', 'sig', 1, { depthWrite: true }));
+    this.halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: halo, color: pal().sig, transparent: true, opacity: .45, depthWrite: false }));
+    this.halo.scale.set(.75, .75, 1);
+    s.add(this.pulse, this.halo);
+
+    // Where it broke, and where it arrived.
+    const m = part.model;
+    this.breakAt = new THREE.Vector3(m.x, top(m) + .02, m.z);
+    this.cross = new THREE.Group();
+    const ring = new THREE.Mesh(new THREE.RingGeometry(.2, .235, 40), this.mat('mesh', 'del', 1));
+    const x1 = new THREE.Mesh(new THREE.PlaneGeometry(.26, .035), this.mat('mesh', 'del', 1));
+    const x2 = new THREE.Mesh(new THREE.PlaneGeometry(.26, .035), this.mat('mesh', 'del', 1));
+    x1.rotation.z = Math.PI / 4; x2.rotation.z = -Math.PI / 4;
+    this.cross.add(ring, x1, x2);
+    this.cross.position.copy(this.breakAt).setY(this.breakAt.y + .45);
+    s.add(this.cross);
+    this.ripple = new THREE.Mesh(new THREE.RingGeometry(.3, .33, 48), this.mat('mesh', 'del', .8));
+    this.ripple.rotation.x = -Math.PI / 2;
+    this.ripple.position.copy(this.breakAt);
+    this.arrive = new THREE.Mesh(new THREE.RingGeometry(.3, .33, 48), this.mat('mesh', 'add', .8));
+    this.arrive.rotation.x = -Math.PI / 2;
+    this.arrive.position.set(part.view.x, top(part.view) + .02, part.view.z);
+    s.add(this.ripple, this.arrive);
+    this.pain = this.label('lx', 'reset() stops navigation before the question is read', this.cross.position.clone());
+
+    this.recolor();
+  }
+
+  recolor() {
+    const P = pal();
+    for (const m of this.mats) m.color.setHex(P[m.userData.key]);
+    this.halo.material.color.setHex(P.sig);
+    const c = new THREE.Color();
+    BARS.forEach((b, i) => {
+      c.setHex(b.kind === 'add' ? P.addT : b.kind === 'del' ? P.delT : P.ctx);
+      this.bars.setColorAt(i, c);
+    });
+    this.bars.instanceColor.needsUpdate = true;
+    c.setHex(P.face);
+    PARTS.forEach((p, i) => this.caps.setColorAt(i, c));
+    this.caps.instanceColor.needsUpdate = true;
+    this.frame(0);
+  }
+
+  resize() {
+    const r = this.stage.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    this.w = r.width; this.h = r.height;
+    this.renderer.setSize(r.width, r.height, false);
+    this.aspect = r.width / r.height;
+    // How much of the world to show: the whole stack, with room for the labels.
+    const need = this.mode === 'hero' ? 11.3 : 11.4;
+    this.vh = this.aspect < 1.12 ? need * 1.12 / this.aspect : need;
+    this.frame(0);
+  }
+
+  place(zoom, yaw, pitch, target) {
+    const hh = this.vh / 2 / zoom, hw = hh * this.aspect;
+    Object.assign(this.camera, { left: -hw, right: hw, top: hh, bottom: -hh });
+    this.camera.updateProjectionMatrix();
+    const R = 40;
+    this.camera.position.set(target.x + Math.sin(yaw) * Math.cos(pitch) * R, target.y + Math.sin(pitch) * R, target.z + Math.cos(yaw) * Math.cos(pitch) * R);
+    this.camera.lookAt(target);
+  }
+
+  tick() {
+    if (!this.visible) { this.raf = 0; return; }
+    const now = performance.now();
+    const dt = Math.min(.05, (now - this.last) / 1000);
+    this.last = now;
+    if (!document.hidden) this.frame(dt);
+    this.raf = requestAnimationFrame(() => this.tick());
+  }
+
+  // The before-and-after loop: where the request is, what's new, what broke.
+  journey(t) {
+    const out = { rise: 1, wireOn: 1, pulse: null, broke: 0, ripple: -1, arrive: -1, phase: 'after', pain: 0, flash: null };
+    const hop = .62;
+    const run = (hops, t0) => {
+      const k = Math.floor((t - t0) / hop);
+      if (k < 0 || k >= hops.length) return null;
+      const [id, dir] = hops[k];
+      return { id, dir, u: smooth((t - t0 - k * hop) / hop) };
+    };
+    if (t < 4.6) {
+      out.phase = 'before';
+      out.rise = 0; out.wireOn = 0;
+      if (t > .7 && t < 1.95) out.pulse = run(BEFORE, .7) ?? { id: 'vm', dir: 1, u: 1 };
+      if (t >= 1.95) { out.broke = smooth((t - 1.95) / .3) * (1 - smooth((t - 4.2) / .4)); out.ripple = (t - 1.95) / 1.1; out.pain = out.broke; }
+    } else if (t < 5.7) {
+      out.rise = ease((t - 4.6) / .8);
+      out.wireOn = ease((t - 5.0) / .7);
+    } else if (t < 8.4) {
+      out.pulse = run(AFTER_A, 5.7);
+      if (t > 5.7 + AFTER_A.length * hop) out.arrive = (t - 5.7 - AFTER_A.length * hop) / 1;
+    } else if (t < 14.2) {
+      out.pulse = run(AFTER_B, 8.5);
+      if (out.pulse && (out.pulse.id === 'pa' || out.pulse.id === 'al')) out.flash = out.pulse.id;
+      const end = 8.5 + AFTER_B.length * hop;
+      if (t > end) out.arrive = (t - end) / 1;
+    } else if (t > 16.1) {
+      out.rise = 1 - ease((t - 16.1) / .8);
+      out.wireOn = out.rise;
+    }
+    return out;
+  }
+
+  frame(dt) {
+    if (!this.w) return;
+    this.clock += dt;
+    const P = pal();
+    const story = this.mode === 'story';
+    const p = this.progress;
+    // Story segments: the page, the parts gathering, the wires, the journey.
+    const gather = story ? span(p, .2, .5) : 1;
+    const wiring = story ? span(p, .46, .7) : 1;
+    const travel = story ? span(p, .72, .8) : 1;
+    if (story && travel <= 0) this.clock = 0;
+    const t = reduced ? 10 : (this.clock % LOOP);
+    const j = travel > 0 ? this.journey(t) : { rise: 1, wireOn: 1, pulse: null, broke: 0, ripple: -1, arrive: -1, phase: 'after', pain: 0, flash: null };
+
+    // Camera: a slow sway, a little parallax, and in the story a closer, steeper look at the page first.
+    this.mouse.x += (this.mouse.tx - this.mouse.x) * .05;
+    this.mouse.y += (this.mouse.ty - this.mouse.y) * .05;
+    const sway = reduced ? 0 : Math.sin(this.clock * .16) * .06;
+    const yaw = .44 + sway + this.mouse.x * .14 + (story ? (1 - ease(gather)) * .3 : 0);
+    const pitch = .43 - this.mouse.y * .05 + (story ? (1 - ease(gather)) * .42 : 0);
+    const zoom = story ? 1 + (1 - ease(gather)) * .12 : 1;
+    this.place(zoom, yaw, pitch, new THREE.Vector3(.2, story ? .1 - (1 - ease(gather)) * .25 : -.02, .1));
+
+    // The page fades as its lines leave it.
+    const pageOn = story ? 1 - smooth(span(p, .26, .45)) : 0;
+    this.page.material.opacity = .35 * pageOn;
+    this.pageFace.material.opacity = .35 * pageOn;
+    this.page.visible = this.pageFace.visible = pageOn > .01;
+    this.pageLabel.alpha = pageOn;
+
+    // The processes appear under the parts.
+    const planesOn = story ? smooth(span(p, .24, .4)) : 1;
+    for (const pl of this.planes) {
+      pl.mats.forEach((m) => { m.opacity = m.userData.base * planesOn; });
+      pl.g.visible = planesOn > .01;
+      pl.lab.alpha = planesOn;
+    }
+
+    // Lines fly from the page into the parts they change, stacked as strata; churn falls away.
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), scl = new THREE.Vector3();
+    const from = new THREE.Vector3(), fromS = new THREE.Vector3(), to = new THREE.Vector3(), toS = new THREE.Vector3();
+    BARS.forEach((b, i) => {
+      const local = story ? ease(span(gather, b.delay * .4, b.delay * .4 + .36)) : 1;
+      from.set(b.px, .012, b.pz); fromS.set(b.len, .018, .05);
+      if (b.part) {
+        const pt = part[b.part];
+        const rise = pt.id === 'local' ? j.rise : 1;
+        const slab = H / pt.lines;
+        to.set(pt.x, planeY(pt.plane) + .03 + (b.j + .5) * slab * rise, pt.z);
+        toS.set(pt.w * .9, Math.max(.0001, slab * .55 * rise), pt.d * .86);
+      } else {
+        to.set(b.px * .6, -6, b.pz);
+        toS.set(.0001, .0001, .0001);
+      }
+      pos.lerpVectors(from, to, local);
+      pos.y += Math.sin(Math.PI * local) * (b.part ? 1.8 : .4);
+      if (b.part) {
+        // In flight a line keeps its shape and piles up on its part; then the piles become blocks together.
+        const settle = story ? ease(span(gather, .8, 1)) : 1;
+        scl.set(fromS.x + (toS.x - fromS.x) * local, fromS.y + (toS.y - fromS.y) * settle, fromS.z + (toS.z - fromS.z) * settle);
+        if (b.part === 'local' && j.rise < .04 && local >= 1) scl.set(.0001, .0001, .0001);
+      } else {
+        scl.lerpVectors(fromS, toS, local);
+      }
+      m4.compose(pos, q, scl);
+      this.bars.setMatrixAt(i, m4);
+    });
+    this.bars.instanceMatrix.needsUpdate = true;
+
+    // Parts: their frames and labels arrive once their lines have.
+    const labelsOn = story ? smooth(span(p, .44, .54)) : 1;
+    PARTS.forEach((pt, i) => {
+      const P0 = this.parts[i];
+      const rise = pt.id === 'local' ? j.rise : 1;
+      const landed = story ? smooth(span(gather, .8, 1)) : 1;
+      const on = landed * (pt.id === 'local' ? smooth(rise * 1.4) : 1);
+      P0.edges.material.opacity = P0.edges.material.userData.base * on;
+      P0.edges.scale.y = Math.max(.001, rise);
+      P0.edges.position.y = H / 2 * rise;
+      P0.shadow.material.opacity = .1 * on;
+      P0.lab.alpha = on * labelsOn;
+      pos.set(pt.x, planeY(pt.plane) + .03 + H * rise, pt.z);
+      if (pt.lines && on > .01) scl.set(pt.w * .9, .012, pt.d * .86); else scl.set(.0001, .0001, .0001);
+      m4.compose(pos, q, scl);
+      this.caps.setMatrixAt(i, m4);
+    });
+    this.caps.instanceMatrix.needsUpdate = true;
+
+    // Wires draw themselves in, the new one only after the change.
+    for (const W of this.wires) {
+      const on = (story ? wiring : 1) * (W.w.id === 'ml' ? j.wireOn : 1);
+      W.line.geometry.setDrawRange(0, Math.floor(W.n * on));
+      W.line.visible = on > .005;
+      if (W.port) {
+        W.port.material.color.setHex(j.flash === W.w.id ? P.sig : P.ink);
+        W.port.material.opacity = .75 * smooth(on * 2);
+      }
+      if (W.lab) W.lab.alpha = smooth(span(on, .8, 1)) * (W.w.cross ? 1 : 1 - j.pain);
+    }
+
+    // The request.
+    if (j.pulse) {
+      const W = this.wire[j.pulse.id];
+      const u = j.pulse.dir > 0 ? j.pulse.u : 1 - j.pulse.u;
+      const at = W.c.getPoint(u);
+      this.pulse.position.copy(at);
+      this.halo.position.copy(at);
+      this.pulse.visible = this.halo.visible = true;
+      const hurt = j.phase === 'before' && j.pulse.u > .85;
+      this.pulse.material.color.setHex(hurt ? P.del : P.sig);
+      this.halo.material.color.setHex(hurt ? P.del : P.sig);
+    } else {
+      this.pulse.visible = this.halo.visible = false;
+    }
+    this.cross.visible = j.broke > .01;
+    this.cross.children.forEach((c) => { c.material.opacity = j.broke; });
+    this.cross.quaternion.copy(this.camera.quaternion);
+    const ripple = (ring, u) => {
+      ring.visible = u >= 0 && u <= 1;
+      if (!ring.visible) return;
+      ring.scale.setScalar(1 + u * 2.2);
+      ring.material.opacity = .8 * (1 - u);
+    };
+    ripple(this.ripple, j.ripple);
+    ripple(this.arrive, j.arrive);
+    this.pain.alpha = j.pain;
+
+    // Caption.
+    if (this.capEl) {
+      const shown = (story ? travel : 1) > .5;
+      this.capEl.style.opacity = shown ? 1 : 0;
+      if (shown && this.phase !== j.phase) {
+        this.phase = j.phase;
+        const ph = this.capEl.querySelector('.phase');
+        ph.textContent = j.phase === 'before' ? 'Before' : 'After';
+        ph.classList.toggle('after', j.phase === 'after');
+        this.capEl.querySelector('.cap-text').textContent = CAPTIONS[j.phase];
+      }
+    }
+
+    this.renderer.render(this.scene, this.camera);
+
+    // Labels, pinned to their points in the drawing.
+    const v = new THREE.Vector3();
+    for (const l of this.labels) {
+      v.copy(l.pos).project(this.camera);
+      const x = (v.x + 1) / 2 * this.w, y = (1 - v.y) / 2 * this.h;
+      const a = Math.round(clamp(l.alpha) * 100) / 100;
+      if (a !== l.shown) { l.el.style.opacity = a; l.el.style.visibility = a > 0 ? 'visible' : 'hidden'; l.shown = a; }
+      if (a <= 0) continue;
+      const flat = l.cls === 'lz' || l.cls === 'lf';
+      const part = l.cls.startsWith('lp');
+      const lift = l.cls === 'lz' ? '-18px' : l.cls === 'lf' ? '-24px' : l.cls === 'lx' ? '-50%' : l.cls.startsWith('lw') ? '-50%' : part ? '2px' : '-135%';
+      const across = flat || part ? '0' : l.cls === 'lx' ? '20px' : '-50%';
+      l.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(${across}, ${lift})`;
+    }
+  }
+}
+
+function start(id, mode) {
+  const stage = document.getElementById(id);
+  try {
+    return new SystemScene(stage, mode);
+  } catch (e) {
+    console.warn('Fathom: no WebGL, showing a picture instead', e);
+    stage.classList.add('no-gl');
+    return null;
+  }
+}
+
+const hero = start('hero-stage', 'hero');
+const story = start('story-stage', 'story');
+
+// The story is driven by scroll: four steps across the pinned section.
+const section = document.getElementById('story');
+const steps = [...section.querySelectorAll('.step')];
+const ticks = [...section.querySelectorAll('.ticks b')];
+const bounds = [0, .2, .46, .72, 1];
+const onScroll = () => {
+  const r = section.getBoundingClientRect();
+  const p = clamp(-r.top / (r.height - innerHeight));
+  if (story) story.progress = p;
+  let k = 0;
+  for (let i = 0; i < 4; i++) if (p >= bounds[i]) k = i;
+  steps.forEach((s, i) => s.classList.toggle('on', i === k));
+  ticks.forEach((t, i) => { t.style.width = `${clamp((p - bounds[i]) / (bounds[i + 1] - bounds[i])) * 100}%`; });
+  if (story && !story.raf) story.frame(0);
+};
+addEventListener('scroll', onScroll, { passive: true });
+addEventListener('resize', onScroll);
+onScroll();
 </script>
 </body>
 </html>
