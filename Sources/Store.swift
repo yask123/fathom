@@ -288,6 +288,12 @@ final class AppStore {
 
     // MARK: Per-PR saved bits
 
+    func settled(_ key: String) -> Set<Int> { Set(state.settled[key] ?? []) }
+    func setSettled(_ key: String, _ ids: Set<Int>) {
+        state.settled[key] = ids.isEmpty ? nil : ids.sorted()
+        persist()
+    }
+
     func reviewed(_ key: String) -> Set<Int> { Set(state.reviewed[key] ?? []) }
     func setReviewed(_ key: String, _ ids: Set<Int>) {
         state.reviewed[key] = ids.sorted()
@@ -378,6 +384,8 @@ final class PRSession {
     var briefState: RunState = .idle
     var story = Story()
     var storyState: RunState = .idle
+    var critique = Critique()
+    var critiqueState: RunState = .idle
     @ObservationIgnored var briefVersion = 0
     var checkoutState: RunState = .idle
     var checkout: URL?
@@ -392,6 +400,7 @@ final class PRSession {
     var filterLabel = ""
     var expandedSkips: Set<Int> = []
     var reviewed: Set<Int> = []
+    var settled: Set<Int> = []     // the reading's questions you've settled
     var byFile = false
 
     // Review
@@ -419,6 +428,7 @@ final class PRSession {
     @ObservationIgnored private var soundTasks: [Task<Void, Never>] = []
     @ObservationIgnored private var briefJSON: Data?
     @ObservationIgnored private var storyJSON: Data?
+    @ObservationIgnored private var critiqueJSON: Data?
 
     @ObservationIgnored var rowsCache: RowsCache?
     @ObservationIgnored private var colouringTask: Task<Void, Never>?
@@ -528,6 +538,7 @@ final class PRSession {
         }
         if !background { store?.remember(detail.summary) }
         reviewed = store?.reviewed(reviewKey) ?? []
+        settled = store?.settled(reviewKey) ?? []
         // Line colours are keyed by position, so a slow colouring of an older diff must not land on this one.
         diffGeneration &+= 1
         let generation = diffGeneration
@@ -576,10 +587,13 @@ final class PRSession {
         checkoutState = .idle
         briefJSON = nil
         storyJSON = nil
+        critiqueJSON = nil
         brief = Brief()
         story = Story()
+        critique = Critique()
         briefState = .idle
         storyState = .idle
+        critiqueState = .idle
         lines = [:]
         askSession = nil
         soundedAt = nil
@@ -594,28 +608,35 @@ final class PRSession {
     private func adopt(_ s: Sounding) {
         briefJSON = s.brief
         storyJSON = s.story
+        critiqueJSON = s.critique
         withAnimation(Motion.spring) {
             if let b = s.brief { brief = Brief(J(data: b)) }
             if let t = s.story { story = Story(J(data: t)) }
+            if let c = s.critique { critique = Critique(J(data: c)) }
             briefState = s.brief == nil ? .failed("No outline saved") : .done(s.briefSeconds ?? 0)
             storyState = s.story == nil ? .failed("No story saved") : .done(s.storySeconds ?? 0)
+            critiqueState = s.critique == nil ? .failed("No critique saved") : .done(s.critiqueSeconds ?? 0)
         }
         soundedAt = s.createdAt
         soundedModel = s.model
     }
 
-    /// Runs both readings: the outline (diff only, fast; it groups the Changes) and the story (may look around the repo).
+    /// Runs the three readings side by side: the outline (diff only, fast; it groups the Changes), the story (how it
+    /// works, drawn) and the critique (what a referee would want). The last two may look around the repo.
     func sound() {
         guard let detail, let diff else { return }
         guard Claude.executable != nil else {
             briefState = .failed("Install Claude Code so Fathom can read PRs. Open Settings (⌘,) to set it up.")
             storyState = briefState
+            critiqueState = briefState
             return
         }
         briefJSON = nil
         storyJSON = nil
+        critiqueJSON = nil
         brief = Brief()
         story = Story()
+        critique = Critique()
         activity = []
         soundedAt = nil
         let prompt = Analyst.prompt(detail, diff)
@@ -623,12 +644,14 @@ final class PRSession {
         let started = Date()
         briefState = .running(started)
         storyState = .running(started)
+        critiqueState = .running(started)
 
         // A second sounding replaces the first.
         soundTasks.forEach { $0.cancel() }
         soundTasks = [
             Task { await runBrief(prompt: prompt, model: model, started: started) },
-            Task { await runStory(prompt: prompt, model: model, started: started) },
+            Task { await runDrawn(.story, prompt: prompt, model: model, started: started) },
+            Task { await runDrawn(.critique, prompt: prompt, model: model, started: started) },
         ]
     }
 
@@ -669,8 +692,11 @@ final class PRSession {
         settle()
     }
 
-    private func runStory(prompt: String, model: String, started: Date) async {
-        // A checkout lets Claude see how the changed code is called; the diff alone is enough to tell the story.
+    enum Drawn { case story, critique }
+
+    /// The story or the critique. Each may look around a checkout of the PR; pages fill in as Claude writes them.
+    private func runDrawn(_ which: Drawn, prompt: String, model: String, started: Date) async {
+        // A checkout lets Claude see how the changed code is called; the diff alone is enough to answer.
         var cwd = Library.root.appending(path: "scratch", directoryHint: .isDirectory)
         Library.ensure(cwd)
         var tools: [String] = []
@@ -679,7 +705,9 @@ final class PRSession {
             tools = ["Read", "Grep", "Glob"]
         }
         if Task.isCancelled { return }
-        let options = Claude.Options(model: model, effort: "medium", system: Analyst.storySystem, schema: Analyst.storySchema,
+        let options = Claude.Options(model: model, effort: "medium",
+                                     system: which == .story ? Analyst.storySystem : Analyst.critiqueSystem,
+                                     schema: which == .story ? Analyst.storySchema : Analyst.critiqueSchema,
                                      tools: tools, cwd: cwd)
         var lastPaint = Date.distantPast
         do {
@@ -688,22 +716,37 @@ final class PRSession {
                 case .activity(let a):
                     withAnimation(Motion.soft) { activity.append(a) }
                 case .structured(let text):
-                    // Pages fill in as Claude writes them: the problem first.
                     guard Date().timeIntervalSince(lastPaint) > 0.25 else { continue }
                     lastPaint = Date()
-                    if let obj = PartialJSON.parse(text) {
+                    guard let obj = PartialJSON.parse(text) else { continue }
+                    switch which {
+                    case .story:
                         let next = Story(J(obj))
                         if !next.isEmpty { withAnimation(Motion.soft) { story = next } }
+                    case .critique:
+                        let next = Critique(J(obj))
+                        if !next.isEmpty { withAnimation(Motion.soft) { critique = next } }
                     }
                 case .finished(let f):
-                    if f.isError || f.structured == nil {
-                        failStory(f.isError ? f.message : "Claude didn't return a story")
-                    } else if let data = f.structured {
+                    guard !f.isError, let data = f.structured else {
+                        fail(which, f.isError ? f.message : "Claude didn't return a \(which == .story ? "story" : "critique")")
+                        continue
+                    }
+                    let seconds = Date().timeIntervalSince(started)
+                    switch which {
+                    case .story:
                         storyJSON = data
                         let next = Story(J(data: data))
                         withAnimation(.smooth(duration: 0.6)) {
                             story = next
-                            storyState = .done(Date().timeIntervalSince(started))
+                            storyState = .done(seconds)
+                        }
+                    case .critique:
+                        critiqueJSON = data
+                        let next = Critique(J(data: data))
+                        withAnimation(.smooth(duration: 0.6)) {
+                            critique = next
+                            critiqueState = .done(seconds)
                         }
                     }
                 default: break
@@ -711,16 +754,23 @@ final class PRSession {
             }
         } catch is CancellationError {
         } catch {
-            if !Task.isCancelled { failStory(error.localizedDescription) }
+            if !Task.isCancelled { fail(which, error.localizedDescription) }
         }
-        if storyState.isRunning && !Task.isCancelled { failStory("Claude stopped before finishing the story") }
+        let running = which == .story ? storyState.isRunning : critiqueState.isRunning
+        if running && !Task.isCancelled { fail(which, "Claude stopped before finishing the \(which == .story ? "story" : "critique")") }
         settle()
     }
 
-    private func failStory(_ message: String) {
+    private func fail(_ which: Drawn, _ message: String) {
         withAnimation(Motion.soft) {
-            if storyJSON == nil { story = Story() }
-            storyState = .failed(message)
+            switch which {
+            case .story:
+                if storyJSON == nil { story = Story() }
+                storyState = .failed(message)
+            case .critique:
+                if critiqueJSON == nil { critique = Critique() }
+                critiqueState = .failed(message)
+            }
         }
     }
 
@@ -739,19 +789,20 @@ final class PRSession {
 
     /// When both readings are over, keep what came back; a background reading then hands over to the next one.
     private func settle() {
-        guard !briefState.isRunning, !storyState.isRunning, !Task.isCancelled else { return }
-        if briefJSON != nil || storyJSON != nil { save() }
+        guard !briefState.isRunning, !storyState.isRunning, !critiqueState.isRunning, !Task.isCancelled else { return }
+        if briefJSON != nil || storyJSON != nil || critiqueJSON != nil { save() }
         if background { onSounded?() }
     }
 
     private func save() {
         guard let detail else { return }
-        var briefSeconds: Double?, storySeconds: Double?
+        var briefSeconds: Double?, storySeconds: Double?, critiqueSeconds: Double?
         if case .done(let s) = briefState { briefSeconds = s }
         if case .done(let s) = storyState { storySeconds = s }
+        if case .done(let s) = critiqueState { critiqueSeconds = s }
         Library.saveSounding(Sounding(ref: ref, headSha: detail.headSha, model: model, brief: briefJSON, map: nil, story: storyJSON,
-                                      briefSeconds: briefSeconds, mapSeconds: nil, storySeconds: storySeconds, createdAt: Date(),
-                                      version: Sounding.current))
+                                      critique: critiqueJSON, briefSeconds: briefSeconds, mapSeconds: nil, storySeconds: storySeconds,
+                                      critiqueSeconds: critiqueSeconds, createdAt: Date(), version: Sounding.current))
         soundedAt = Date()
         soundedModel = model
         store?.markSounded(ref, sha: detail.headSha)
@@ -793,7 +844,7 @@ final class PRSession {
 
     // MARK: Derived
 
-    var isSounding: Bool { briefState.isRunning || storyState.isRunning }
+    var isSounding: Bool { briefState.isRunning || storyState.isRunning || critiqueState.isRunning }
 
     /// Lines worth reading vs. lines you can skip, from the chapters (or file noise before they arrive).
     var reading: (focus: Int, skim: Int, skip: Int) {
@@ -865,6 +916,36 @@ final class PRSession {
             if reviewed.contains(chapter) { reviewed.remove(chapter) } else { reviewed.insert(chapter) }
         }
         store?.setReviewed(reviewKey, reviewed)
+    }
+
+    func toggleSettled(_ question: Int) {
+        withAnimation(Motion.snappy) {
+            if settled.contains(question) { settled.remove(question) } else { settled.insert(question) }
+        }
+        store?.setSettled(reviewKey, settled)
+    }
+
+    /// Puts a question to the author: a comment box on the hunk's first new line in Changes, the question written in.
+    func askAuthor(_ question: String, hunk id: String) {
+        guard let diff, let h = diff.hunk(id), let f = diff.file(ofHunk: id),
+              let i = h.lines.firstIndex(where: { $0.kind == .add }) ?? h.lines.firstIndex(where: { $0.kind != .del }),
+              let n = h.lines[i].new else {
+            go(toHunk: id)
+            return
+        }
+        let c = Compose(kind: .new, path: f.path, line: n, side: "RIGHT", hunk: h.id)
+        if (drafts[c.draftKey] ?? "").isEmpty { drafts[c.draftKey] = question }
+        withAnimation(Motion.spring) {
+            if let ch = brief.chapters.first(where: { $0.hunks.contains(id) }), ch.attention == .skip { expandedSkips.insert(ch.id) }
+            fileFilter = nil
+            tab = .changes
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(140))
+            scrollTarget = "line:\(h.id):\(max(i - 3, 0))"
+            try? await Task.sleep(for: .milliseconds(260))
+            startComposing(c)
+        }
     }
 
     // MARK: Review comments
@@ -1086,6 +1167,10 @@ final class PRSession {
                 if q.isEmpty { withAnimation(Motion.spring) { askOpen = true } } else { ask(q) }
             }
             if env["FATHOM_REVIEW"] == "1" { reviewOpen = true }
+            // FATHOM_QUESTION=1 puts the reading's second question to the author, as its button does.
+            if let n = env["FATHOM_QUESTION"].flatMap(Int.init), critique.questions.indices.contains(n) {
+                askAuthor(critique.questions[n].q, hunk: critique.questions[n].hunk)
+            }
             if let h = env["FATHOM_GO"] { go(toHunk: h) }
             // FATHOM_COMMENT=path:line opens a comment box there (FATHOM_DRAFT fills it, FATHOM_ADD=1 adds it);
             // FATHOM_REPLY=<thread id> opens a reply in that conversation.

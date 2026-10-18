@@ -303,94 +303,223 @@ struct ContractMember: Hashable, Sendable {
     var change: Change
 }
 
-// MARK: - The map
-
 // MARK: - The story
 
-/// A pull request told as a short illustrated story: the problem, the idea, how it works now, the choices made,
-/// and where to read. Each page is a sentence and a small diagram.
+/// How the change works, drawn: the system before and after as one journey, the parts it lives in and what crosses
+/// between them, and the engineering idea it rests on.
 struct Story: Sendable {
-    struct Step: Sendable, Hashable {
+    /// Whether a step of the journey happens before, after, or both.
+    enum Status: String, Sendable {
+        case same, removed, added, changed
+    }
+
+    /// One step of the journey, told once for both versions.
+    struct Beat: Sendable, Hashable, Identifiable {
+        var id: Int
         var from: String
         var to: String
         var does: String
         var data: String
-        var isNew: Bool
+        var status: Status
+        var wasDoes: String
+        var wasData: String
+
+        var inBefore: Bool { status != .added }
+        var inAfter: Bool { status != .removed }
+        /// The step as it went before the change.
+        var beforeDoes: String { status == .changed && !wasDoes.isEmpty ? wasDoes : does }
+        var beforeData: String { status == .changed && !wasData.isEmpty ? wasData : data }
     }
 
     struct Part: Sendable, Identifiable, Hashable {
         var id: String
         var name: String
         var kind: String
-        var isNew: Bool
+        var change: Change
         var role: String
+        /// The process or deployable it runs in ("iOS app", "API server").
+        var place: String
+
+        var isNew: Bool { change == .added }
     }
 
     struct Link: Sendable, Hashable {
         var from: String
         var to: String
         var label: String
-        var isNew: Bool
+        var change: Change
     }
 
+    struct Concept: Sendable, Hashable {
+        var name: String
+        var gist: String
+        var here: String
+        var kin: String
+    }
+
+    struct Term: Sendable, Hashable {
+        var term: String
+        var meaning: String
+    }
+
+    var problem = ""
+    var after = ""
+    var move = ""
+    var flow: [Beat] = []
+    var breaks = -1
+    var pain = ""
+    var parts: [Part] = []
+    var links: [Link] = []
+    var concept: Concept?
+    var terms: [Term] = []
+
+    init() {}
+
+    init(_ j: J) {
+        problem = j["problem"].string
+        after = j["after"].string
+        move = j["move"].string
+        flow = j["flow"].array.enumerated().map { i, s in
+            Beat(id: i, from: s["from"].string, to: s["to"].string, does: s["does"].string, data: s["data"].string,
+                 status: Status(rawValue: s["status"].string) ?? .same, wasDoes: s["wasDoes"].string, wasData: s["wasData"].string)
+        }.filter { !$0.from.isEmpty && !$0.to.isEmpty }
+        breaks = j["breaks"].exists ? j["breaks"].int : -1
+        pain = j["pain"].string
+        parts = j["parts"].array.map {
+            Part(id: $0["id"].string, name: $0["name"].string, kind: $0["kind"].string, change: Self.change($0["change"].string),
+                 role: $0["role"].string, place: $0["where"].string)
+        }.filter { !$0.id.isEmpty && !$0.name.isEmpty }
+        let ids = Set(parts.map(\.id))
+        links = j["links"].array.map {
+            Link(from: $0["from"].string, to: $0["to"].string, label: $0["label"].string, change: Self.change($0["change"].string))
+        }.filter { ids.contains($0.from) && ids.contains($0.to) && $0.from != $0.to }
+        let c = j["concept"]
+        if !c["name"].string.isEmpty {
+            concept = Concept(name: c["name"].string, gist: c["gist"].string, here: c["here"].string, kin: c["kin"].string)
+        }
+        terms = j["terms"].array.map { Term(term: $0["term"].string, meaning: $0["meaning"].string) }.filter { !$0.term.isEmpty }
+    }
+
+    static func change(_ s: String) -> Change {
+        switch s {
+        case "added": .added
+        case "removed": .removed
+        case "unchanged": .unchanged
+        default: .modified
+        }
+    }
+
+    var isEmpty: Bool { problem.isEmpty && move.isEmpty && after.isEmpty }
+    var before: [Beat] { flow.filter(\.inBefore) }
+    var now: [Beat] { flow.filter(\.inAfter) }
+}
+
+// MARK: - The critique
+
+/// What a referee would want: what the change trades away, how it could fail and whether it can be undone, the
+/// questions it leaves open, and the passages that carry it.
+struct Critique: Sendable {
     struct Choice: Sendable, Identifiable, Hashable {
         var id: Int
         var title: String
-        var chose: String
-        var over: String
+        var options: [String]
+        var criteria: [Criterion]
         var why: String
         var stated: Bool
         var hunks: [String]
     }
 
-    struct Look: Sendable, Hashable {
-        var hunk: String
-        var why: String
+    struct Criterion: Sendable, Hashable {
+        var name: String
+        var scores: [Int]
     }
 
-    var problemTitle = ""
-    var problemSteps: [Step] = []
-    var pain = ""
-    var painStep = -1
-    var ideaTitle = ""
-    var parts: [Part] = []
-    var links: [Link] = []
-    var solutionTitle = ""
-    var solutionSteps: [Step] = []
+    struct Risk: Sendable, Identifiable, Hashable {
+        var id: Int
+        var title: String
+        var when: String
+        var effect: String
+        var likelihood: Int
+        var impact: Int
+        var guardedBy: String
+        var hunks: [String]
+
+        var score: Int { likelihood * impact }
+    }
+
+    struct Question: Sendable, Identifiable, Hashable {
+        var id: Int
+        var q: String
+        var why: String
+        var hunk: String
+    }
+
+    struct Evidence: Sendable, Identifiable, Hashable {
+        var id: Int
+        var hunk: String
+        var why: String
+        var marks: [Mark]
+    }
+
+    struct Mark: Sendable, Hashable {
+        var anchor: String
+        var note: String
+    }
+
+    var price = ""
     var choices: [Choice] = []
-    var look: [Look] = []
+    var door = ""
+    var doorWhy = ""
+    var risks: [Risk] = []
+    var questions: [Question] = []
+    var evidence: [Evidence] = []
 
     init() {}
 
     init(_ j: J) {
-        func steps(_ a: [J]) -> [Step] {
-            a.map { Step(from: $0["from"].string, to: $0["to"].string, does: $0["does"].string, data: $0["data"].string,
-                         isNew: $0["new"].bool) }
-                .filter { !$0.from.isEmpty && !$0.to.isEmpty }
-        }
-        let p = j["problem"], i = j["idea"], s = j["solution"]
-        problemTitle = p["title"].string
-        problemSteps = steps(p["steps"].array)
-        pain = p["pain"].string
-        painStep = p["painStep"].exists ? p["painStep"].int : -1
-        ideaTitle = i["title"].string
-        parts = i["parts"].array.map {
-            Part(id: $0["id"].string, name: $0["name"].string, kind: $0["kind"].string, isNew: $0["new"].bool, role: $0["role"].string)
-        }.filter { !$0.id.isEmpty && !$0.name.isEmpty }
-        let ids = Set(parts.map(\.id))
-        links = i["links"].array.map {
-            Link(from: $0["from"].string, to: $0["to"].string, label: $0["label"].string, isNew: $0["new"].bool)
-        }.filter { ids.contains($0.from) && ids.contains($0.to) && $0.from != $0.to }
-        solutionTitle = s["title"].string
-        solutionSteps = steps(s["steps"].array)
+        price = j["price"].string
         choices = j["choices"].array.enumerated().map { n, c in
-            Choice(id: n, title: c["title"].string, chose: c["chose"].string, over: c["over"].string, why: c["why"].string,
-                   stated: c["stated"].bool, hunks: c["hunks"].strings)
+            let options = c["options"].strings.filter { !$0.isEmpty }
+            return Choice(id: n, title: c["title"].string, options: options,
+                          criteria: c["criteria"].array.map { k in
+                              Criterion(name: k["name"].string,
+                                        scores: k["scores"].array.prefix(options.count).map { min(max($0.int, 0), 4) })
+                          }.filter { !$0.name.isEmpty },
+                          why: c["why"].string, stated: c["stated"].bool, hunks: c["hunks"].strings)
+        }.filter { !$0.title.isEmpty && !$0.options.isEmpty }
+        door = j["door"].string
+        doorWhy = j["doorWhy"].string
+        risks = j["risks"].array.enumerated().map { n, r in
+            Risk(id: n, title: r["title"].string, when: r["when"].string, effect: r["effect"].string,
+                 likelihood: min(max(r["likelihood"].int, 1), 3), impact: min(max(r["impact"].int, 1), 3),
+                 guardedBy: r["guard"].string, hunks: r["hunks"].strings)
         }.filter { !$0.title.isEmpty }
-        look = j["look"].array.map { Look(hunk: $0["hunk"].string, why: $0["why"].string) }.filter { !$0.hunk.isEmpty }
+        questions = j["questions"].array.enumerated().map { n, q in
+            Question(id: n, q: q["q"].string, why: q["why"].string, hunk: q["hunk"].string)
+        }.filter { !$0.q.isEmpty }
+        evidence = j["evidence"].array.enumerated().map { n, e in
+            Evidence(id: n, hunk: e["hunk"].string, why: e["why"].string,
+                     marks: e["marks"].array.map { Mark(anchor: $0["anchor"].string, note: $0["note"].string) }.filter { !$0.note.isEmpty })
+        }.filter { !$0.hunk.isEmpty }
     }
 
-    var isEmpty: Bool { problemTitle.isEmpty && ideaTitle.isEmpty && solutionTitle.isEmpty }
+    var isEmpty: Bool { price.isEmpty && choices.isEmpty && door.isEmpty && risks.isEmpty && questions.isEmpty && evidence.isEmpty }
+    var oneWay: Bool { door == "one-way" }
+
+    /// The worst risk's level, 0 when there are none: 1 low, 2 moderate, 3 high.
+    var level: Int {
+        guard let top = risks.map(\.score).max() else { return 0 }
+        return top >= 6 ? 3 : top >= 3 ? 2 : 1
+    }
+
+    static func levelWord(_ level: Int) -> String {
+        switch level {
+        case 3: "High"
+        case 2: "Moderate"
+        case 1: "Low"
+        default: "None found"
+        }
+    }
 }
 
 // MARK: - Review

@@ -286,6 +286,9 @@ enum Typing {
 /// Switches for screenshots. FATHOM_NO_HOVER=1 ignores the pointer, so a capture shows no hover state.
 enum QA {
     static let noHover = ProcessInfo.processInfo.environment["FATHOM_NO_HOVER"] == "1"
+    static let storyEnd = ProcessInfo.processInfo.environment["FATHOM_STORY_END"] == "1"
+    /// FATHOM_FLOW=before or after opens the behaviour figure on that telling.
+    static let flow = ProcessInfo.processInfo.environment["FATHOM_FLOW"] ?? "diff"
     static func hover(_ h: Bool) -> Bool { noHover ? false : h }
 }
 

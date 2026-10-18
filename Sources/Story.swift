@@ -1,59 +1,47 @@
-// The Story tab: a pull request told the way you'd explain it at a whiteboard. One page at a time, each a sentence
-// and a small diagram: the problem, the idea, how it works now, the choices made, the promises that change, and
-// the few places in the code worth reading. ← and → turn the pages.
+// The Story tab: a pull request read as a short paper you referee. An abstract with the change's vital signs; its
+// behaviour before and after as one figure, a diff of what happens rather than of text; the design, with the idea it
+// rests on; what it trades; what could go wrong and whether it can be undone; the questions it leaves open; and the
+// passages that carry it, annotated in the margin. ← and → turn the pages.
 
 import SwiftUI
 
 enum StoryPage: Int, CaseIterable, Identifiable {
-    case overview, problem, idea, now, choices, promises, code
+    case overview, behaviour, design, tradeoffs, risk, questions, evidence
+
     var id: Int { rawValue }
 
+    /// The word in the row of pages.
     var title: String {
         switch self {
-        case .overview: "Overview"
-        case .problem: "Problem"
-        case .idea: "Idea"
-        case .now: "Now"
-        case .choices: "Choices"
-        case .promises: "Promises"
-        case .code: "Code"
+        case .overview: "Abstract"
+        case .behaviour: "Behaviour"
+        case .design: "Design"
+        case .tradeoffs: "Trade-offs"
+        case .risk: "Risk"
+        case .questions: "Questions"
+        case .evidence: "Evidence"
         }
     }
 
+    /// The page's name in its running head and in the contents.
     var eyebrow: String {
         switch self {
-        case .overview: "The story"
-        case .problem: "The problem"
-        case .idea: "The idea"
-        case .now: "How it works now"
-        case .choices: "Choices it makes"
-        case .promises: "Promises that change"
-        case .code: "Where to look"
+        case .overview: "Abstract"
+        case .behaviour: "Before and after"
+        case .design: "The design"
+        case .tradeoffs: "What it trades"
+        case .risk: "What could go wrong"
+        case .questions: "Questions it leaves open"
+        case .evidence: "Where to read"
         }
     }
 
-    var icon: String {
-        switch self {
-        case .overview: "book.pages"
-        case .problem: "exclamationmark.triangle"
-        case .idea: "lightbulb"
-        case .now: "arrow.triangle.turn.up.right.diamond"
-        case .choices: "arrow.triangle.branch"
-        case .promises: "curlybraces"
-        case .code: "chevron.left.forwardslash.chevron.right"
-        }
-    }
-
-    var tint: Color {
-        switch self {
-        case .overview: .text2
-        case .problem: .removed
-        case .idea: .sonar
-        case .now: .added
-        case .choices: .changed
-        case .promises: .calm
-        case .code: .merged
-        }
+    /// FATHOM_PAGE=design opens the story on that page; the old page names still work.
+    static func named(_ name: String) -> StoryPage? {
+        let n = name.lowercased()
+        let old: [String: StoryPage] = ["overview": .overview, "problem": .behaviour, "now": .behaviour, "idea": .design,
+                                        "choices": .tradeoffs, "tradeoffs": .tradeoffs, "promises": .risk, "code": .evidence]
+        return allCases.first { $0.title.lowercased() == n } ?? old[n]
     }
 }
 
@@ -64,14 +52,23 @@ struct StoryView: View {
     @FocusState private var focused: Bool
 
     private var pages: [StoryPage] {
-        StoryPage.allCases.filter { p in
+        let s = session.story, c = session.critique
+        let drawing = session.storyState.isRunning, judging = session.critiqueState.isRunning
+        return StoryPage.allCases.filter { p in
             switch p {
-            case .choices: !session.story.choices.isEmpty || session.storyState.isRunning
-            case .promises: !session.brief.contracts.isEmpty || session.briefState.isRunning
-            case .code: !session.story.look.isEmpty || session.storyState.isRunning
+            case .design: !s.parts.isEmpty || s.concept != nil || drawing
+            case .tradeoffs: !c.choices.isEmpty || judging
+            case .risk: !c.door.isEmpty || !c.risks.isEmpty || !session.brief.contracts.isEmpty || judging
+            case .questions: !c.questions.isEmpty || judging
+            case .evidence: !c.evidence.isEmpty || judging
             default: true
             }
         }
+    }
+
+    /// Nothing to show yet: Claude is still reading, or both readings failed.
+    private var nothingYet: Bool {
+        session.story.isEmpty && session.critique.isEmpty && !session.storyState.isDone && !session.critiqueState.isDone
     }
 
     var body: some View {
@@ -79,8 +76,8 @@ struct StoryView: View {
             StoryNav(pages: pages, page: page, waiting: waiting) { go($0) }
                 .padding(.top, 4)
             ZStack {
-                if session.story.isEmpty && !session.storyState.isDone {
-                    if let failure = session.storyState.failure {
+                if nothingYet {
+                    if let failure = session.storyState.failure, !session.critiqueState.isRunning {
                         StoryFailure(message: failure) { session.sound() }
                     } else {
                         SonarView(session: session)
@@ -111,29 +108,30 @@ struct StoryView: View {
         }
         .onAppear { focused = true }
         .onChange(of: session.tab) { _, tab in focused = tab == .brief }
-        // After a comment on the Code page, ← → turn pages again.
+        // After a comment on the Evidence page, ← → turn pages again.
         .onChange(of: session.compose == nil) { _, closed in if closed && session.tab == .brief { focused = true } }
         .onChange(of: session.ref) { _, _ in page = .overview }
         .task {
-            // FATHOM_PAGE=idea opens the story on that page, for screenshots.
-            if let name = session.store?.env["FATHOM_PAGE"], let p = StoryPage.allCases.first(where: { $0.title.lowercased() == name.lowercased() }) {
-                page = p
-            }
+            // FATHOM_PAGE=design opens the story on that page, for screenshots.
+            if let name = session.store?.env["FATHOM_PAGE"], let p = StoryPage.named(name) { page = p }
         }
     }
 
     /// Pages Claude is still writing.
     private var waiting: Set<StoryPage> {
-        guard session.storyState.isRunning || session.briefState.isRunning else { return [] }
-        let s = session.story
+        let s = session.story, c = session.critique
         var out: Set<StoryPage> = []
-        if s.problemSteps.isEmpty { out.insert(.problem) }
-        if s.parts.isEmpty { out.insert(.idea) }
-        if s.solutionSteps.isEmpty { out.insert(.now) }
-        if s.choices.isEmpty { out.insert(.choices) }
-        if session.brief.contracts.isEmpty && session.briefState.isRunning { out.insert(.promises) }
-        if s.look.isEmpty { out.insert(.code) }
-        if session.brief.headline.isEmpty { out.insert(.overview) }
+        if session.storyState.isRunning {
+            if s.flow.isEmpty { out.insert(.behaviour) }
+            if s.parts.isEmpty { out.insert(.design) }
+        }
+        if session.critiqueState.isRunning {
+            if c.choices.isEmpty { out.insert(.tradeoffs) }
+            if c.door.isEmpty { out.insert(.risk) }
+            if c.questions.isEmpty { out.insert(.questions) }
+            if c.evidence.isEmpty { out.insert(.evidence) }
+        }
+        if session.brief.headline.isEmpty && session.briefState.isRunning { out.insert(.overview) }
         return out
     }
 
@@ -152,12 +150,12 @@ struct StoryView: View {
     private func pageView(_ p: StoryPage) -> some View {
         switch p {
         case .overview: OverviewPage(session: session) { go($0) }
-        case .problem: ProblemPage(session: session)
-        case .idea: IdeaPage(session: session)
-        case .now: NowPage(session: session)
-        case .choices: ChoicesPage(session: session)
-        case .promises: PromisesPage(session: session)
-        case .code: CodePage(session: session)
+        case .behaviour: BehaviourPage(session: session)
+        case .design: DesignPage(session: session)
+        case .tradeoffs: TradeoffsPage(session: session)
+        case .risk: RiskPage(session: session)
+        case .questions: QuestionsPage(session: session)
+        case .evidence: EvidencePage(session: session)
         }
     }
 }
@@ -182,7 +180,7 @@ struct StoryNav: View {
     @Namespace private var space
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             ForEach(pages) { p in
                 NavWord(page: p, on: p == page, waiting: waiting.contains(p), space: space) { go(p) }
             }
@@ -274,11 +272,13 @@ struct StoryFooter: View {
     }
 }
 
-/// The frame every page shares, set like a page of a book: a running head, the section's number hanging in the
-/// margin beside its one sentence, then the figure. The page scrolls when the figure is taller than the window.
+/// The frame every page shares, set like a page of a journal: a running head, the section's number hanging in the
+/// margin beside its one sentence, a dek under it in italics, then the figure. The page scrolls when it's taller
+/// than the window.
 struct PageFrame<Content: View>: View {
     let page: StoryPage
     let title: String
+    var dek: Text? = nil
     var waiting = false
     @ViewBuilder var content: Content
     @Environment(\.runningHead) private var head
@@ -306,9 +306,19 @@ struct PageFrame<Content: View>: View {
                                 .alignmentGuide(.leading) { $0.width + 20 }
                         }
                 }
+                if let dek {
+                    dek
+                        .font(.serifItalic(20))
+                        .lineSpacing(3)
+                        .foregroundStyle(Color.text2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: 820, alignment: .leading)
+                        .textSelection(.enabled)
+                        .padding(.top, 12)
+                }
                 content
-                    .padding(.top, 32)
-                    .frame(maxWidth: .infinity, alignment: .top)
+                    .padding(.top, 34)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
             }
             .padding(.horizontal, 64)
             .padding(.top, 26)
@@ -318,6 +328,56 @@ struct PageFrame<Content: View>: View {
         }
         .scrollBounceBehavior(.basedOnSize)
         .scrollIndicators(.automatic)
+        // FATHOM_STORY_END=1 opens pages scrolled to the end, for screenshots.
+        .defaultScrollAnchor(QA.storyEnd ? .bottom : .top)
+    }
+}
+
+/// A section inside a page: its name in small capitals over a hairline, an optional line of italics after it.
+struct SectionHead: View {
+    let title: String
+    var note = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 14) {
+                Text(title)
+                    .font(.smallCaps(13.5))
+                    .tracking(1.4)
+                    .foregroundStyle(Color.text2)
+                if !note.isEmpty {
+                    Text(note)
+                        .font(.serifItalic(15))
+                        .foregroundStyle(Color.text3)
+                        .lineLimit(1)
+                }
+            }
+            Rule(opacity: 0.12)
+        }
+    }
+}
+
+/// A quiet action in small capitals: "See it in the code →".
+struct InkButton: View {
+    let title: String
+    var icon: String? = "arrow.right"
+    var leading: String? = nil
+    var tint: Color = .text3
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if let leading { Image(systemName: leading).font(.system(size: 10, weight: .semibold)) }
+                Text(title).font(.smallCaps(12.5)).tracking(1)
+                if let icon { Image(systemName: icon).font(.system(size: 9, weight: .semibold)) }
+            }
+            .foregroundStyle(hover ? Color.text1 : tint)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = QA.hover($0) }
     }
 }
 
@@ -327,7 +387,7 @@ struct StoryFailure: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Text("No story this time")
+            Text("No reading this time")
                 .font(.serif(24))
                 .foregroundStyle(Color.text1)
             Text(message)
@@ -341,23 +401,67 @@ struct StoryFailure: View {
     }
 }
 
-// MARK: - Overview
+/// A reading that didn't come back, said quietly, with a way to try again.
+struct Missing: View {
+    let what: String
+    var detail = ""
+    @Bindable var session: PRSession
 
-/// The story's title page, as a paper's: the title, a byline, a structured abstract (Problem. Idea. Now.), and the
-/// contents with dot leaders, each line a way in. Most of the time the abstract is enough to know what you're
-/// looking at.
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 14) {
+            Text("The \(what) didn't come back this time.")
+                .font(.serifItalic(16.5))
+                .foregroundStyle(Color.text2)
+            InkButton(title: "Read again", icon: "arrow.clockwise") { session.sound() }
+                .disabled(session.isSounding)
+        }
+        .help(detail)
+    }
+}
+
+/// Small helpers for the story's prose.
+enum Prose {
+    /// "only new routes stop navigation" → "Only new routes stop navigation."
+    static func sentence(_ s: String) -> String {
+        var out = s.trimmingCharacters(in: .whitespaces)
+        // A name from the code keeps its case: "conversation-v4 header…", "placeDetail is…".
+        let word = out.prefix { !$0.isWhitespace }
+        let code = word.contains { $0.isNumber || "-_.()/:".contains($0) } || word.dropFirst().contains(where: \.isUppercase)
+        if let first = out.first, first.isLowercase, !code { out = first.uppercased() + out.dropFirst() }
+        if let last = out.last, !".!?".contains(last) { out += "." }
+        return out
+    }
+
+    /// "Resetting state" → "resetting state", but names like "ARView" or "SceneKit" stay as written.
+    static func lower(_ s: String) -> String {
+        let chars = Array(s)
+        guard chars.count > 1, chars[0].isUppercase, chars[1].isLowercase,
+              !s.split(separator: " ").first!.dropFirst().contains(where: \.isUppercase) else { return s }
+        return chars[0].lowercased() + String(chars.dropFirst())
+    }
+
+    static func word(_ n: Int) -> String {
+        let words = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"]
+        return n < words.count ? words[n] : "\(n)"
+    }
+}
+
+// MARK: - Abstract
+
+/// The reading's title page, as a paper's: the title and a byline; the change's vital signs in a strip (what kind
+/// of change, whether a revert undoes it, how risky, how far it reaches, what's still open); a structured abstract
+/// (Problem. Move. Price.); and the contents, each line a way in.
 struct OverviewPage: View {
     @Bindable var session: PRSession
     let go: (StoryPage) -> Void
     @Environment(\.runningHead) private var head
 
     var body: some View {
-        let s = session.story, b = session.brief
+        let s = session.story, c = session.critique, b = session.brief
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                RunningHead(left: head, right: "Overview")
+                RunningHead(left: head, right: "Abstract")
                     .padding(.bottom, 34)
-
                 if b.headline.isEmpty {
                     Skeleton(lines: [0.55], height: 32).frame(maxWidth: 820)
                 } else {
@@ -372,16 +476,20 @@ struct OverviewPage: View {
                 byline
                     .padding(.top, 16)
 
+                SpecStrip(session: session, go: go)
+                    .frame(maxWidth: 980, alignment: .leading)
+                    .padding(.top, 34)
+
                 Text("Abstract")
                     .font(.smallCaps(13.5))
                     .tracking(1.4)
                     .foregroundStyle(Color.text2)
-                    .padding(.top, 44)
+                    .padding(.top, 40)
                     .padding(.bottom, 10)
-                if s.problemTitle.isEmpty && session.storyState.isRunning {
+                if s.problem.isEmpty && c.price.isEmpty && session.isSounding {
                     Skeleton(lines: [0.95, 0.9, 0.6], height: 14, spacing: 12).frame(maxWidth: 740)
                 } else {
-                    abstract(s)
+                    abstract(s, c)
                         .font(.serif(18.5))
                         .lineSpacing(6)
                         .foregroundStyle(Color.text1.opacity(0.93))
@@ -394,23 +502,14 @@ struct OverviewPage: View {
                     .font(.smallCaps(13.5))
                     .tracking(1.4)
                     .foregroundStyle(Color.text2)
-                    .padding(.top, 46)
+                    .padding(.top, 44)
                     .padding(.bottom, 12)
-                VStack(alignment: .leading, spacing: 0) {
-                    TocRow(page: .problem, note: "") { go(.problem) }
-                    TocRow(page: .idea, note: s.parts.isEmpty ? "" : "\(ChoicesPage.word(s.parts.count).lowercased()) parts") { go(.idea) }
-                    TocRow(page: .now, note: s.solutionSteps.isEmpty ? "" : "\(ChoicesPage.word(s.solutionSteps.count).lowercased()) steps") { go(.now) }
-                    if !s.choices.isEmpty {
-                        TocRow(page: .choices, note: "", sub: s.choices.enumerated().map { ("4.\($0.offset + 1)", $0.element.title) }) { go(.choices) }
-                    }
-                    if !b.contracts.isEmpty {
-                        TocRow(page: .promises, note: b.contracts.map(\.name).joined(separator: ", "), noteIsCode: true) { go(.promises) }
-                    }
-                    if !s.look.isEmpty {
-                        TocRow(page: .code, note: "", sub: s.look.enumerated().map { ("6.\($0.offset + 1)", $0.element.why) }) { go(.code) }
-                    }
+                contents(s, c)
+                    .frame(maxWidth: 740, alignment: .leading)
+                if c.isEmpty, let failure = session.critiqueState.failure {
+                    Missing(what: "referee's reading", detail: failure, session: session)
+                        .padding(.top, 24)
                 }
-                .frame(maxWidth: 740, alignment: .leading)
             }
             .padding(.horizontal, 64)
             .padding(.top, 26)
@@ -444,21 +543,222 @@ struct OverviewPage: View {
         }
     }
 
-    /// Problem. … Idea. … Now. …, the heads run in as small capitals.
-    private func abstract(_ s: Story) -> Text {
+    /// Problem. … Move. … Price. …, the heads run in as small capitals.
+    private func abstract(_ s: Story, _ c: Critique) -> Text {
         var t = Text("")
-        for (head, sentence) in [("Problem.", s.problemTitle), ("Idea.", s.ideaTitle), ("Now.", s.solutionTitle)] where !sentence.isEmpty {
-            t = t + Text(head + " ").font(.runIn(18.5)) + Text(Self.sentence(sentence) + "  ")
+        for (head, sentence) in [("Problem.", s.problem), ("Move.", s.move), ("Price.", c.price)] where !sentence.isEmpty {
+            t = t + Text(head + " ").font(.runIn(18.5)) + Text(Prose.sentence(sentence) + "  ")
         }
         return t
     }
 
-    /// "only new routes stop navigation" → "Only new routes stop navigation."
-    static func sentence(_ s: String) -> String {
-        var out = s.trimmingCharacters(in: .whitespaces)
-        if let first = out.first, first.isLowercase { out = first.uppercased() + out.dropFirst() }
-        if let last = out.last, !".!?".contains(last) { out += "." }
-        return out
+    @ViewBuilder
+    private func contents(_ s: Story, _ c: Critique) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            TocRow(page: .behaviour, note: behaviourNote(s)) { go(.behaviour) }
+            if !s.parts.isEmpty || s.concept != nil {
+                TocRow(page: .design, note: s.concept.map { "on \(Prose.lower($0.name))" } ?? "") { go(.design) }
+            }
+            if !c.choices.isEmpty {
+                TocRow(page: .tradeoffs, note: "", sub: c.choices.map { ("3.\($0.id + 1)", $0.title) }) { go(.tradeoffs) }
+            }
+            if !c.door.isEmpty || !c.risks.isEmpty {
+                TocRow(page: .risk, note: riskNote(c)) { go(.risk) }
+            }
+            if !c.questions.isEmpty {
+                TocRow(page: .questions, note: questionsNote(c)) { go(.questions) }
+            }
+            if !c.evidence.isEmpty {
+                TocRow(page: .evidence, note: "", sub: c.evidence.map { ("6.\($0.id + 1)", $0.why) }) { go(.evidence) }
+            }
+        }
+    }
+
+    private func behaviourNote(_ s: Story) -> String {
+        guard !s.flow.isEmpty else { return "" }
+        let added = s.flow.filter { $0.status == .added }.count
+        let changed = s.flow.filter { $0.status == .changed }.count
+        let removed = s.flow.filter { $0.status == .removed }.count
+        var parts: [String] = []
+        if added > 0 { parts.append("\(Prose.word(added).lowercased()) new") }
+        if changed > 0 { parts.append("\(Prose.word(changed).lowercased()) changed") }
+        if removed > 0 { parts.append("\(Prose.word(removed).lowercased()) gone") }
+        let steps = "\(Prose.word(s.flow.count).lowercased()) steps"
+        return parts.isEmpty ? steps : steps + "; " + parts.joined(separator: ", ")
+    }
+
+    private func riskNote(_ c: Critique) -> String {
+        var parts: [String] = []
+        if !c.door.isEmpty { parts.append(c.oneWay ? "a one-way door" : "a two-way door") }
+        let n = c.risks.count
+        parts.append(n == 0 ? "no hazards found" : n == 1 ? "one hazard" : "\(Prose.word(n).lowercased()) hazards")
+        return parts.joined(separator: "; ")
+    }
+
+    private func questionsNote(_ c: Critique) -> String {
+        let n = c.questions.count
+        let done = c.questions.filter { session.settled.contains($0.id) }.count
+        let count = Prose.word(n).lowercased()
+        if done == 0 { return "\(count), none settled" }
+        return done == n ? "\(count), all settled" : "\(count), \(Prose.word(done).lowercased()) settled"
+    }
+}
+
+/// The change's vital signs, in a strip ruled above and below like a table in a paper. Each cell opens its page.
+struct SpecStrip: View {
+    @Bindable var session: PRSession
+    let go: (StoryPage) -> Void
+
+    var body: some View {
+        let c = session.critique, s = session.story
+        let judging = session.critiqueState.isRunning
+        HStack(alignment: .top, spacing: 0) {
+            SpecCell(label: "Kind", value: session.brief.kind.isEmpty ? nil : Glyph.kindWord(session.brief.kind),
+                     note: size, first: true) { go(.behaviour) }
+            SpecCell(label: "Door", value: c.door.isEmpty ? (judging ? nil : "—") : c.oneWay ? "One-way" : "Two-way",
+                     note: c.door.isEmpty ? "" : c.oneWay ? "Outlives a revert" : "A revert undoes it",
+                     tint: c.oneWay ? .changed : .text1, door: c.door.isEmpty ? nil : c.oneWay) { go(.risk) }
+            SpecCell(label: "Risk", value: judging && c.questions.isEmpty ? nil : c.door.isEmpty && c.risks.isEmpty ? "—" : Critique.levelWord(c.level),
+                     note: hazards(c), tint: levelTint(c.level), dots: c.level) { go(.risk) }
+            SpecCell(label: "Reach", value: s.parts.isEmpty ? (session.storyState.isRunning ? nil : "—") : "\(Prose.word(s.parts.count)) parts",
+                     note: places(s)) { go(.design) }
+            SpecCell(label: "Questions", value: c.questions.isEmpty ? (judging ? nil : "None") : open(c),
+                     note: c.questions.isEmpty ? "" : "\(c.questions.filter { session.settled.contains($0.id) }.count) of \(c.questions.count) settled") { go(.questions) }
+        }
+        .overlay(alignment: .top) { Rectangle().fill(Color.text1.opacity(0.5)).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rule(opacity: 0.14) }
+    }
+
+    private var size: String {
+        guard let d = session.diff else { return "" }
+        return "+\(d.additions) −\(d.deletions) in \(d.files.count) files"
+    }
+
+    private func hazards(_ c: Critique) -> String {
+        guard !c.risks.isEmpty else { return c.door.isEmpty ? "" : "No hazards named" }
+        let open = c.risks.filter { $0.guardedBy.isEmpty }.count
+        let n = c.risks.count
+        return "\(n) hazard\(n == 1 ? "" : "s"), \(open == 0 ? "all" : "\(n - open) of \(n)") guarded"
+    }
+
+    private func places(_ s: Story) -> String {
+        var seen: [String] = []
+        for p in s.parts where !p.place.isEmpty && !seen.contains(p.place) { seen.append(p.place) }
+        return seen.isEmpty ? "" : "in " + seen.joined(separator: ", ")
+    }
+
+    private func open(_ c: Critique) -> String {
+        let left = c.questions.filter { !session.settled.contains($0.id) }.count
+        return left == 0 ? "All settled" : "\(Prose.word(left)) open"
+    }
+
+    private func levelTint(_ level: Int) -> Color {
+        level >= 3 ? .removed : level == 2 ? .changed : .text1
+    }
+}
+
+struct SpecCell: View {
+    let label: String
+    let value: String?
+    var note = ""
+    var tint: Color = .text1
+    var dots = 0
+    var door: Bool? = nil
+    var first = false
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 7) {
+                Text(label)
+                    .font(.smallCaps(11.5))
+                    .tracking(1.2)
+                    .foregroundStyle(Color.text3)
+                if let value {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(value)
+                            .font(.serif(21))
+                            .foregroundStyle(tint)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        if dots > 0 { LevelDots(level: dots, tint: tint).alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 } }
+                        if let door { DoorGlyph(oneWay: door, tint: tint).alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 } }
+                    }
+                } else {
+                    Skeleton(lines: [0.7], height: 16).frame(width: 110).padding(.vertical, 4)
+                }
+                Text(note.isEmpty ? " " : note)
+                    .font(.serifItalic(13.5))
+                    .foregroundStyle(Color.text3)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+            .padding(.vertical, 14)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.wash(hover ? 0.03 : 0))
+            .overlay(alignment: .leading) {
+                if !first { Rectangle().fill(Color.wash(0.1)).frame(width: 0.5).padding(.vertical, 12) }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = QA.hover($0) }
+    }
+}
+
+/// How risky, as three marks filled in.
+struct LevelDots: View {
+    let level: Int
+    var tint: Color = .text1
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(0..<3, id: \.self) { i in
+                Rectangle()
+                    .fill(i < level ? tint : Color.wash(0.14))
+                    .frame(width: 3.5, height: 9)
+            }
+        }
+    }
+}
+
+/// A doorway with the way through it: both ways for a change a revert undoes, one way for one it doesn't.
+struct DoorGlyph: View {
+    let oneWay: Bool
+    var tint: Color = .text2
+
+    var body: some View {
+        Canvas { ctx, size in
+            let mid = size.height / 2
+            var jamb = Path()
+            jamb.move(to: CGPoint(x: size.width / 2, y: 1))
+            jamb.addLine(to: CGPoint(x: size.width / 2, y: size.height - 1))
+            ctx.stroke(jamb, with: .color(tint.opacity(0.6)), lineWidth: 1)
+            func head(_ x: CGFloat, _ dir: CGFloat, _ y: CGFloat) {
+                var p = Path()
+                p.move(to: CGPoint(x: x, y: y))
+                p.addLine(to: CGPoint(x: x - dir * 5, y: y - 2.6))
+                p.addLine(to: CGPoint(x: x - dir * 5, y: y + 2.6))
+                p.closeSubpath()
+                ctx.fill(p, with: .color(tint))
+            }
+            if oneWay {
+                var a = Path()
+                a.move(to: CGPoint(x: 1, y: mid)); a.addLine(to: CGPoint(x: size.width - 3, y: mid))
+                ctx.stroke(a, with: .color(tint), lineWidth: 1)
+                head(size.width - 1, 1, mid)
+            } else {
+                for (y, dir) in [(mid - 3, 1.0), (mid + 3, -1.0)] as [(CGFloat, CGFloat)] {
+                    var a = Path()
+                    a.move(to: CGPoint(x: 2, y: y)); a.addLine(to: CGPoint(x: size.width - 2, y: y))
+                    ctx.stroke(a, with: .color(tint), lineWidth: 1)
+                    head(dir > 0 ? size.width - 1 : 1, dir, y)
+                }
+            }
+        }
+        .frame(width: 20, height: 14)
     }
 }
 
@@ -466,7 +766,6 @@ struct OverviewPage: View {
 struct TocRow: View {
     let page: StoryPage
     let note: String
-    var noteIsCode = false
     var sub: [(String, String)] = []
     let action: () -> Void
     @State private var hover = false
@@ -485,14 +784,14 @@ struct TocRow: View {
                         .fixedSize()
                     if !note.isEmpty {
                         Text(note)
-                            .font(noteIsCode ? .mono(11.5) : .serifItalic(15))
+                            .font(.serifItalic(15))
                             .foregroundStyle(Color.text3)
                             .lineLimit(1)
                             .truncationMode(.tail)
-                            .layoutPriority(-1)
                     }
                     DotLeader()
                         .frame(minWidth: 24)
+                        .layoutPriority(-1)
                     Text("§\(page.rawValue)")
                         .font(.serif(15))
                         .foregroundStyle(Color.text3)
@@ -535,143 +834,201 @@ struct DotLeader: View {
     }
 }
 
-// MARK: - Problem and Now
+// MARK: - Behaviour
 
-struct ProblemPage: View {
-    @Bindable var session: PRSession
-
-    var body: some View {
-        let s = session.story
-        PageFrame(page: .problem, title: s.problemTitle, waiting: session.storyState.isRunning) {
-            Figure(number: 1, caption: s.problemSteps.isEmpty ? "" : "How it went before, one step at a time."
-                   + (s.pain.isEmpty ? "" : " Red marks where it went wrong.") + " Under each arrow, what travels.") {
-                StorySequence(steps: s.problemSteps, actors: actorOrder(s), kinds: kinds(s), painStep: s.painStep, pain: s.pain)
-            }
-            .frame(maxWidth: 1060, alignment: .leading)
+/// Which telling of the journey the figure shows.
+enum FlowMode: String, CaseIterable, Identifiable {
+    case before, diff, after
+    var id: String { rawValue }
+    var word: String {
+        switch self {
+        case .before: "Before"
+        case .diff: "Diff"
+        case .after: "After"
         }
     }
 }
 
-struct NowPage: View {
+/// How the system behaved before and how it behaves now, as one figure. In the diff, a gutter marks each step the
+/// way a code diff marks lines: + added, − gone, ~ changed, with what it used to be struck through.
+struct BehaviourPage: View {
     @Bindable var session: PRSession
-    @State private var before = false
+    @State private var mode: FlowMode = FlowMode(rawValue: QA.flow) ?? .diff
 
     var body: some View {
         let s = session.story
-        PageFrame(page: .now, title: s.solutionTitle, waiting: session.storyState.isRunning) {
-            VStack(alignment: .leading, spacing: 18) {
-                if !s.problemSteps.isEmpty {
-                    BeforeAfter(before: $before)
+        PageFrame(page: .behaviour, title: s.problem,
+                  dek: s.after.isEmpty ? nil : Text("Now  ").font(.runIn(20)) + Text(Prose.sentence(s.after)),
+                  waiting: session.storyState.isRunning) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .firstTextBaseline) {
+                    ModeSwitch(mode: $mode)
+                    Spacer()
+                    if mode == .diff && !s.flow.isEmpty { DiffLegend() }
                 }
-                Figure(number: before ? 1 : 3, caption: s.solutionSteps.isEmpty ? "" : before
-                       ? "How it went before, for comparison." + (s.pain.isEmpty ? "" : " Red marks where it went wrong.")
-                       : "How it works now. Green marks steps new in this pull request; under each arrow, what travels.") {
-                    if before {
-                        StorySequence(steps: s.problemSteps, actors: actorOrder(s), kinds: kinds(s), painStep: s.painStep, pain: s.pain)
-                            .id("before")
-                    } else {
-                        StorySequence(steps: s.solutionSteps, actors: actorOrder(s), kinds: kinds(s))
-                            .id("after")
+                if s.flow.isEmpty && session.storyState.isRunning {
+                    Skeleton(lines: [0.9, 0.7, 0.8], height: 14, spacing: 16).frame(maxWidth: 900).padding(.top, 20)
+                } else if s.flow.isEmpty {
+                    Missing(what: "drawing", session: session)
+                } else {
+                    Figure(number: 1, caption: caption(s)) {
+                        BehaviourFigure(flow: s.flow, breaks: s.breaks, pain: s.pain, mode: mode, kinds: kinds(s))
                     }
                 }
             }
             .frame(maxWidth: 1060, alignment: .leading)
         }
     }
+
+    private func caption(_ s: Story) -> String {
+        let hurt = s.pain.isEmpty ? "" : " Red marks where it went wrong."
+        switch mode {
+        case .diff: return "One journey through the system, before and after, as a diff: + a step this change adds, − one it removes, ~ one it changes, with what it was struck through." + hurt + " Point at an actor to follow it alone."
+        case .before: return "How it went before, one step at a time." + hurt + " Under each arrow, what travels."
+        case .after: return "How it goes now. Green marks steps this change adds; amber, steps it changes. Under each arrow, what travels."
+        }
+    }
+
+    /// What kind of thing each actor is, where the design names it.
+    private func kinds(_ s: Story) -> [String: String] {
+        var out: [String: String] = [:]
+        func norm(_ x: String) -> String { x.lowercased().filter { $0.isLetter || $0.isNumber } }
+        for step in s.flow {
+            for a in [step.from, step.to] where out[a] == nil {
+                let n = norm(a)
+                if let p = s.parts.first(where: { let m = norm($0.name); return !m.isEmpty && (m == n || m.contains(n) || n.contains(m)) }) {
+                    out[a] = p.kind
+                }
+            }
+        }
+        return out
+    }
 }
 
-/// After | Before, to flip the picture back to how it was.
-struct BeforeAfter: View {
-    @Binding var before: Bool
+/// Before · Diff · After, as words in small capitals, the current one underlined.
+struct ModeSwitch: View {
+    @Binding var mode: FlowMode
     @Namespace private var space
 
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach([false, true], id: \.self) { b in
-                let on = before == b
+        HStack(spacing: 18) {
+            ForEach(FlowMode.allCases) { m in
+                let on = m == mode
                 Button {
-                    withAnimation(.smooth(duration: 0.3)) { before = b }
+                    withAnimation(.smooth(duration: 0.45)) { mode = m }
                 } label: {
-                    Text(b ? "Before" : "After")
-                        .font(.system(size: 11.5, weight: on ? .semibold : .medium))
-                        .foregroundStyle(on ? Color.text1 : Color.text3)
-                        .padding(.horizontal, 12)
-                        .frame(height: 24)
-                        .background {
+                    VStack(spacing: 5) {
+                        Text(m.word)
+                            .font(.smallCaps(13.5))
+                            .tracking(1.2)
+                            .foregroundStyle(on ? Color.text1 : Color.text3)
+                        ZStack {
+                            Rectangle().fill(Color.clear).frame(height: 1)
                             if on {
-                                RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.wash(0.09))
-                                    .matchedGeometryEffect(id: "flip", in: space)
+                                Rectangle().fill(Color.text1.opacity(0.75)).frame(height: 1)
+                                    .matchedGeometryEffect(id: "mode", in: space)
                             }
                         }
-                        .contentShape(Rectangle())
+                    }
+                    .fixedSize()
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(2)
-        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.wash(0.1), lineWidth: 0.5))
     }
 }
 
-/// The same actors, in the same columns, on both the Problem and the Now pages, so the two read as one picture.
-private func actorOrder(_ s: Story) -> [String] {
-    var order: [String] = []
-    for step in s.problemSteps + s.solutionSteps {
-        for a in [step.from, step.to] where !order.contains(a) { order.append(a) }
-    }
-    return order
-}
-
-/// What kind of thing each actor is, where the idea names it.
-private func kinds(_ s: Story) -> [String: String] {
-    var out: [String: String] = [:]
-    func norm(_ x: String) -> String { x.lowercased().filter { $0.isLetter || $0.isNumber } }
-    for a in actorOrder(s) {
-        let n = norm(a)
-        if let p = s.parts.first(where: { let m = norm($0.name); return !m.isEmpty && (m == n || m.contains(n) || n.contains(m)) }) {
-            out[a] = p.kind
+struct DiffLegend: View {
+    var body: some View {
+        HStack(spacing: 16) {
+            item("+", "added", .added)
+            item("−", "gone", .removed)
+            item("~", "changed", .changed)
         }
     }
-    return out
+
+    private func item(_ sign: String, _ word: String, _ tint: Color) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Text(sign).font(.mono(13, .semibold)).foregroundStyle(tint)
+            Text(word).font(.serifItalic(14.5)).foregroundStyle(Color.text3)
+        }
+    }
 }
 
-/// A sequence diagram drawn the way a textbook draws one, one step at a time: each actor named over a dotted
-/// lifeline with what kind of thing it is in italics beneath, time running down a labelled axis (t₁, t₂, …), what
-/// each step does in italics over its hairline arrow and what travels under it in angle brackets. New steps are
-/// green; the step where it hurts ends in a cross with a note. Point at an actor to follow only its part.
-struct StorySequence: View {
-    let steps: [Story.Step]
-    let actors: [String]
+/// The journey drawn the way a textbook draws a sequence: each actor named over a dotted lifeline with what kind of
+/// thing it is in italics, time running down the left, what each step does in italics over its hairline arrow and
+/// what travels under it in angle brackets. Switching between before, diff and after moves the steps rather than
+/// redrawing them, so you can watch the journey change. Point at an actor to follow only its part.
+struct BehaviourFigure: View {
+    let flow: [Story.Beat]
+    let breaks: Int
+    let pain: String
+    let mode: FlowMode
     var kinds: [String: String] = [:]
-    var painStep = -2
-    var pain = ""
 
     @State private var shown = 0
     @State private var focus: String?
-    private let headerH: CGFloat = 54
-    private let rowH: CGFloat = 76
-    private let gutter: CGFloat = 46   // the time axis
 
-    private var columns: [String] {
-        // Only the actors this telling uses, in the shared order.
-        let used = Set(steps.flatMap { [$0.from, $0.to] })
-        return actors.filter { used.contains($0) }
+    private let headerH: CGFloat = 60
+    private let gutter: CGFloat = 54
+    private let stubH: CGFloat = 96
+
+    private var actors: [String] {
+        var out: [String] = []
+        for b in flow { for a in [b.from, b.to] where !out.contains(a) { out.append(a) } }
+        return out
     }
 
-    private var missing: Bool { painStep == -1 && !pain.isEmpty }
-    private var rows: Int { steps.count + (missing ? 1 : 0) }
+    private var visible: [Story.Beat] {
+        flow.filter { mode == .before ? $0.inBefore : mode == .after ? $0.inAfter : true }
+    }
 
-    private func lit(_ step: Story.Step) -> Bool { focus == nil || step.from == focus || step.to == focus }
+    /// The step where it went wrong before; it's marked before and in the diff.
+    private var hurt: Int? { mode == .after || breaks < 0 ? nil : flow.first { $0.id == breaks }?.id }
+    private var missing: Bool { breaks < 0 && !pain.isEmpty && mode != .after }
+    /// The step the note about what went wrong hangs under.
+    private var noteRow: Int? {
+        guard !pain.isEmpty else { return nil }
+        if let hurt { return hurt }
+        if missing && mode == .diff { return flow.first { $0.status == .added }?.id }
+        return nil
+    }
+    /// Before, when the problem was a step that never happened, it's drawn after the last as a dashed stub.
+    private var stub: Bool { missing && mode == .before }
+
+    private func height(_ b: Story.Beat) -> CGFloat {
+        var h: CGFloat = 78
+        if BeatRow.oldDoes(b, mode) != nil { h += 20 }
+        if b.id == noteRow { h += 48 }
+        return h
+    }
+
+    private var layout: (ys: [Int: CGFloat], total: CGFloat) {
+        var y = headerH + 6
+        var ys: [Int: CGFloat] = [:]
+        for b in visible {
+            ys[b.id] = y
+            y += height(b)
+        }
+        if stub { y += stubH }
+        return (ys, y + 24)
+    }
+
+    private func lit(_ b: Story.Beat) -> Bool { focus == nil || b.from == focus || b.to == focus }
+    private func used(_ a: String) -> Bool { visible.contains { $0.from == a || $0.to == a } }
 
     var body: some View {
+        let (ys, total) = layout
+        let vis = visible
         GeometryReader { geo in
-            let cols = columns
+            let cols = actors
             let colW = (geo.size.width - gutter) / CGFloat(max(cols.count, 1))
-            let x: (String) -> CGFloat = { a in gutter + (CGFloat(cols.firstIndex(of: a) ?? 0) + 0.5) * colW }
+            let xs = Dictionary(uniqueKeysWithValues: cols.enumerated().map { ($0.element, gutter + (CGFloat($0.offset) + 0.5) * colW) })
             ZStack(alignment: .topLeading) {
                 Canvas { ctx, size in
-                    // Time runs down the left: an axis with a tick and a label for every step.
-                    let axisX: CGFloat = 12, top = headerH + 10, bottom = size.height - 8
+                    // Time runs down the left.
+                    let axisX: CGFloat = 12, top = headerH + 8, bottom = size.height - 8
                     var axis = Path()
                     axis.move(to: CGPoint(x: axisX, y: top))
                     axis.addLine(to: CGPoint(x: axisX, y: bottom - 6))
@@ -683,122 +1040,203 @@ struct StorySequence: View {
                     tip.closeSubpath()
                     ctx.fill(tip, with: .color(.wash(0.3)))
                     ctx.draw(Text("t").font(.serifItalic(14)).foregroundStyle(Color.text3), at: CGPoint(x: axisX + 9, y: bottom - 4), anchor: .leading)
-                    for k in 0..<steps.count where k < shown {
-                        let y = rowY(k)
-                        var tick = Path()
-                        tick.move(to: CGPoint(x: axisX - 3, y: y))
-                        tick.addLine(to: CGPoint(x: axisX + 3, y: y))
-                        ctx.stroke(tick, with: .color(.wash(0.35)), lineWidth: 0.75)
-                        let hurt = k == painStep
-                        ctx.draw(Text("t" + Self.subscriptDigits(k + 1)).font(.serifItalic(14))
-                                    .foregroundStyle(hurt ? Color.removed : steps[k].isNew ? Color.added : Color.text3),
-                                 at: CGPoint(x: axisX + 9, y: y), anchor: .leading)
-                    }
-
-                    // Lifelines, dotted, the followed one drawn in.
+                    // Lifelines, dotted; the followed one drawn in.
                     for a in cols {
                         var p = Path()
-                        p.move(to: CGPoint(x: x(a), y: headerH))
-                        p.addLine(to: CGPoint(x: x(a), y: size.height - 6))
+                        p.move(to: CGPoint(x: xs[a] ?? 0, y: headerH))
+                        p.addLine(to: CGPoint(x: xs[a] ?? 0, y: size.height - 6))
                         let on = focus == a
-                        ctx.stroke(p, with: .color(.wash(on ? 0.4 : 0.16)),
-                                   style: StrokeStyle(lineWidth: on ? 0.9 : 0.75, lineCap: .round, dash: on ? [] : [0.5, 4.5]))
-                    }
-                    for (k, step) in steps.enumerated() where k < shown {
-                        let y = rowY(k)
-                        let hurt = k == painStep
-                        let color: Color = hurt ? .removed : step.isNew ? .added : .stroke
                         var c = ctx
-                        c.opacity = lit(step) ? 1 : 0.16
-                        arrow(&c, from: x(step.from), to: x(step.to), y: y, color: color, strong: hurt || step.isNew)
-                        if hurt { cross(&c, at: CGPoint(x: x(step.to) + (step.from == step.to ? 44 : 0), y: y)) }
-                    }
-                    if missing && shown >= steps.count, let last = steps.last {
-                        // The step that never happened.
-                        let y = rowY(steps.count)
-                        let from = x(last.to), to = from + min(colW * 0.9, 170)
-                        var p = Path()
-                        p.move(to: CGPoint(x: from, y: y))
-                        p.addLine(to: CGPoint(x: to, y: y))
-                        ctx.stroke(p, with: .color(Color.removed.opacity(0.75)), style: StrokeStyle(lineWidth: 0.9, dash: [4, 4]))
-                        cross(&ctx, at: CGPoint(x: to, y: y))
+                        c.opacity = used(a) ? 1 : 0.35
+                        c.stroke(p, with: .color(.wash(on ? 0.4 : 0.16)),
+                                 style: StrokeStyle(lineWidth: on ? 0.9 : 0.75, lineCap: .round, dash: on ? [] : [0.5, 4.5]))
                     }
                 }
 
-                ForEach(Array(cols.enumerated()), id: \.element) { _, a in
+                ForEach(cols, id: \.self) { a in
                     // Hover goes on the head itself: after .position it would cover the whole diagram.
-                    ActorHead(name: a, kind: kinds[a], focused: focus == a, dimmed: focus != nil && focus != a)
+                    ActorHead(name: a, kind: kinds[a], focused: focus == a, dimmed: (focus != nil && focus != a) || !used(a))
                         .frame(maxWidth: colW - 8)
                         .onHover { h in withAnimation(.easeOut(duration: 0.18)) { focus = QA.hover(h) ? a : (focus == a ? nil : focus) } }
-                        .position(x: x(a), y: 22)
+                        .position(x: xs[a] ?? 0, y: 24)
                 }
 
-                ForEach(Array(steps.enumerated()), id: \.offset) { k, step in
-                    let x0 = x(step.from), x1 = x(step.to)
-                    let selfCall = step.from == step.to
-                    // Words may run wider than a short arrow: nothing else shares the row.
-                    let span = selfCall ? min(max(colW * 1.3, 220), 300) : min(max(abs(x1 - x0) - 12, 320), geo.size.width - gutter - 8)
-                    let mid = selfCall ? x0 + 56 + span / 2 : (x0 + x1) / 2
-                    let hurt = k == painStep
-                    VStack(spacing: 7) {
-                        (Text(step.does).font(.serifItalic(16)).foregroundStyle(hurt ? Color.removed : Color.text1)
-                         + (step.isNew ? Text("  new").font(.smallCaps(12.5)).foregroundStyle(Color.added) : Text("")))
-                            .lineLimit(2)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Color.clear.frame(height: 3)
-                        if !step.data.isEmpty {
-                            (Text("⟨").font(.serif(14)) + Text(step.data).font(.mono(11)) + Text("⟩").font(.serif(14)))
-                                .foregroundStyle(step.isNew ? Color.added : Color.calm)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
-                                .padding(.horizontal, 4)
-                                .background(Rectangle().fill(Color.paper))
-                        }
-                    }
-                    .frame(width: span)
-                    .position(x: min(max(mid, gutter + span / 2), geo.size.width - span / 2 - 4), y: rowY(k) - 5)
-                    .opacity(k < shown ? (lit(step) ? 1 : 0.18) : 0)
-                    .offset(y: k < shown ? 0 : 6)
-
-                    if hurt && !pain.isEmpty {
-                        PainNote(text: pain)
-                            .position(x: min(max(selfCall ? x1 + 64 + span / 2 : (x0 + x1) / 2, gutter + 150), geo.size.width - 150),
-                                      y: rowY(k) + 46)
-                            .opacity(k < shown ? (lit(step) ? 1 : 0.18) : 0)
-                    }
+                ForEach(Array(vis.enumerated()), id: \.element.id) { i, b in
+                    BeatRow(beat: b, mode: mode, x0: xs[b.from] ?? 0, x1: xs[b.to] ?? 0, width: geo.size.width, colW: colW,
+                            gutter: gutter, mark: mark(b, i), hurt: b.id == hurt, note: b.id == noteRow ? pain : "",
+                            missingBefore: missing && hurt == nil, lit: lit(b))
+                        .frame(width: geo.size.width, height: height(b), alignment: .topLeading)
+                        .offset(y: ys[b.id] ?? 0)
+                        .opacity(i < shown ? 1 : 0)
+                        .transition(.opacity)
                 }
-                if missing, let last = steps.last {
-                    PainNote(text: pain)
-                        .position(x: min(x(last.to) + min(colW * 0.9, 170) / 2, geo.size.width - 150), y: rowY(steps.count) - 26)
-                        .opacity(shown >= steps.count ? 1 : 0)
+
+                if stub, let last = vis.last {
+                    MissingStep(x: xs[last.to] ?? 0, colW: colW, width: geo.size.width, pain: pain)
+                        .frame(width: geo.size.width, height: stubH, alignment: .topLeading)
+                        .offset(y: total - 24 - stubH)
+                        .opacity(shown >= vis.count ? 1 : 0)
+                        .transition(.opacity)
                 }
             }
         }
-        .frame(height: headerH + 34 + CGFloat(rows) * rowH + (painStep >= 0 && !pain.isEmpty ? 46 : 0))
+        .frame(height: total)
         .frame(maxWidth: 1060)
+        .animation(.smooth(duration: 0.45), value: mode)
         .animation(.smooth(duration: 0.35), value: shown)
-        .task(id: steps.count) {
+        .task(id: flow.count) {
             // One step at a time, the way you'd draw it on a whiteboard.
-            if shown > steps.count { shown = steps.count }
-            while shown < steps.count {
-                try? await Task.sleep(for: .milliseconds(shown == 0 ? 220 : 340))
+            if shown > flow.count { shown = flow.count }
+            while shown < flow.count {
+                try? await Task.sleep(for: .milliseconds(shown == 0 ? 220 : 300))
                 if Task.isCancelled { return }
                 shown += 1
             }
         }
     }
 
-    /// The step that hurts gets room under it for its note.
-    private func rowY(_ k: Int) -> CGFloat {
-        headerH + 50 + CGFloat(k) * rowH + (painStep >= 0 && k > painStep && !pain.isEmpty ? 46 : 0)
+    /// The gutter: t₁, t₂ … for one telling; in the diff, the step's sign.
+    private func mark(_ b: Story.Beat, _ i: Int) -> (String, Color) {
+        if mode == .diff {
+            switch b.status {
+            case .added: return ("+", .added)
+            case .removed: return ("−", .removed)
+            case .changed: return ("~", .changed)
+            case .same: return ("", .text3)
+            }
+        }
+        let tint: Color = b.id == hurt ? .removed : mode == .after && b.status == .added ? .added : .text3
+        return ("t" + Self.subscriptDigits(i + 1), tint)
     }
 
     static func subscriptDigits(_ n: Int) -> String {
         String(String(n).map { c in c.wholeNumberValue.map { Character(UnicodeScalar(0x2080 + $0)!) } ?? c })
     }
+}
 
-    private func arrow(_ ctx: inout GraphicsContext, from x0: CGFloat, to x1: CGFloat, y: CGFloat, color: Color, strong: Bool) {
+/// One step of the journey: its arrow, what it does above and what travels below, its mark in the time gutter.
+struct BeatRow: View {
+    let beat: Story.Beat
+    let mode: FlowMode
+    let x0: CGFloat
+    let x1: CGFloat
+    let width: CGFloat
+    let colW: CGFloat
+    let gutter: CGFloat
+    let mark: (String, Color)
+    let hurt: Bool
+    let note: String
+    var missingBefore = false
+    let lit: Bool
+
+    /// What a changed step used to do, struck through above what it does now (diff only).
+    static func oldDoes(_ b: Story.Beat, _ mode: FlowMode) -> String? {
+        mode == .diff && b.status == .changed && !b.wasDoes.isEmpty && b.wasDoes != b.does ? b.wasDoes : nil
+    }
+
+    private var oldData: String? {
+        mode == .diff && beat.status == .changed && !beat.wasData.isEmpty && beat.wasData != beat.data ? beat.wasData : nil
+    }
+    private var does: String { mode == .before ? beat.beforeDoes : beat.does }
+    private var data: String { mode == .before ? beat.beforeData : beat.data }
+    private var struck: Bool { mode == .diff && beat.status == .removed }
+    private var arrowY: CGFloat { 44 + (Self.oldDoes(beat, mode) != nil ? 20 : 0) }
+
+    /// Colour, weight, dash and how far it recedes.
+    private var style: (color: Color, strong: Bool, dashed: Bool, fade: Double) {
+        if hurt && (mode == .before || beat.status == .removed) { return (.removed, true, struck, 1) }
+        switch mode {
+        case .before: return (.stroke, false, false, 1)
+        case .after:
+            switch beat.status {
+            case .added: return (.added, true, false, 1)
+            case .changed: return (.changed, true, false, 1)
+            default: return (.stroke, false, false, 1)
+            }
+        case .diff:
+            switch beat.status {
+            case .same: return (.stroke, false, false, 0.5)
+            case .added: return (.added, true, false, 1)
+            case .removed: return (.removed, false, true, 0.75)
+            case .changed: return (.changed, true, false, 1)
+            }
+        }
+    }
+
+    private var dataTint: Color {
+        if struck { return .text3 }
+        switch (mode, beat.status) {
+        case (.before, _): return .calm
+        case (_, .added): return .added
+        case (_, .changed): return .changed
+        default: return .calm
+        }
+    }
+
+    var body: some View {
+        let st = style
+        let selfCall = beat.from == beat.to
+        let span = selfCall ? min(max(colW * 1.3, 220), 300) : min(max(abs(x1 - x0) - 12, 320), width - gutter - 8)
+        let mid = selfCall ? x0 + 56 + span / 2 : (x0 + x1) / 2
+        let cx = min(max(mid, gutter + span / 2), width - span / 2 - 4)
+        let y = arrowY
+        ZStack(alignment: .topLeading) {
+            Canvas { ctx, _ in
+                var tick = Path()
+                tick.move(to: CGPoint(x: 9, y: y))
+                tick.addLine(to: CGPoint(x: 15, y: y))
+                ctx.stroke(tick, with: .color(.wash(0.35)), lineWidth: 0.75)
+                var c = ctx
+                c.opacity = st.fade
+                Self.arrow(&c, from: x0, to: x1, y: y, color: st.color, strong: st.strong, dashed: st.dashed)
+                if hurt { Self.cross(&ctx, at: CGPoint(x: x1 + (selfCall ? 44 : 0), y: y)) }
+            }
+
+            Text(mark.0)
+                .font(mode == .diff ? .mono(14, .semibold) : .serifItalic(14))
+                .foregroundStyle(mark.1)
+                .position(x: 30, y: y)
+
+            VStack(spacing: 3) {
+                if let old = Self.oldDoes(beat, mode) {
+                    Text(old)
+                        .font(.serifItalic(13.5))
+                        .strikethrough(true, color: (hurt ? Color.removed : Color.text3).opacity(0.7))
+                        .foregroundStyle(hurt ? Color.removed.opacity(0.85) : Color.text3)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                (Text(does).font(.serifItalic(16)).foregroundStyle(hurt && (mode == .before || struck) ? Color.removed : struck ? Color.text3 : Color.text1)
+                 + (beat.status == .added && mode != .before ? Text("  new").font(.smallCaps(12.5)).foregroundStyle(Color.added) : Text("")))
+                    .strikethrough(struck, color: Color.removed.opacity(0.55))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(width: span, height: y - 9, alignment: .bottom)
+            .position(x: cx, y: (y - 9) / 2)
+            .opacity(lit ? (struck ? 0.85 : 1) : 0.18)
+
+            let dataSpan = oldData == nil ? span : min(width - gutter - 8, max(span, 600))
+            let dataX = min(max(mid, gutter + dataSpan / 2), width - dataSpan / 2 - 4)
+            HStack(spacing: 8) {
+                if let oldData { DataTag(text: oldData, tint: .text3, struck: true) }
+                if !data.isEmpty { DataTag(text: data, tint: dataTint, struck: struck) }
+            }
+            .frame(width: dataSpan)
+            .position(x: dataX, y: y + 16)
+            .opacity(lit ? 1 : 0.18)
+
+            if !note.isEmpty {
+                PainNote(text: missingBefore ? "Before, missing: " + Prose.lower(note) : mode == .diff ? "Before: " + Prose.lower(note) : note)
+                    .position(x: min(max(selfCall ? x1 + 64 + span / 2 : (x0 + x1) / 2, gutter + 150), width - 150), y: y + 54)
+                    .opacity(lit ? 1 : 0.18)
+            }
+        }
+        .animation(.smooth(duration: 0.3), value: lit)
+    }
+
+    static func arrow(_ ctx: inout GraphicsContext, from x0: CGFloat, to x1: CGFloat, y: CGFloat, color: Color, strong: Bool, dashed: Bool) {
         var p = Path()
         let tip: CGPoint
         let dir: CGFloat
@@ -813,7 +1251,8 @@ struct StorySequence: View {
             p.addLine(to: CGPoint(x: x1 - dir * 7, y: y))
             tip = CGPoint(x: x1 - dir * 1, y: y)
         }
-        ctx.stroke(p, with: .color(color.opacity(strong ? 0.95 : 0.6)), style: StrokeStyle(lineWidth: strong ? 1.25 : 0.9, lineCap: .round))
+        ctx.stroke(p, with: .color(color.opacity(strong ? 0.95 : 0.6)),
+                   style: StrokeStyle(lineWidth: strong ? 1.25 : 0.9, lineCap: .round, dash: dashed ? [4, 3.5] : []))
         // A narrow, sharp head, as in an engineering drawing.
         var head = Path()
         head.move(to: tip)
@@ -825,13 +1264,53 @@ struct StorySequence: View {
         ctx.fill(Path(ellipseIn: CGRect(x: x0 - 2, y: y - 2, width: 4, height: 4)), with: .color(color.opacity(0.85)))
     }
 
-    private func cross(_ ctx: inout GraphicsContext, at c: CGPoint) {
+    static func cross(_ ctx: inout GraphicsContext, at c: CGPoint) {
         ctx.fill(Path(ellipseIn: CGRect(x: c.x - 8, y: c.y - 8, width: 16, height: 16)), with: .color(Color.paper))
         ctx.stroke(Path(ellipseIn: CGRect(x: c.x - 8, y: c.y - 8, width: 16, height: 16)), with: .color(Color.removed), lineWidth: 1)
         var x = Path()
         x.move(to: CGPoint(x: c.x - 3.5, y: c.y - 3.5)); x.addLine(to: CGPoint(x: c.x + 3.5, y: c.y + 3.5))
         x.move(to: CGPoint(x: c.x + 3.5, y: c.y - 3.5)); x.addLine(to: CGPoint(x: c.x - 3.5, y: c.y + 3.5))
         ctx.stroke(x, with: .color(Color.removed), style: StrokeStyle(lineWidth: 1.2, lineCap: .round))
+    }
+}
+
+/// What travels, in angle brackets: ⟨query⟩.
+struct DataTag: View {
+    let text: String
+    var tint: Color = .calm
+    var struck = false
+
+    var body: some View {
+        (Text("⟨").font(.serif(14)) + Text(text).font(.mono(11)) + Text("⟩").font(.serif(14)))
+            .foregroundStyle(tint)
+            .strikethrough(struck, color: tint.opacity(0.8))
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .padding(.horizontal, 4)
+            .background(Rectangle().fill(Color.paper))
+    }
+}
+
+/// The step that never happened, before: a dashed stub ending in a cross, with what was missing.
+struct MissingStep: View {
+    let x: CGFloat
+    let colW: CGFloat
+    let width: CGFloat
+    let pain: String
+
+    var body: some View {
+        let to = x + min(colW * 0.9, 170)
+        ZStack(alignment: .topLeading) {
+            Canvas { ctx, _ in
+                var p = Path()
+                p.move(to: CGPoint(x: x, y: 40))
+                p.addLine(to: CGPoint(x: to, y: 40))
+                ctx.stroke(p, with: .color(Color.removed.opacity(0.75)), style: StrokeStyle(lineWidth: 0.9, dash: [4, 4]))
+                BeatRow.cross(&ctx, at: CGPoint(x: to, y: 40))
+            }
+            PainNote(text: pain)
+                .position(x: min((x + to) / 2, width - 150), y: 70)
+        }
     }
 }
 
@@ -850,6 +1329,7 @@ struct ActorHead: View {
                 .font(person ? .serif(16) : .mono(12, .medium))
                 .foregroundStyle(Color.text1)
                 .lineLimit(1)
+                .minimumScaleFactor(0.78)
                 .truncationMode(.middle)
             Text(person ? "the user" : Self.word(kind))
                 .font(.serifItalic(13))
@@ -899,489 +1379,5 @@ struct PainNote: View {
         .background(Rectangle().fill(Color.paper))
         .frame(maxWidth: 300)
         .fixedSize(horizontal: false, vertical: true)
-    }
-}
-
-// MARK: - Idea
-
-struct IdeaPage: View {
-    @Bindable var session: PRSession
-
-    var body: some View {
-        let s = session.story
-        PageFrame(page: .idea, title: s.ideaTitle, waiting: session.storyState.isRunning) {
-            Figure(number: 2, caption: s.parts.isEmpty ? "" : "The parts that carry the idea, in the order things happen."
-                   + (s.parts.contains(where: \.isNew) || s.links.contains(where: \.isNew) ? " Green marks what's new in this pull request." : "")
-                   + " Point at a part to see only what it touches.") {
-                IdeaGraph(parts: s.parts, links: s.links)
-            }
-            .frame(maxWidth: 1080, alignment: .leading)
-        }
-    }
-}
-
-/// The few parts that carry the idea, left to right in the order things happen, new ones in green. Each link
-/// leaves and lands at its own spot on a card's edge, so a busy part fans out instead of knotting. Point at a part
-/// to see only what it touches.
-struct IdeaGraph: View {
-    let parts: [Story.Part]
-    let links: [Story.Link]
-    @State private var drawn = false
-    @State private var focus: String?
-
-    private let nodeW: CGFloat = 232
-    private let nodeH: CGFloat = 70
-
-    private func lit(_ l: Story.Link) -> Bool { focus == nil || l.from == focus || l.to == focus }
-    private func lit(_ p: Story.Part) -> Bool {
-        focus == nil || focus == p.id || links.contains { ($0.from == focus && $0.to == p.id) || ($0.to == focus && $0.from == p.id) }
-    }
-
-    var body: some View {
-        GeometryReader { geo in
-            let place = layout(geo.size)
-            let port = ports(place)
-            ZStack(alignment: .topLeading) {
-                Canvas { ctx, _ in
-                    for (i, l) in links.enumerated() {
-                        guard let a = place[l.from], let b = place[l.to] else { continue }
-                        let (path, tip, dir) = curve(a, b, port[i * 2] ?? 0, port[i * 2 + 1] ?? 0)
-                        let color: Color = l.isNew ? .added : .stroke
-                        var c = ctx
-                        c.opacity = lit(l) ? 1 : 0.12
-                        c.stroke(path, with: .color(color.opacity(l.isNew ? 0.9 : 0.5)),
-                                 style: StrokeStyle(lineWidth: l.isNew ? 1.2 : 0.9, lineCap: .round))
-                        // A narrow, sharp head, as in an engineering drawing.
-                        var head = Path()
-                        head.move(to: tip)
-                        head.addLine(to: CGPoint(x: tip.x - dir.dx * 9 - dir.dy * 3.2, y: tip.y - dir.dy * 9 + dir.dx * 3.2))
-                        head.addLine(to: CGPoint(x: tip.x - dir.dx * 7, y: tip.y - dir.dy * 7))
-                        head.addLine(to: CGPoint(x: tip.x - dir.dx * 9 + dir.dy * 3.2, y: tip.y - dir.dy * 9 - dir.dx * 3.2))
-                        head.closeSubpath()
-                        c.fill(head, with: .color(color.opacity(l.isNew ? 0.95 : 0.7)))
-                    }
-                }
-                .opacity(drawn ? 1 : 0)
-
-                let spots = labelSpots(place, port)
-                ForEach(Array(links.enumerated()), id: \.offset) { i, l in
-                    if let spot = spots[i] {
-                        Text(l.label)
-                            .font(.serifItalic(14))
-                            .foregroundStyle(l.isNew ? Color.added : Color.text2)
-                            .lineLimit(1)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(Rectangle().fill(Color.paper))
-                            .fixedSize()
-                            .position(spot)
-                            .opacity(drawn ? (lit(l) ? 1 : 0.12) : 0)
-                    }
-                }
-
-                ForEach(parts) { p in
-                    if let c = place[p.id] {
-                        // Hover goes on the card itself: after .position it would cover the whole graph.
-                        PartCard(part: p, focused: focus == p.id)
-                            .frame(width: nodeW, height: nodeH)
-                            .contentShape(Rectangle())
-                            .onHover { h in
-                                withAnimation(.easeOut(duration: 0.18)) { focus = QA.hover(h) ? p.id : (focus == p.id ? nil : focus) }
-                            }
-                            .scaleEffect(drawn ? 1 : 0.94)
-                            .opacity(drawn ? (lit(p) ? 1 : 0.3) : 0)
-                            .position(c)
-                    }
-                }
-            }
-        }
-        .frame(maxWidth: 1080)
-        .frame(height: min(max(CGFloat(tallest) * (nodeH + 30) + 40, 260), 620))
-        .onAppear { withAnimation(.smooth(duration: 0.6).delay(0.1)) { drawn = true } }
-    }
-
-    /// Columns by how many links a part is from where things start (loops don't push parts further right);
-    /// a part's row by the order it was named. The drawing is centred, columns no wider than they need to be.
-    private var ranks: [String: Int] {
-        var incoming = Set(links.map(\.to))
-        if incoming.count == parts.count { incoming.remove(parts.first?.id ?? "") }
-        var rank: [String: Int] = [:]
-        var queue = parts.map(\.id).filter { !incoming.contains($0) }
-        for id in queue { rank[id] = 0 }
-        while !queue.isEmpty {
-            let id = queue.removeFirst()
-            for l in links where l.from == id && rank[l.to] == nil {
-                rank[l.to] = (rank[id] ?? 0) + 1
-                queue.append(l.to)
-            }
-        }
-        for p in parts where rank[p.id] == nil { rank[p.id] = 0 }
-        return rank
-    }
-
-    private var tallest: Int {
-        Dictionary(grouping: parts, by: { ranks[$0.id] ?? 0 }).values.map(\.count).max() ?? 1
-    }
-
-    private func layout(_ size: CGSize) -> [String: CGPoint] {
-        let rank = ranks
-        let columns = (rank.values.max() ?? 0) + 1
-        var byColumn: [[String]] = Array(repeating: [], count: columns)
-        for p in parts { byColumn[rank[p.id] ?? 0].append(p.id) }
-        let colW = min(size.width / CGFloat(columns), nodeW + 200)
-        let left = (size.width - colW * CGFloat(columns)) / 2
-        var out: [String: CGPoint] = [:]
-        for (c, ids) in byColumn.enumerated() {
-            let gap = min((size.height - 20) / CGFloat(max(ids.count, 1)), nodeH + 56)
-            let top = size.height / 2 - gap * CGFloat(ids.count - 1) / 2
-            for (i, id) in ids.enumerated() {
-                out[id] = CGPoint(x: left + (CGFloat(c) + 0.5) * colW, y: top + CGFloat(i) * gap)
-            }
-        }
-        return out
-    }
-
-    /// Where each link leaves and lands on a card's edge, as an offset from the edge's middle: `2i` for where link
-    /// `i` leaves, `2i + 1` for where it lands. Links on the same edge spread out in the order of the parts they
-    /// reach, so they don't cross on their way.
-    private func ports(_ place: [String: CGPoint]) -> [Int: CGFloat] {
-        var edges: [String: [(slot: Int, toward: CGFloat)]] = [:]
-        for (i, l) in links.enumerated() {
-            guard let a = place[l.from], let b = place[l.to], abs(a.x - b.x) >= 4 else { continue }
-            let right = b.x > a.x
-            edges["\(l.from)>\(right ? "R" : "L")", default: []].append((i * 2, b.y))
-            edges["\(l.to)>\(right ? "L" : "R")", default: []].append((i * 2 + 1, a.y))
-        }
-        var out: [Int: CGFloat] = [:]
-        for (_, members) in edges {
-            let sorted = members.enumerated().sorted { ($0.element.toward, $0.offset) < ($1.element.toward, $1.offset) }.map(\.element)
-            let n = sorted.count
-            let spread = min(nodeH - 22, CGFloat(n - 1) * 11)
-            for (j, m) in sorted.enumerated() {
-                out[m.slot] = n == 1 ? 0 : -spread / 2 + spread * CGFloat(j) / CGFloat(n - 1)
-            }
-        }
-        return out
-    }
-
-    private func ends(_ a: CGPoint, _ b: CGPoint, _ da: CGFloat, _ db: CGFloat) -> (CGPoint, CGPoint) {
-        let right = b.x > a.x
-        return (CGPoint(x: a.x + (right ? nodeW / 2 : -nodeW / 2), y: a.y + da),
-                CGPoint(x: b.x + (right ? -nodeW / 2 - 2 : nodeW / 2 + 2), y: b.y + db))
-    }
-
-    private func curve(_ a: CGPoint, _ b: CGPoint, _ da: CGFloat, _ db: CGFloat) -> (Path, CGPoint, CGVector) {
-        var p = Path()
-        if abs(a.x - b.x) < 4 {
-            let down = b.y > a.y
-            let s = CGPoint(x: a.x, y: a.y + (down ? nodeH / 2 : -nodeH / 2))
-            let e = CGPoint(x: b.x, y: b.y + (down ? -nodeH / 2 - 2 : nodeH / 2 + 2))
-            p.move(to: s)
-            p.addLine(to: CGPoint(x: e.x, y: e.y - (down ? 4 : -4)))
-            return (p, e, CGVector(dx: 0, dy: down ? 1 : -1))
-        }
-        let right = b.x > a.x
-        let (s, e) = ends(a, b, da, db)
-        let dx = (e.x - s.x) * 0.5
-        p.move(to: s)
-        p.addCurve(to: CGPoint(x: e.x - (right ? 5 : -5), y: e.y), control1: CGPoint(x: s.x + dx, y: s.y), control2: CGPoint(x: e.x - dx, y: e.y))
-        return (p, e, CGVector(dx: right ? 1 : -1, dy: 0))
-    }
-
-    /// Where each link's label sits: on its curve, at the first spot clear of the parts and of other labels,
-    /// trying near where it lands first (a fan of links spreads out there). A label with no room is left off.
-    private func labelSpots(_ place: [String: CGPoint], _ port: [Int: CGFloat]) -> [Int: CGPoint] {
-        var taken = place.values.map { CGRect(x: $0.x - nodeW / 2 - 4, y: $0.y - nodeH / 2 - 4, width: nodeW + 8, height: nodeH + 8) }
-        var out: [Int: CGPoint] = [:]
-        let font = NSFont(name: "STIXTwoText-Italic", size: 14) ?? NSFont.systemFont(ofSize: 14)
-        for (i, l) in links.enumerated() {
-            guard let a = place[l.from], let b = place[l.to], !l.label.isEmpty else { continue }
-            let w = (l.label as NSString).size(withAttributes: [.font: font]).width + 12, h: CGFloat = 20
-            for t in [0.62, 0.5, 0.76, 0.38, 0.86, 0.26] as [CGFloat] {
-                let p = labelPoint(a, b, port[i * 2] ?? 0, port[i * 2 + 1] ?? 0, t: t)
-                let r = CGRect(x: p.x - w / 2, y: p.y - h / 2, width: w, height: h)
-                if !taken.contains(where: { $0.intersects(r) }) {
-                    taken.append(r.insetBy(dx: -3, dy: -2))
-                    out[i] = p
-                    break
-                }
-            }
-        }
-        return out
-    }
-
-    private func labelPoint(_ a: CGPoint, _ b: CGPoint, _ da: CGFloat, _ db: CGFloat, t: CGFloat) -> CGPoint {
-        if abs(a.x - b.x) < 4 { return CGPoint(x: a.x + 70, y: a.y + (b.y - a.y) * t) }
-        let (s, e) = ends(a, b, da, db)
-        let u = 1 - t
-        let dx = (e.x - s.x) * 0.5
-        let c1 = CGPoint(x: s.x + dx, y: s.y), c2 = CGPoint(x: e.x - dx, y: e.y)
-        let x = u * u * u * s.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * e.x
-        let y = u * u * u * s.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * e.y
-        return CGPoint(x: x, y: y - 12)
-    }
-}
-
-/// A part of the system as a box in a figure: its name as written in the code, what it does in italics, and what
-/// kind of thing it is in small capitals. New parts are drawn in green.
-struct PartCard: View {
-    let part: Story.Part
-    var focused = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(part.name)
-                    .font(.mono(12.5, .medium))
-                    .foregroundStyle(Color.text1)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .truncationMode(.middle)
-                    .layoutPriority(1)
-                Spacer(minLength: 4)
-                Text(part.isNew ? "new" : ActorHead.word(part.kind))
-                    .font(.smallCaps(11.5))
-                    .tracking(0.8)
-                    .foregroundStyle(part.isNew ? Color.added : Color.text3)
-                    .fixedSize()
-            }
-            Text(part.role)
-                .font(.serifItalic(14))
-                .foregroundStyle(Color.text2)
-                .lineLimit(2)
-        }
-        .padding(.horizontal, 12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(Rectangle().fill(Color.paper))
-        .overlay(Rectangle()
-            .strokeBorder(part.isNew ? Color.added.opacity(focused ? 0.95 : 0.65) : Color.wash(focused ? 0.5 : 0.24),
-                          lineWidth: focused ? 1.1 : 0.75))
-        .help(part.isNew ? "\(part.name) — new in this pull request" : part.name)
-    }
-}
-
-// MARK: - Choices
-
-struct ChoicesPage: View {
-    @Bindable var session: PRSession
-
-    var body: some View {
-        let choices = session.story.choices
-        PageFrame(page: .choices, title: choices.isEmpty ? "" : "\(choices.count == 1 ? "One choice" : "\(Self.word(choices.count)) choices") shape this change",
-                  waiting: session.storyState.isRunning) {
-            Grid(horizontalSpacing: 16, verticalSpacing: 16) {
-                ForEach(Array(stride(from: 0, to: choices.count, by: 2)), id: \.self) { i in
-                    GridRow(alignment: .top) {
-                        ChoiceCard(session: session, choice: choices[i])
-                        if i + 1 < choices.count {
-                            ChoiceCard(session: session, choice: choices[i + 1])
-                        } else {
-                            Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: 1080)
-        }
-    }
-
-    static func word(_ n: Int) -> String {
-        let words = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"]
-        return n < words.count ? words[n] : "\(n)"
-    }
-}
-
-/// One decision, drawn as the fork it was: the road taken in green, the one passed over dashed and dim, and why.
-struct ChoiceCard: View {
-    @Bindable var session: PRSession
-    let choice: Story.Choice
-    @State private var hover = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text("4.\(choice.id + 1)")
-                    .font(.serif(16))
-                    .foregroundStyle(Color.text3)
-                Text(choice.title)
-                    .font(.serif(19))
-                    .foregroundStyle(Color.text1)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 8)
-                Text(choice.stated ? "stated" : "inferred")
-                    .font(.smallCaps(12.5))
-                    .tracking(1)
-                    .foregroundStyle(choice.stated ? Color.calm : Color.text3)
-                    .fixedSize()
-                    .help(choice.stated ? "The PR description or a code comment says why" : "Fathom's reading of why; the PR doesn't say")
-            }
-
-            VStack(alignment: .leading, spacing: 11) {
-                Text(choice.chose)
-                    .font(.serif(16.5))
-                    .foregroundStyle(Color.text1)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .anchorPreference(key: ForkRows.self, value: .bounds) { [0: $0] }
-                if !choice.over.isEmpty {
-                    (Text("not ").foregroundStyle(Color.text3.opacity(0.8)) + Text(Self.lower(choice.over)).foregroundStyle(Color.text3))
-                        .font(.serif(15.5))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .anchorPreference(key: ForkRows.self, value: .bounds) { [1: $0] }
-                }
-            }
-            .padding(.leading, 34)
-            .overlayPreferenceValue(ForkRows.self) { rows in
-                GeometryReader { g in
-                    if let a = rows[0] {
-                        Fork(chosen: g[a].minY + 11, over: rows[1].map { g[$0].minY + 10.5 })
-                    }
-                }
-            }
-
-            if !choice.why.isEmpty {
-                Text(choice.why)
-                    .font(.serifItalic(15.5))
-                    .foregroundStyle(Color.text2)
-                    .lineSpacing(1)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.leading, 34)
-            }
-            if !choice.hunks.isEmpty {
-                Spacer(minLength: 0)
-                Button {
-                    if let h = choice.hunks.first { session.go(toHunk: h) }
-                } label: {
-                    HStack(spacing: 6) {
-                        Text("See it in the code").font(.smallCaps(12.5)).tracking(1)
-                        Image(systemName: "arrow.right").font(.system(size: 9, weight: .semibold))
-                    }
-                    .foregroundStyle(hover ? Color.text1 : Color.text3)
-                    .padding(.leading, 34)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.wash(hover ? 0.03 : 0.018)))
-        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Color.wash(hover ? 0.14 : 0.09), lineWidth: 0.5))
-        .onHover { hover = QA.hover($0) }
-        .animation(Motion.snappy, value: hover)
-    }
-
-    /// "Resetting state" → "resetting state", but names like "ARView" or "SceneKit" stay as written.
-    static func lower(_ s: String) -> String {
-        let chars = Array(s)
-        guard chars.count > 1, chars[0].isUppercase, chars[1].isLowercase,
-              !s.split(separator: " ").first!.dropFirst().contains(where: \.isUppercase) else { return s }
-        return chars[0].lowercased() + String(chars.dropFirst())
-    }
-}
-
-private struct ForkRows: PreferenceKey {
-    static let defaultValue: [Int: Anchor<CGRect>] = [:]
-    static func reduce(value: inout [Int: Anchor<CGRect>], nextValue: () -> [Int: Anchor<CGRect>]) {
-        value.merge(nextValue()) { $1 }
-    }
-}
-
-/// The fork itself, in the 30 points left of the two lines: a point of decision, a solid branch to what was chosen
-/// and a dashed one, ending in a cross, to what wasn't.
-private struct Fork: View {
-    let chosen: CGFloat
-    let over: CGFloat?
-
-    var body: some View {
-        Canvas { ctx, _ in
-            let root = CGPoint(x: 5, y: chosen)
-            var taken = Path()
-            taken.move(to: root)
-            taken.addLine(to: CGPoint(x: 24, y: chosen))
-            ctx.stroke(taken, with: .color(Color.added.opacity(0.9)), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
-            var head = Path()
-            head.move(to: CGPoint(x: 27, y: chosen))
-            head.addLine(to: CGPoint(x: 21, y: chosen - 3.5))
-            head.addQuadCurve(to: CGPoint(x: 21, y: chosen + 3.5), control: CGPoint(x: 23, y: chosen))
-            head.closeSubpath()
-            ctx.fill(head, with: .color(Color.added))
-            if let over {
-                var not = Path()
-                not.move(to: CGPoint(x: root.x, y: root.y + 3))
-                not.addCurve(to: CGPoint(x: 19, y: over), control1: CGPoint(x: root.x, y: over - 4), control2: CGPoint(x: root.x + 4, y: over))
-                ctx.stroke(not, with: .color(Color.text3.opacity(0.75)), style: StrokeStyle(lineWidth: 1.2, lineCap: .round, dash: [2.5, 3]))
-                var x = Path()
-                x.move(to: CGPoint(x: 21.5, y: over - 3)); x.addLine(to: CGPoint(x: 27.5, y: over + 3))
-                x.move(to: CGPoint(x: 27.5, y: over - 3)); x.addLine(to: CGPoint(x: 21.5, y: over + 3))
-                ctx.stroke(x, with: .color(Color.text3), style: StrokeStyle(lineWidth: 1.4, lineCap: .round))
-            }
-            ctx.fill(Path(ellipseIn: CGRect(x: root.x - 3.5, y: root.y - 3.5, width: 7, height: 7)), with: .color(Color.text2))
-        }
-        .allowsHitTesting(false)
-    }
-}
-
-// MARK: - Promises
-
-struct PromisesPage: View {
-    @Bindable var session: PRSession
-
-    var body: some View {
-        let contracts = session.brief.contracts
-        let n = contracts.count
-        PageFrame(page: .promises, title: n == 0 ? "" : n == 1 ? "One promise to the rest of the system changes"
-                                                         : "\(ChoicesPage.word(n)) promises to the rest of the system change",
-                  waiting: session.briefState.isRunning) {
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 14, alignment: .top), GridItem(.flexible(), spacing: 14, alignment: .top)],
-                      alignment: .leading, spacing: 14) {
-                ForEach(contracts) { c in
-                    InterfaceCard(session: session, contract: c, fill: true)
-                }
-            }
-            .frame(maxWidth: 1080)
-        }
-    }
-}
-
-// MARK: - Code
-
-struct CodePage: View {
-    @Bindable var session: PRSession
-
-    var body: some View {
-        let look = session.story.look
-        PageFrame(page: .code, title: look.isEmpty ? "" : "If you read nothing else, read \(look.count == 1 ? "this" : "these \(ChoicesPage.word(look.count).lowercased())")",
-                  waiting: session.storyState.isRunning) {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(look.enumerated()), id: \.offset) { i, l in
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        Text("6.\(i + 1)")
-                            .font(.serif(16))
-                            .foregroundStyle(Color.text3)
-                        Text(l.why)
-                            .font(.serif(19))
-                            .foregroundStyle(Color.text1)
-                        Spacer()
-                        Button {
-                            session.go(toHunk: l.hunk)
-                        } label: {
-                            HStack(spacing: 5) {
-                                Text("In Changes").font(.smallCaps(12.5)).tracking(1)
-                                Image(systemName: "arrow.right").font(.system(size: 9, weight: .semibold))
-                            }
-                            .foregroundStyle(Color.text3)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Read it in place, with what's around it")
-                    }
-                    .padding(.top, i == 0 ? 0 : 30)
-                    .padding(.bottom, 10)
-                    ForEach(session.lookRows(l.hunk)) { row in
-                        DocRowView(session: session, row: row)
-                    }
-                }
-            }
-            .frame(maxWidth: 1080, alignment: .leading)
-            .environment(\.inPanel, true)
-        }
     }
 }

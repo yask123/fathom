@@ -137,6 +137,7 @@ struct ReadingClock: View {
     private var started: Date {
         if case .running(let d) = session.briefState { return d }
         if case .running(let d) = session.storyState { return d }
+        if case .running(let d) = session.critiqueState { return d }
         return .now
     }
 }

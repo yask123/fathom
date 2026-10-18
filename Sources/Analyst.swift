@@ -129,11 +129,12 @@ enum Analyst {
     // MARK: The story
 
     static let storySystem = """
-    You are Fathom's storyteller. An AI wrote this pull request and a bot has already checked that it does what it \
-    claims. A senior engineer now wants to understand it the way they'd understand a colleague's design: what was \
-    wrong, the one idea that fixes it, how things flow now, and the choices made along the way. You tell that as a \
-    short illustrated story: a sentence and a small diagram per page. Plain words, names as in the code, no \
-    opinions, no review, no praise, no risk talk.
+    You are Fathom. An AI wrote this pull request and its tests pass. A senior engineer now wants to understand it the \
+    way they'd understand a colleague's design at a whiteboard: how the system behaved before and how it behaves now, \
+    the parts involved and what crosses between them, and the engineering idea it rests on. You draw; they think. \
+    Write almost nothing: short phrases, names exactly as in the code. No praise, no filler, no hedging. Never use \
+    words like robust, seamless, comprehensive, enhanced, leverage, ensure. If a phrase would fit any pull request, \
+    cut it.
 
     The diff is in your prompt. When the current directory holds the repository at the PR's head commit, you may use \
     Glob, Grep and Read to see how the changed code is called. At most about 4 lookups. Then answer.
@@ -142,42 +143,102 @@ enum Analyst {
     made the code hard to change. Infra or tests: what was fragile or slow.
 
     Fields, in this order:
-    - problem.title: the situation before, at most 12 words, in terms of what a user or caller experienced ("Asking \
-    a question mid-walk ended the walk"). Not the fix.
-    - problem.steps: 2–5 steps of how it went before, as a sequence: from and to are actors (a person like "You", or \
-    parts named as in the code), does is at most 6 words, data is what travels, at most 4 words, or empty.
-    - problem.pain: at most 8 words, what goes wrong or what's missing. painStep: the index of the step where it \
-    hurts, or -1 when the problem is that a step was missing.
-    - idea.title: the key idea of the solution, at most 14 words, the way you'd say it at a whiteboard ("Answer \
-    common questions on the phone; send only the rest to the server").
-    - idea.parts: 2–6 parts that carry the idea. id, name as in the code, kind, new (added by this PR), role at most \
-    5 words. idea.links: up to 7, from and to are part ids, label at most 4 words, new.
-    - solution.title: how it works now, at most 12 words.
-    - solution.steps: 2–7 steps, the same story as problem.steps told again after the change, with the same actor \
-    names where they're the same part. new marks a step this PR adds.
-    - choices: 1–4 design decisions a staff engineer would want to know about: where the PR chose one approach over \
-    a reasonable other. title at most 8 words; chose at most 12 words; over, the alternative it didn't take, at most \
-    10 words (empty if none is obvious); why at most 14 words; stated true when the PR description or a code comment \
-    says why, false when you infer it. hunks: 1–2 hunk ids where the choice lives.
-    - look: 2–4 hunks that carry the idea, the ones to read if you read nothing else, in reading order. why at most \
-    10 words.
+    - problem: the situation before, at most 12 words, as a user or caller experienced it ("Asking a question \
+    mid-walk ended the walk"). Not the fix.
+    - after: the same situation now, at most 12 words, as the user or caller experiences it.
+    - flow: one request's journey through the system, told once for both versions, in time order: 3–9 steps. from \
+    and to are actors: a person like "You", or parts named as in the code; from equals to for work a part does on \
+    its own. does: at most 6 words. data: what travels, at most 4 words, or empty. status: same (happens before and \
+    after), removed (only before), added (only after), or changed (both, differently). For a changed step, wasDoes \
+    and wasData hold the old does and data where they differ; otherwise leave them empty. Keep actor names identical \
+    across steps. The before journey is the same, changed and removed steps; the after journey is the same, changed \
+    and added steps. Both must read as complete journeys.
+    - breaks: the index in flow of the step where it went wrong before, or -1 when the problem was a step that was \
+    missing. pain: at most 8 words, what goes wrong there.
+    - move: the key idea of the fix, at most 14 words, the way you'd say it at a whiteboard ("Answer common \
+    questions on the phone; send only the rest to the server").
+    - parts: the system the change lives in, 3–7 parts. id; name as in the code; kind; change: added (by this PR), \
+    changed (its code changes), or unchanged (context it talks to); role at most 5 words; where: the process or \
+    deployable it runs in, at most 3 words ("iOS app", "API server", "Postgres", "GitHub Actions"), the same words \
+    for parts that run together.
+    - links: up to 8. from and to are part ids. label: what crosses that boundary, at most 4 words. change: added, \
+    changed, removed or unchanged.
+    - concept: the general engineering idea this change rests on, the one a reviewer would be glad to learn or \
+    recall, by its usual name ("Local-first fallback", "Idempotency key", "Optimistic update with rollback", \
+    "Debounce", "Versioned API"). name at most 4 words. gist: at most 28 words, the idea in general, with no project \
+    names. here: at most 18 words, how this PR uses it. kin: at most 10 words, where engineers meet the same idea \
+    elsewhere.
+    - terms: 0–5 names from this codebase or domain a newcomer would trip on. term as written; meaning at most 12 words.
     """
 
     static let storySchema = """
-    {"type":"object","additionalProperties":false,"required":["problem","idea","solution","choices","look"],"properties":{
-     "problem":{"type":"object","additionalProperties":false,"required":["title","steps","pain","painStep"],"properties":{
+    {"type":"object","additionalProperties":false,"required":["problem","after","flow","breaks","pain","move","parts","links","concept","terms"],"properties":{
+     "problem":{"type":"string"},
+     "after":{"type":"string"},
+     "flow":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["from","to","does","data","status","wasDoes","wasData"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"does":{"type":"string"},"data":{"type":"string"},"status":{"type":"string","enum":["same","removed","added","changed"]},"wasDoes":{"type":"string"},"wasData":{"type":"string"}}}},
+     "breaks":{"type":"integer"},
+     "pain":{"type":"string"},
+     "move":{"type":"string"},
+     "parts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","name","kind","change","role","where"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"kind":{"type":"string","enum":["ui","api","service","state","store","external","job","config","library","test"]},"change":{"type":"string","enum":["added","changed","unchanged"]},"role":{"type":"string"},"where":{"type":"string"}}}},
+     "links":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["from","to","label","change"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"label":{"type":"string"},"change":{"type":"string","enum":["added","changed","removed","unchanged"]}}}},
+     "concept":{"type":"object","additionalProperties":false,"required":["name","gist","here","kin"],"properties":{"name":{"type":"string"},"gist":{"type":"string"},"here":{"type":"string"},"kin":{"type":"string"}}},
+     "terms":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["term","meaning"],"properties":{"term":{"type":"string"},"meaning":{"type":"string"}}}}
+    }}
+    """
+
+    // MARK: The critique
+
+    static let critiqueSystem = """
+    You are Fathom's referee. An AI wrote this pull request and its tests pass. A staff engineer must decide whether \
+    to ship it, and wants their judgement to be fast and sharp: what the change trades away, what could go wrong in \
+    production, and which questions deserve their attention. Be specific to this diff: name the parts, conditions and \
+    values involved. Never give generic advice ("add more tests", "consider edge cases", "handle errors", "document \
+    this"). Never invent problems: if something is fine, leave it out; fewer, truer items beat a full list. Plain \
+    words, no praise, no hedging, names exactly as in the code.
+
+    The diff is in your prompt. When the current directory holds the repository at the PR's head commit, you may use \
+    Glob, Grep and Read to check who calls the changed code or what a value really is. At most about 5 lookups. Then \
+    answer.
+
+    Every hunk in the diff is labelled with an id like f3h2 (file 3, hunk 2). Refer to hunks only by these ids.
+
+    Fields, in this order:
+    - price: what the change costs or gives up, at most 14 words: its main trade-off in one line.
+    - choices: 1–3 design decisions where a reasonable engineer could have gone another way. title: the question \
+    decided, at most 7 words ("Where common questions are answered"). options: 2–3, the one this PR chose first, \
+    each at most 4 words. criteria: 2–4 qualities that separate the options, at most 2 words each ("Latency", \
+    "Works offline", "Code size"), each with a score per option from 0 to 4 (4 is best), in the options' order. \
+    Score honestly: the chosen option should lose on something. why: at most 16 words, why this PR's option won. \
+    stated: true when the PR description or a code comment says why, false when you infer it. hunks: 1–2 hunk ids \
+    where the choice lives.
+    - door: two-way when reverting this PR cleanly restores the old behaviour; one-way when something outlives a \
+    revert: migrated or rewritten data, a published API, schema or file format, messages already sent, deleted \
+    state, a shipped app version. doorWhy: at most 14 words.
+    - risks: 0–4 ways this could fail in production, most serious first; none when there are none. title at most 8 \
+    words. when: the trigger, at most 12 words. effect: who notices what, at most 10 words. likelihood and impact \
+    from 1 (low) to 3 (high). guard: what in this diff prevents or catches it, at most 8 words, or empty when \
+    nothing does. hunks: 1–2 hunk ids.
+    - questions: 2–4 questions you would put to the author, ones the diff leaves open, about behaviour rather than \
+    style, each answerable. q at most 20 words. why: at most 12 words, what hangs on the answer. hunk: the hunk id \
+    where to look.
+    - evidence: 2–4 hunks that carry the change, the ones to read if you read nothing else, in reading order. why at \
+    most 10 words. marks: 1–3 lines worth a margin note: anchor is a fragment of one added line copied exactly, at \
+    most 40 characters; note at most 8 words.
+    """
+
+    static let critiqueSchema = """
+    {"type":"object","additionalProperties":false,"required":["price","choices","door","doorWhy","risks","questions","evidence"],"properties":{
+     "price":{"type":"string"},
+     "choices":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["title","options","criteria","why","stated","hunks"],"properties":{
        "title":{"type":"string"},
-       "steps":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["from","to","does","data"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"does":{"type":"string"},"data":{"type":"string"}}}},
-       "pain":{"type":"string"},"painStep":{"type":"integer"}}},
-     "idea":{"type":"object","additionalProperties":false,"required":["title","parts","links"],"properties":{
-       "title":{"type":"string"},
-       "parts":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","name","kind","new","role"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"kind":{"type":"string","enum":["ui","api","service","state","store","external","job","config","library","test"]},"new":{"type":"boolean"},"role":{"type":"string"}}}},
-       "links":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["from","to","label","new"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"label":{"type":"string"},"new":{"type":"boolean"}}}}}},
-     "solution":{"type":"object","additionalProperties":false,"required":["title","steps"],"properties":{
-       "title":{"type":"string"},
-       "steps":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["from","to","does","data","new"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"does":{"type":"string"},"data":{"type":"string"},"new":{"type":"boolean"}}}}}},
-     "choices":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["title","chose","over","why","stated","hunks"],"properties":{"title":{"type":"string"},"chose":{"type":"string"},"over":{"type":"string"},"why":{"type":"string"},"stated":{"type":"boolean"},"hunks":{"type":"array","items":{"type":"string"}}}}},
-     "look":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["hunk","why"],"properties":{"hunk":{"type":"string"},"why":{"type":"string"}}}}
+       "options":{"type":"array","items":{"type":"string"}},
+       "criteria":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["name","scores"],"properties":{"name":{"type":"string"},"scores":{"type":"array","items":{"type":"integer"}}}}},
+       "why":{"type":"string"},"stated":{"type":"boolean"},"hunks":{"type":"array","items":{"type":"string"}}}}},
+     "door":{"type":"string","enum":["two-way","one-way"]},
+     "doorWhy":{"type":"string"},
+     "risks":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["title","when","effect","likelihood","impact","guard","hunks"],"properties":{"title":{"type":"string"},"when":{"type":"string"},"effect":{"type":"string"},"likelihood":{"type":"integer"},"impact":{"type":"integer"},"guard":{"type":"string"},"hunks":{"type":"array","items":{"type":"string"}}}}},
+     "questions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["q","why","hunk"],"properties":{"q":{"type":"string"},"why":{"type":"string"},"hunk":{"type":"string"}}}},
+     "evidence":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["hunk","why","marks"],"properties":{"hunk":{"type":"string"},"why":{"type":"string"},"marks":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["anchor","note"],"properties":{"anchor":{"type":"string"},"note":{"type":"string"}}}}}}}
     }}
     """
 

@@ -11,20 +11,23 @@ struct Sounding: Codable, Sendable {
     var brief: Data?
     var map: Data?
     var story: Data?
+    var critique: Data?
     var briefSeconds: Double?
     var mapSeconds: Double?
     var storySeconds: Double?
+    var critiqueSeconds: Double?
     var createdAt: Date
     var version: Int?
 
     /// Bumped when the prompts change shape; older readings are read again.
-    static let current = 4
+    static let current = 5
 }
 
 /// Small state that survives relaunches.
 struct SavedState: Codable {
     var recents: [PRSummary] = []
     var reviewed: [String: [Int]] = [:]          // "owner/repo#n@sha" → chapter ids marked understood
+    var settled: [String: [Int]] = [:]           // "owner/repo#n@sha" → the reading's questions you've settled
     var pending: [String: [PendingComment]] = [:] // "owner/repo#n" → unsent review comments
     var model = "opus"
     var ping = true
@@ -40,6 +43,7 @@ struct SavedState: Codable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         recents = try c.decodeIfPresent([PRSummary].self, forKey: .recents) ?? []
         reviewed = try c.decodeIfPresent([String: [Int]].self, forKey: .reviewed) ?? [:]
+        settled = (try? c.decodeIfPresent([String: [Int]].self, forKey: .settled)) ?? [:]
         pending = try c.decodeIfPresent([String: [PendingComment]].self, forKey: .pending) ?? [:]
         model = try c.decodeIfPresent(String.self, forKey: .model) ?? "opus"
         ping = try c.decodeIfPresent(Bool.self, forKey: .ping) ?? true
