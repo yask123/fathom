@@ -7,11 +7,11 @@
 <meta name="description" content="Fathom turns a pull request into the system it changes: parts, wires, before and after, trade-offs and risks. AI reads every line; you review the design. Free Mac app.">
 <meta property="og:title" content="Fathom: AI writes the code. You review the system.">
 <meta property="og:description" content="AI reads every line. You review the design. A free Mac app that turns pull requests into the systems they change.">
-<meta property="og:image" content="https://yask.dev/fathom/assets/og-v14.jpg">
+<meta property="og:image" content="https://yask.dev/fathom/assets/og-v15.jpg">
 <meta property="og:url" content="https://yask.dev/fathom">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://yask.dev/fathom/assets/og-v14.jpg">
+<meta name="twitter:image" content="https://yask.dev/fathom/assets/og-v15.jpg">
 <link rel="icon" type="image/png" href="/fathom/assets/favicon.png">
 <link rel="apple-touch-icon" href="/fathom/assets/apple-touch-icon.png">
 <meta name="theme-color" content="#F5F3EE">
@@ -60,59 +60,107 @@ h1 em, h2 em { font-style: italic; color: var(--sig); }
 .links { display: flex; gap: 24px; margin-left: auto; }
 .links a { font-size: 14px; color: var(--ink-2); text-decoration: none; }
 .links a:hover { color: var(--ink); }
-.btn { display: inline-flex; align-items: center; gap: 9px; height: 44px; padding: 0 20px; border-radius: 999px; background: var(--ink); color: var(--bg); font: 500 15px var(--sans); text-decoration: none; border: 0; cursor: pointer; transition: transform .2s, box-shadow .2s; box-shadow: 0 1px 0 rgba(255,255,255,.1) inset, 0 10px 24px -12px rgba(0,0,0,.45); }
+.btn { display: inline-flex; align-items: center; gap: 9px; height: 44px; padding: 0 20px; border-radius: 999px; background: var(--ink); color: var(--bg); font: 500 15px var(--sans); text-decoration: none; border: 0; cursor: pointer; transition: transform .2s; box-shadow: 0 1px 0 rgba(255,255,255,.1) inset, 0 10px 24px -12px rgba(0,0,0,.45); white-space: nowrap; }
 .btn:hover { transform: translateY(-1px); }
 .btn svg { width: 16px; height: 16px; }
 .btn.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-2); }
 .btn.sm { height: 36px; padding: 0 16px; font-size: 14px; }
 
 /* Hero */
-.hero { position: relative; display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 6fr); gap: 24px; align-items: center; min-height: calc(100svh - 64px); padding: 24px 0 40px; }
-.hero-copy { position: relative; z-index: 2; padding-bottom: 24px; }
-.eyebrow { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 26px; }
+.hero { padding: 56px 0 0; }
+.hero-top { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 40px; align-items: end; }
+.eyebrow { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 22px; }
 .eyebrow i { width: 7px; height: 7px; border-radius: 50%; background: var(--sig); box-shadow: 0 0 0 4px color-mix(in srgb, var(--sig) 18%, transparent); }
-h1 { font-size: clamp(42px, 4.5vw, 64px); line-height: 1.02; letter-spacing: -.033em; }
+h1 { font-size: clamp(42px, 5vw, 70px); line-height: 1.02; letter-spacing: -.034em; }
 h1 em { display: block; }
-.lede { margin: 26px 0 0; max-width: 34em; font-size: 18.5px; line-height: 1.6; color: var(--ink-2); }
-.cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
-.fine { margin: 22px 0 0; font: 400 12.5px/1.5 var(--mono); color: var(--ink-3); }
-.stage { position: relative; height: min(78svh, 760px); min-height: 460px; }
-.hero .stage { margin-right: min(0px, calc((1240px - 100vw) / 2 - 32px)); }
+.lede { margin: 0; font-size: 18px; line-height: 1.5; color: var(--ink-2); max-width: 26em; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
+
+/* The film */
+.film { position: relative; margin-top: 40px; border-radius: 26px; background: color-mix(in srgb, var(--card) 55%, var(--bg)); box-shadow: 0 0 0 1px var(--line), 0 50px 100px -60px rgba(40, 32, 18, .35); display: grid; grid-template-columns: 400px minmax(0, 1fr); grid-template-rows: 590px auto; overflow: hidden; }
+.side { position: relative; padding: 22px 0 22px 22px; }
+.pane { position: absolute; inset: 22px 0 22px 22px; border-radius: 16px; background: var(--card); box-shadow: 0 0 0 1px var(--line), 0 20px 40px -30px rgba(40, 32, 18, .3); overflow: hidden; transition: opacity .6s, transform .6s; }
+.pane.off { opacity: 0; transform: translateY(8px) scale(.985); pointer-events: none; }
+.ph { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 14px; border-bottom: 1px solid var(--line); font: 500 11.5px var(--mono); color: var(--ink-2); }
+.ph .dots { display: flex; gap: 6px; }
+.ph .dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--line-2); }
+.ph .meta { margin-left: auto; color: var(--ink-3); font-weight: 400; }
+.ph .meta b { font-weight: 400; color: var(--add); }
+.ph .meta s { text-decoration: none; color: var(--del); }
+.rows { padding: 8px 0; }
+.row { position: relative; display: flex; align-items: baseline; gap: 8px; height: 17.5px; padding: 0 14px; font: 400 11px/17.5px var(--mono); white-space: nowrap; transition: opacity .35s; }
+.row.file { margin-top: 7px; color: var(--ink-3); font-weight: 500; font-size: 10.5px; letter-spacing: .02em; }
+.row.file:first-child { margin-top: 0; }
+.row code { font: inherit; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); min-width: 0; }
+.row .g { flex: none; width: 10px; text-align: center; }
+.row.add { background: color-mix(in srgb, var(--add) 7%, transparent); }
+.row.add .g, .row.add code { color: var(--add); }
+.row.del { background: color-mix(in srgb, var(--del) 7%, transparent); }
+.row.del .g, .row.del code { color: var(--del); }
+.row .tag { position: absolute; right: 10px; top: 2px; font: 500 9px/13.5px var(--mono); letter-spacing: .04em; padding: 0 6px; border-radius: 4px; color: var(--sig); background: color-mix(in srgb, var(--sig) 12%, var(--card)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--sig) 30%, transparent); opacity: 0; transform: translateX(6px); transition: opacity .3s, transform .3s; }
+.row .tag.noise { color: var(--ink-3); background: var(--bg-2); box-shadow: none; }
+.row.tagged .tag { opacity: 1; transform: none; }
+.row.hide { opacity: 0; }
+.row.gone { opacity: .12; }
+.scan { position: absolute; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--sig), transparent); opacity: 0; box-shadow: 0 0 16px var(--sig); pointer-events: none; }
+.reading { padding: 22px 22px 20px; }
+.reading h3 { margin-top: 12px; font-size: 25px; line-height: 1.15; letter-spacing: -.02em; }
+.signs { display: grid; grid-template-columns: 1fr 1fr; margin-top: 18px; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line-2); }
+.signs div { padding: 10px 0 11px; }
+.signs div:nth-child(odd) { padding-right: 12px; }
+.signs div:nth-child(even) { padding-left: 14px; border-left: 1px solid var(--line); }
+.signs div + div + div { border-top: 1px solid var(--line); }
+.signs span { display: block; font: 500 9.5px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+.signs b { display: block; margin-top: 4px; font: 400 19px/1.1 var(--serif); }
+.signs b.warn { color: var(--chg); }
+.signs b.bad { color: var(--del); }
+.abs { margin: 16px 0 0; font: 400 15px/1.45 var(--serif); color: var(--ink); }
+.abs p { margin: 0 0 7px; }
+.abs i { font-style: normal; font-variant: small-caps; letter-spacing: .04em; font-size: 15.5px; color: var(--ink-2); }
+.qs { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.qs p { margin: 8px 0 0; padding-left: 14px; position: relative; font: italic 400 15px/1.35 var(--serif); color: var(--ink); }
+.qs p::before { content: '?'; position: absolute; left: 0; top: 0; font: 500 12px/1.6 var(--mono); font-style: normal; color: var(--sig); }
+.see { display: inline-flex; gap: 6px; margin-top: 8px; font: 500 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--sig); text-decoration: none; }
+.reading .stamp { display: flex; justify-content: space-between; align-items: center; }
+.stage { position: relative; }
 .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.stage .fallback { display: none; position: absolute; inset: 10% 0; width: 100%; height: 80%; object-fit: contain; border-radius: 12px; }
+.stage .fallback { display: none; position: absolute; inset: 8% 4%; width: 92%; height: 84%; object-fit: contain; border-radius: 12px; }
 .stage.no-gl canvas, .stage.no-gl .labels { display: none; }
 .stage.no-gl .fallback { display: block; }
 .labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .labels > span { position: absolute; left: 0; top: 0; white-space: nowrap; will-change: transform, opacity; }
-.lp { font: 500 11.5px/1 var(--mono); color: var(--ink); padding: 4px 7px; border-radius: 5px; background: color-mix(in srgb, var(--bg) 86%, transparent); box-shadow: 0 0 0 1px var(--line); }
+.lp { font: 500 11px/1 var(--mono); color: var(--ink); padding: 4px 7px; border-radius: 5px; background: color-mix(in srgb, var(--bg) 86%, transparent); box-shadow: 0 0 0 1px var(--line); }
 .lp.new { color: var(--add); box-shadow: 0 0 0 1px color-mix(in srgb, var(--add) 40%, transparent); }
 .lp.ctx { color: var(--ink-3); }
-.lp b { font: 500 9.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; margin-left: 6px; }
-.lz { font: 500 10.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
+.lp b { font: 500 9px var(--mono); letter-spacing: .1em; text-transform: uppercase; margin-left: 6px; }
+.lz { font: 500 10px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
 .lw { font: italic 400 14px/1 var(--serif); color: var(--ink-2); text-shadow: 0 0 6px var(--bg), 0 0 3px var(--bg); }
 .lw.wire { font: 400 11px/1 var(--mono); font-style: normal; color: var(--sig); }
-.lx { font: italic 400 14.5px/1.25 var(--serif); color: var(--del); width: 200px; white-space: normal !important; text-shadow: 0 0 6px var(--bg), 0 0 3px var(--bg); }
-.lf { font: 500 11px/1 var(--mono); color: var(--ink-3); letter-spacing: .04em; }
-.cap { position: absolute; left: 0; bottom: 4px; display: flex; align-items: baseline; gap: 12px; max-width: 520px; font-size: 14.5px; line-height: 1.45; color: var(--ink-2); transition: opacity .4s; }
-.phase { flex: none; font: 500 10.5px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 6px 9px; border-radius: 999px; color: var(--del); background: color-mix(in srgb, var(--del) 10%, transparent); transition: color .4s, background .4s; }
-.phase.after { color: var(--add); background: color-mix(in srgb, var(--add) 12%, transparent); }
-.cap .cap-text { font-family: var(--serif); font-size: 16px; font-style: italic; }
-.strip { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 26px 0; }
-.strip div { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 14px; align-items: end; }
-.strip .label { grid-column: 1 / -1; margin-bottom: 10px; }
-.strip b { font: 400 54px/.9 var(--serif); letter-spacing: -.03em; }
-.strip span:last-child { font: italic 400 20px/1 var(--serif); color: var(--ink-2); padding-bottom: 4px; }
-.strip .you b, .strip .you span:last-child { color: var(--sig); }
-.strip i { font-style: normal; font-size: 22px; color: var(--ink-3); padding: 0 28px; }
+.lx { font: italic 400 14.5px/1.25 var(--serif); color: var(--del); width: 190px; white-space: normal !important; text-shadow: 0 0 6px var(--bg), 0 0 3px var(--bg); }
+.fly { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
+.ghost { position: absolute; left: 0; top: 0; font: 400 11px/17.5px var(--mono); white-space: nowrap; padding: 0 6px; border-radius: 4px; transform-origin: 0 50%; will-change: transform, opacity; }
+.ghost.add { color: var(--add); background: color-mix(in srgb, var(--add) 10%, var(--card)); }
+.ghost.del { color: var(--del); background: color-mix(in srgb, var(--del) 10%, var(--card)); }
+.ghost.ctx { color: var(--ink-3); }
+.foot { grid-column: 1 / -1; display: flex; align-items: center; gap: 28px; padding: 16px 24px 20px; border-top: 1px solid var(--line); }
+.chapters { display: flex; gap: 6px; flex: none; }
+.chapters button { all: unset; cursor: pointer; display: grid; gap: 7px; padding: 4px 10px 2px 0; min-width: 104px; font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.chapters button.on { color: var(--ink); }
+.chapters button i { display: block; height: 2px; border-radius: 2px; background: var(--line-2); overflow: hidden; }
+.chapters button i b { display: block; height: 100%; width: 0; background: var(--sig); }
+.chapters button span { opacity: .55; margin-right: 6px; }
+.say { margin: 0 0 0 auto; display: flex; align-items: baseline; gap: 12px; text-align: right; font: italic 400 18px/1.35 var(--serif); color: var(--ink); min-height: 1.35em; transition: opacity .3s; }
+.say .phase { font: 500 10px/1 var(--mono); font-style: normal; letter-spacing: .12em; text-transform: uppercase; padding: 6px 9px; border-radius: 999px; color: var(--del); background: color-mix(in srgb, var(--del) 10%, transparent); }
+.say .phase.after { color: var(--add); background: color-mix(in srgb, var(--add) 12%, transparent); }
+.say .phase:empty { display: none; }
 
 /* Sections */
-section.block { padding-top: 140px; }
-.head p.label { margin: 0; font-size: 11.5px; line-height: 1; color: var(--sig); }
+section.block { padding-top: 150px; }
 .head { max-width: 760px; }
+.head .label { margin: 0; }
 .head h2 { font-size: clamp(36px, 4.4vw, 58px); line-height: 1.04; margin-top: 18px; }
-.head p { margin: 22px 0 0; font-size: 18.5px; color: var(--ink-2); max-width: 36em; }
-
-.split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 56px; }
+.head p:not(.label) { margin: 20px 0 0; font-size: 18px; color: var(--ink-2); max-width: 34em; }
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 52px; }
 .split .col { border-radius: 20px; padding: 30px 32px 34px; background: var(--card); box-shadow: 0 0 0 1px var(--line); }
 .split .col.you { background: color-mix(in srgb, var(--sig) 7%, var(--card)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--sig) 28%, transparent); }
 .split ul { list-style: none; margin: 18px 0 0; padding: 0; }
@@ -122,39 +170,23 @@ section.block { padding-top: 140px; }
 .split .you li { font: 400 26px/1.2 var(--serif); letter-spacing: -.015em; color: var(--ink); }
 .split .you li:last-child { color: var(--sig); font-style: italic; }
 
-/* The scroll story */
-.story { position: relative; height: 360vh; margin-top: 120px; }
-.pin { position: sticky; top: 0; height: 100svh; overflow: hidden; display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 24px; align-items: center; }
-.story-copy { position: relative; }
-.steps { position: relative; height: 340px; }
-.step { position: absolute; inset: 0 0 auto 0; opacity: 0; transform: translateY(18px); transition: opacity .5s, transform .5s; pointer-events: none; }
-.step.on { opacity: 1; transform: none; }
-.step .n { font: 500 12px var(--mono); color: var(--sig); letter-spacing: .1em; }
-.step h3 { margin-top: 16px; font-size: clamp(30px, 3.2vw, 44px); line-height: 1.06; letter-spacing: -.028em; }
-.step p { margin: 18px 0 0; font-size: 17.5px; color: var(--ink-2); max-width: 26em; }
-.ticks { display: flex; gap: 8px; margin-top: 28px; }
-.ticks i { width: 28px; height: 3px; border-radius: 3px; background: var(--line-2); overflow: hidden; position: relative; }
-.ticks i b { position: absolute; inset: 0; width: 0; background: var(--ink); }
-.story .stage { height: 86svh; min-height: 420px; }
-.story-label { margin: 0 0 40px; }
-
-/* The reading */
-.show { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 64px; margin-top: 70px; }
+/* The pages */
+.show { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 64px; margin-top: 50px; }
 .items { display: flex; flex-direction: column; }
-.item { min-height: 44svh; display: flex; flex-direction: column; justify-content: center; padding: 24px 0; opacity: .32; transition: opacity .45s; }
+.item { min-height: 40svh; display: flex; flex-direction: column; justify-content: center; padding: 20px 0; opacity: .3; transition: opacity .45s; }
 .item.on { opacity: 1; }
 .item .n { font: 500 12px var(--mono); letter-spacing: .1em; color: var(--ink-3); text-transform: uppercase; }
 .item.on .n { color: var(--sig); }
-.item h3 { margin-top: 14px; font-size: 32px; line-height: 1.1; letter-spacing: -.024em; }
-.item p { margin: 14px 0 0; font-size: 16.5px; color: var(--ink-2); }
+.item h3 { margin-top: 12px; font-size: 32px; line-height: 1.1; letter-spacing: -.024em; }
+.item p { margin: 10px 0 0; font-size: 16.5px; color: var(--ink-2); }
 .item img { display: none; }
-.frame { position: sticky; top: 12svh; height: 76svh; display: flex; align-items: center; }
+.frame { position: sticky; top: 14svh; height: 72svh; display: flex; align-items: center; }
 .frame .stack { position: relative; width: 100%; aspect-ratio: 1.6; }
 .frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 14px; box-shadow: var(--shot); opacity: 0; transform: translateY(10px) scale(.99); transition: opacity .55s, transform .55s; }
 .frame img.on { opacity: 1; transform: none; }
 
 /* Under the hood */
-.hood { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 64px; align-items: start; }
+.hood { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 64px; align-items: center; }
 .pipe { border-radius: 20px; background: var(--card); box-shadow: 0 0 0 1px var(--line); padding: 26px 22px 18px; }
 .pipe svg { width: 100%; height: auto; display: block; }
 .pipe .box { fill: var(--bg); stroke: var(--line-2); }
@@ -167,27 +199,26 @@ section.block { padding-top: 140px; }
 .pipe .tick { font: 400 11.5px var(--mono); fill: var(--ink-3); }
 .pipe .axis { stroke: var(--line-2); }
 @keyframes flow { to { stroke-dashoffset: -17; } }
-.trust { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 28px; }
-.trust div { padding: 22px 22px 24px; border-radius: 16px; background: var(--card); box-shadow: 0 0 0 1px var(--line); }
-.trust h3 { font-size: 21px; letter-spacing: -.015em; }
-.trust p { margin: 8px 0 0; font-size: 14.5px; line-height: 1.55; color: var(--ink-2); }
-.trust code { font: 12.5px var(--mono); }
+.trust { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 18px; }
+.trust div { padding: 20px 20px 22px; border-radius: 16px; background: var(--card); box-shadow: 0 0 0 1px var(--line); }
+.trust h3 { font-size: 20px; letter-spacing: -.015em; }
+.trust p { margin: 6px 0 0; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); }
 
 /* Principle */
 .principle { max-width: 900px; margin: 0 auto; text-align: center; }
-.principle blockquote { margin: 26px 0 0; font: 400 clamp(32px, 3.8vw, 50px)/1.15 var(--serif); letter-spacing: -.025em; }
+.principle blockquote { margin: 24px 0 0; font: 400 clamp(32px, 3.8vw, 50px)/1.15 var(--serif); letter-spacing: -.025em; }
 .principle blockquote em { color: var(--sig); }
-.principle p { margin: 26px auto 0; max-width: 40em; font-size: 17px; color: var(--ink-2); }
-.struck { text-decoration: line-through; text-decoration-color: var(--del); text-decoration-thickness: 1.5px; }
+.principle p { margin: 24px auto 0; font-size: 17px; color: var(--ink-2); }
+.struck { text-decoration: line-through; text-decoration-color: var(--del); text-decoration-thickness: 1.5px; margin: 0 6px; }
 
 /* Install */
 .install { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 64px; }
 .steps-list { list-style: none; margin: 0; padding: 0; counter-reset: s; }
-.steps-list li { counter-increment: s; display: grid; grid-template-columns: 44px minmax(0, 1fr); padding: 22px 0; border-top: 1px solid var(--line); font-size: 16.5px; color: var(--ink-2); }
+.steps-list li { counter-increment: s; display: grid; grid-template-columns: 44px minmax(0, 1fr); padding: 20px 0; border-top: 1px solid var(--line); font-size: 16.5px; color: var(--ink-2); }
 .steps-list li::before { content: counter(s, decimal-leading-zero); font: 500 12px/1.9 var(--mono); color: var(--sig); }
 .steps-list b { color: var(--ink); font-weight: 500; }
 .steps-list pre { margin: 12px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--card); box-shadow: 0 0 0 1px var(--line); font: 13px/1.4 var(--mono); color: var(--ink); overflow-x: auto; }
-.close { margin: 150px 0 0; padding: 70px 0 80px; border-top: 1px solid var(--line); display: flex; align-items: end; justify-content: space-between; gap: 40px; flex-wrap: wrap; }
+.close { margin: 140px 0 0; padding: 64px 0 76px; border-top: 1px solid var(--line); display: flex; align-items: end; justify-content: space-between; gap: 40px; flex-wrap: wrap; }
 .close h2 { font-size: clamp(40px, 5vw, 68px); line-height: 1; letter-spacing: -.035em; }
 .close h2 em { color: var(--sig); }
 footer { border-top: 1px solid var(--line); }
@@ -196,46 +227,49 @@ footer a { color: var(--ink-2); }
 #theme { font: inherit; color: var(--ink-2); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 
 /* Narrow */
-@media (max-width: 980px) {
-  .hero { grid-template-columns: minmax(0, 1fr); min-height: 0; padding-top: 40px; }
-  .stage { height: 72vw; min-height: 340px; }
-  .hood, .install, .split { grid-template-columns: minmax(0, 1fr); gap: 36px; }
+@media (max-width: 1080px) {
+  .film { grid-template-columns: 340px minmax(0, 1fr); }
+  .row { font-size: 10px; }
+}
+@media (max-width: 860px) {
+  .hero { padding-top: 36px; }
+  .hero-top { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .film { grid-template-columns: minmax(0, 1fr); grid-template-rows: 372px 72vw auto; border-radius: 20px; }
+  .reading .abs, .qs p + p { display: none; }
+  .signs b { font-size: 17px; }
+  .reading { padding: 18px 18px 16px; }
+  .side { padding: 14px 14px 0; }
+  .pane { inset: 14px 14px 0; }
+  .stage { min-height: 300px; }
+  .foot { flex-direction: column; align-items: flex-start; gap: 14px; padding: 14px 16px 18px; }
+  .chapters { width: 100%; }
+  .chapters button { min-width: 0; flex: 1; font-size: 9.5px; letter-spacing: .04em; }
+  .chapters button span { display: none; }
+  .say { margin: 0; text-align: left; font-size: 16px; }
+  .split, .hood, .install { grid-template-columns: minmax(0, 1fr); gap: 32px; }
   .split { gap: 14px; }
-  .pin { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); align-content: start; padding-top: 70px; gap: 0; }
-  .pin .stage { order: -1; height: 50svh; min-height: 0; }
-  .steps { height: 230px; }
-  .story-label { display: none; }
-  .show { grid-template-columns: minmax(0, 1fr); gap: 0; margin-top: 30px; }
+  .show { grid-template-columns: minmax(0, 1fr); gap: 0; margin-top: 24px; }
   .frame { display: none; }
-  .item { min-height: 0; opacity: 1; padding: 34px 0; }
-  .item img { display: block; margin-top: 22px; border-radius: 10px; box-shadow: var(--shot); }
+  .item { min-height: 0; opacity: 1; padding: 30px 0; }
+  .item img { display: block; margin-top: 20px; border-radius: 10px; box-shadow: var(--shot); }
   .links { display: none; }
   .nav .btn { margin-left: auto; }
 }
 @media (max-width: 640px) {
   .wrap { padding: 0 16px; }
   body { font-size: 16px; }
-  .strip { grid-template-columns: 1fr auto 1fr auto 1fr; padding: 20px 0; }
-  .strip b { font-size: 36px; }
-  .strip span:last-child { font-size: 15px; }
-  .strip div { grid-template-columns: minmax(0, 1fr); }
-  .strip .label { font-size: 9.5px; letter-spacing: .08em; }
-  .strip i { padding: 0 8px; font-size: 16px; }
-  .split .you li { font-size: 22px; }
   .trust { grid-template-columns: minmax(0, 1fr); }
-  section.block { padding-top: 96px; }
+  section.block { padding-top: 100px; }
+  .split .you li { font-size: 22px; }
   .lp { font-size: 9px; padding: 2px 4px; }
   .lp b { font-size: 7.5px; margin-left: 4px; }
   .lz { font-size: 8.5px; }
-  .lf { font-size: 9px; }
-  .cap { font-size: 13px; }
-  .cap .cap-text { font-size: 14px; }
-  .step h3 { font-size: 27px; }
-  .step p { font-size: 15.5px; }
   .lw, .lx { display: none; }
+  .row { font-size: 9.5px; }
+  .reading h3 { font-size: 21px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .step, .item, .frame img { transition: none; }
+  .item, .frame img, .pane, .row, .row .tag { transition: none; }
   .pipe .flow { animation: none; }
 }
 </style>
@@ -247,8 +281,8 @@ footer a { color: var(--ink-2); }
   <div class="wrap">
     <a class="brand" href="#top"><img src="/fathom/assets/icon-512.webp" alt="" width="26" height="26">Fathom</a>
     <nav class="links" aria-label="Sections">
+      <a href="#film">Watch</a>
       <a href="#why">Why</a>
-      <a href="#story">How it works</a>
       <a href="#reading">The pages</a>
       <a href="#install">Install</a>
     </nav>
@@ -257,33 +291,68 @@ footer a { color: var(--ink-2); }
 </header>
 
 <main id="top">
-  <div class="wrap">
-    <section class="hero">
-      <div class="hero-copy">
+  <section class="hero wrap">
+    <div class="hero-top">
+      <div>
         <p class="eyebrow label"><i></i>Fathom · pull request review for the AI era</p>
         <h1>AI writes the code. <em>You review the system.</em></h1>
-        <p class="lede">Fathom turns any pull request into the system it changes, so your review goes where it matters.</p>
+      </div>
+      <div>
+        <p class="lede">Watch a real pull request become the system it changes, then what it changed.</p>
         <div class="cta">
           <a class="btn" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg>Download for Mac</a>
           <a class="btn ghost" href="https://github.com/yask123/fathom">View source</a>
         </div>
-        <p class="fine">Free · open source · macOS 26+</p>
       </div>
-      <div class="stage" id="hero-stage" role="img" aria-label="An exploded drawing of a system in three layers: the iOS app, its API server and OpenAI, with the parts of a pull request as blocks built from their changed lines. A request travels the wires: before the change it stops at WalkModel; after, a new part answers it on the phone and the rest goes through the server.">
+    </div>
+
+    <div class="film" id="film" aria-label="A film: the diff of walkai #46, its lines tagged by Fathom with the parts they change, flying into a three-layer drawing of the system; wires drawing between the parts; a request breaking before the change and flowing after it; and Fathom's reading of the pull request.">
+      <div class="side">
+        <div class="pane code" id="code">
+          <div class="ph"><span class="dots"><i></i><i></i><i></i></span><span>walkai #46</span><span class="meta">32 files · <b>+2,894</b> <s>−148</s></span></div>
+          <div class="rows" id="rows"></div>
+          <div class="scan" id="scan"></div>
+        </div>
+        <div class="pane reading off" id="readpane">
+          <div class="reading">
+            <div class="stamp"><span class="label sig">Fathom’s reading</span><span class="label">walkai #46</span></div>
+            <h3>Preserve navigation during chat</h3>
+            <div class="signs">
+              <div><span>Kind</span><b>Feature</b></div>
+              <div><span>Door</span><b class="warn">One-way</b></div>
+              <div><span>Risk</span><b class="bad">High</b></div>
+              <div><span>Reach</span><b>6 parts, 3 processes</b></div>
+            </div>
+            <div class="abs">
+              <p><i>Problem.</i> Asking mid-walk stopped navigation.</p>
+              <p><i>Move.</i> Touch the route only after a new one succeeds.</p>
+              <p><i>Price.</i> Every user shares one daily budget.</p>
+            </div>
+            <div class="qs">
+              <span class="label">Needs you · 4 questions</span>
+              <p>Should a route edit mid-walk still stop navigation?</p>
+              <p>Is one 1,000-a-day budget sized for every user?</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="stage" id="stage">
         <canvas></canvas>
         <div class="labels"></div>
         <img class="fallback" src="/fathom/assets/v9-design-day.webp" data-day="/fathom/assets/v9-design-day.webp" data-night="/fathom/assets/v9-design.webp" alt="">
-        <div class="cap"><span class="phase">Before</span><span class="cap-text">A question mid-walk resets the route.</span></div>
       </div>
-    </section>
-    <div class="strip" aria-label="One pull request, three ways">
-      <div><span class="label">The diff</span><b>32</b><span>files</span></div>
-      <i aria-hidden="true">→</i>
-      <div><span class="label">The system</span><b>7</b><span>parts</span></div>
-      <i aria-hidden="true">→</i>
-      <div class="you"><span class="label sig">Needs you</span><b>4</b><span>questions</span></div>
+      <div class="fly" id="fly"></div>
+      <div class="foot">
+        <div class="chapters" id="chapters">
+          <button type="button" data-c="0"><b><span>1</span>The code</b><i><b></b></i></button>
+          <button type="button" data-c="1"><b><span>2</span>The parts</b><i><b></b></i></button>
+          <button type="button" data-c="2"><b><span>3</span>How they talk</b><i><b></b></i></button>
+          <button type="button" data-c="3"><b><span>4</span>What changed</b><i><b></b></i></button>
+        </div>
+        <p class="say" id="say"><span class="phase"></span><span class="text">A pull request: 32 files of code.</span></p>
+      </div>
     </div>
-  </div>
+  </section>
 
   <section class="block wrap" id="why">
     <div class="head">
@@ -312,27 +381,6 @@ footer a { color: var(--ink-2); }
     </div>
   </section>
 
-  <section class="story" id="story" aria-label="From lines to a system">
-    <div class="wrap pin">
-      <div class="story-copy">
-        <p class="label sig story-label">How it works</p>
-        <div class="steps">
-          <article class="step on" data-i="0"><span class="n">01</span><h3>A diff is a list.</h3><p>32 files, sorted by name.</p></article>
-          <article class="step" data-i="1"><span class="n">02</span><h3>Fathom finds the parts.</h3><p>Lines become the parts they change. Noise falls away.</p></article>
-          <article class="step" data-i="2"><span class="n">03</span><h3>And how they talk.</h3><p>Every call. Every boundary crossed.</p></article>
-          <article class="step" data-i="3"><span class="n">04</span><h3>Then what changed.</h3><p>The same request, before and after.</p></article>
-        </div>
-        <div class="ticks" aria-hidden="true"><i><b></b></i><i><b></b></i><i><b></b></i><i><b></b></i></div>
-      </div>
-      <div class="stage" id="story-stage" role="img" aria-label="The lines of a diff fly up from a page and stack into the parts they change, on three layers; wires draw between the parts; then a request travels them, before and after the change.">
-        <canvas></canvas>
-        <div class="labels"></div>
-        <img class="fallback" src="/fathom/assets/v9-behaviour-day.webp" data-day="/fathom/assets/v9-behaviour-day.webp" data-night="/fathom/assets/v9-behaviour.webp" alt="">
-        <div class="cap" style="opacity: 0"><span class="phase">Before</span><span class="cap-text"></span></div>
-      </div>
-    </div>
-  </section>
-
   <section class="block wrap" id="reading">
     <div class="head">
       <p class="label sig">The pages</p>
@@ -350,7 +398,7 @@ footer a { color: var(--ink-2); }
       </div>
       <div class="frame" aria-hidden="true">
         <div class="stack">
-          <img class="on" src="/fathom/assets/v9-abstract-day.webp" data-day="/fathom/assets/v9-abstract-day.webp" data-night="/fathom/assets/v9-abstract.webp" alt="">
+          <img class="on" src="/fathom/assets/v9-abstract-day.webp" data-day="/fathom/assets/v9-abstract-day.webp" data-night="/fathom/assets/v9-abstract.webp" alt="" loading="lazy">
           <img src="/fathom/assets/v9-behaviour-day.webp" data-day="/fathom/assets/v9-behaviour-day.webp" data-night="/fathom/assets/v9-behaviour.webp" alt="" loading="lazy">
           <img src="/fathom/assets/v9-design-day.webp" data-day="/fathom/assets/v9-design-day.webp" data-night="/fathom/assets/v9-design.webp" alt="" loading="lazy">
           <img src="/fathom/assets/v9-tradeoffs-day.webp" data-day="/fathom/assets/v9-tradeoffs-day.webp" data-night="/fathom/assets/v9-tradeoffs.webp" alt="" loading="lazy">
@@ -405,7 +453,7 @@ footer a { color: var(--ink-2); }
     <div class="principle">
       <p class="label sig">Principle</p>
       <blockquote>It never tells you to ship. <em>It shows you what you’re shipping.</em></blockquote>
-      <p><span class="struck">No verdicts.</span> <span class="struck">No generic advice.</span> <span class="struck">No robot approvals.</span></p>
+      <p><span class="struck">No verdicts.</span><span class="struck">No generic advice.</span><span class="struck">No robot approvals.</span></p>
     </div>
   </section>
 
@@ -438,7 +486,7 @@ footer a { color: var(--ink-2); }
 
 <footer>
   <div class="wrap">
-    <span>Fathom · made by <a href="https://yask.dev">Yask Srivastava</a>, 2026 · figures: Fathom reading walkai #46</span>
+    <span>Fathom · made by <a href="https://yask.dev">Yask Srivastava</a>, 2026 · the film is Fathom reading walkai #46</span>
     <span><a href="https://github.com/yask123/fathom">GitHub</a> · <button id="theme" type="button">Dark</button></span>
   </div>
 </footer>
@@ -469,7 +517,7 @@ footer a { color: var(--ink-2); }
   const ruled = () => nav.classList.toggle('ruled', scrollY > 8);
   addEventListener('scroll', ruled, { passive: true }); ruled();
 
-  // The reading: the screenshot follows the item in the middle of the screen.
+  // The pages: the screenshot follows the item in the middle of the screen.
   const items = [...document.querySelectorAll('.item')];
   const frames = [...document.querySelectorAll('.frame img')];
   const io = new IntersectionObserver((entries) => {
@@ -507,9 +555,9 @@ const PARTS = [
   { id: 'model', name: 'WalkModel', plane: 'app', x: -0.4, z: -0.8, w: 2.1, d: 1.15, state: 'changed', lines: 20 },
   { id: 'plan', name: 'RoutePlanner', plane: 'app', x: 2.9, z: -0.8, w: 2.1, d: 1.15, state: 'changed', lines: 9 },
   { id: 'local', name: 'localQuestion', plane: 'app', x: 1.15, z: 1.3, w: 1.9, d: 1.05, state: 'new', lines: 12 },
-  { id: 'api', name: 'explore-v1', plane: 'api', x: 2.9, z: -0.75, w: 2.1, d: 1.15, state: 'changed', lines: 15 },
-  { id: 'gate', name: 'enforceRouteContract', plane: 'api', x: -0.6, z: -0.75, w: 2.9, d: 1.15, state: 'changed', lines: 7 },
-  { id: 'llm', name: 'Responses API', plane: 'ai', x: 2.9, z: -0.75, w: 2.1, d: 1.15, state: 'context', lines: 0 },
+  { id: 'api', name: 'explore-v1', plane: 'api', x: 2.9, z: -0.8, w: 2.1, d: 1.15, state: 'changed', lines: 15 },
+  { id: 'gate', name: 'enforceRouteContract', plane: 'api', x: -0.6, z: -0.8, w: 2.9, d: 1.15, state: 'changed', lines: 7 },
+  { id: 'llm', name: 'Responses API', plane: 'ai', x: 2.9, z: -0.8, w: 2.1, d: 1.15, state: 'context', lines: 0 },
 ];
 const WIRES = [
   { id: 'vm', from: 'view', to: 'model', label: 'generate(query)', at: .5 },
@@ -523,6 +571,37 @@ const part = Object.fromEntries(PARTS.map((p) => [p.id, p]));
 const planeY = (id) => PLANES.find((p) => p.id === id).y;
 const top = (p) => planeY(p.plane) + 0.03 + H;
 
+// Real lines from the diff, and the part Fathom files each one under.
+const CODE = [
+  { file: 'WalkAI/Sources/WalkingView.swift' },
+  { k: '-', t: 'if walk.live || previewing {', p: 'view' },
+  { k: '+', t: 'if (walk.live && chatMinimized && !inputFocused) || previewing {', p: 'view' },
+  { k: '+', t: 'Button("Undo route change") {', p: 'view' },
+  { file: 'WalkAI/Sources/WalkModel.swift' },
+  { k: '-', t: 'reset(preservingRoute: true); stopHomeLocation()', p: 'model' },
+  { k: '+', t: 'let baseContext = context', p: 'model' },
+  { k: '+', t: 'payload["places"] = conversationalPlaces.enumerated().map {', p: 'model' },
+  { k: '+', t: 'recentTurns.append(["role": "user", "text": query])', p: 'model' },
+  { k: '+', t: 'if intent.resultType == "placeDetail" {', p: 'model' },
+  { k: '+', t: 'if let local = localQuestion(query) { return local }', p: 'local' },
+  { k: '+', t: 'func localQuestion(_ query: String) -> RouteIntent? {', p: 'local' },
+  { k: '+', t: 'intent.resultType = "answer"; intent.modifiesRoute = false', p: 'local' },
+  { file: 'WalkAI/Sources/RoutePlanner.swift' },
+  { k: '-', t: 'request.setValue("conversation-v3", forHTTPHeaderField: …)', p: 'plan' },
+  { k: '+', t: 'request.setValue("conversation-v4", forHTTPHeaderField: …)', p: 'plan' },
+  { k: '+', t: 'body["context"] = String(context.prefix(6500))', p: 'plan' },
+  { file: 'website/app/api/explore-v1/route.ts' },
+  { k: '+', t: "const richConversation = capability === 'conversation-v4';", p: 'api' },
+  { k: '+', t: 'const maxBody = richConversation ? 12000 : 4096;', p: 'api' },
+  { file: 'website/lib/route-contract.ts' },
+  { k: '+', t: "const parkOuting = capability !== 'conversation-v4' && …", p: 'gate' },
+  { file: 'WalkAI.xcodeproj/project.pbxproj' },
+  { k: '+', t: '1A2B3C4D /* WalkModel.swift in Sources */ = {isa = PBXBuildFile;', p: null },
+  { file: 'docs/qa/2026-09-20/assessment.md' },
+  { k: '+', t: '## Live conversation QA, build 39', p: null },
+  { k: '+', t: '- Central Park planning: pass', p: null },
+];
+
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const smooth = (t) => { t = clamp(t); return t * t * (3 - 2 * t); };
 const ease = (t) => { t = clamp(t); return t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; };
@@ -531,42 +610,13 @@ const span = (t, a, b) => clamp((t - a) / (b - a));
 let seed = 46;
 const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
 
-// Each part is built from the lines that change it; a few files of churn belong to no part at all.
+// Each part's block is built from the lines that change it, as strata.
 const BARS = [];
 for (const p of PARTS) {
   for (let j = 0; j < p.lines; j++) {
     const v = rnd();
     BARS.push({ part: p.id, j, kind: p.state === 'new' ? 'add' : v < .42 ? 'add' : v < .56 ? 'del' : 'ctx' });
   }
-}
-for (let k = 0; k < 44; k++) BARS.push({ part: null, kind: rnd() < .55 ? 'add' : 'ctx' });
-// Lay them out on a page as files: each part's lines in one or two runs, the churn in three.
-{
-  const files = [];
-  for (const p of PARTS) {
-    const mine = BARS.filter((b) => b.part === p.id);
-    if (!mine.length) continue;
-    const cut = mine.length > 12 ? Math.floor(mine.length / 2) : mine.length;
-    files.push(mine.slice(0, cut));
-    if (cut < mine.length) files.push(mine.slice(cut));
-  }
-  const noise = BARS.filter((b) => !b.part);
-  files.push(noise.slice(0, 16), noise.slice(16, 30), noise.slice(30));
-  files.sort(() => rnd() - .5);
-  let row = 0;
-  const perCol = 58;
-  for (const f of files) {
-    for (const b of f) {
-      const col = Math.floor(row / perCol), r = row % perCol;
-      const indent = Math.floor(rnd() * 4);
-      b.len = .5 + rnd() * 2.6;
-      b.px = (col === 0 ? -4.6 : 0.4) + indent * .22 + b.len / 2;
-      b.pz = -3.0 + r * .105;
-      row++;
-    }
-    row++;
-  }
-  BARS.forEach((b, i) => { b.delay = (i * 7919 % BARS.length) / BARS.length; });
 }
 
 function curve(w) {
@@ -602,19 +652,41 @@ function radialTexture(inner, outer) {
 const BEFORE = [['vm', 1]];
 const AFTER_A = [['vm', 1], ['ml', 1], ['ml', -1], ['vm', -1]];
 const AFTER_B = [['vm', 1], ['mp', 1], ['pa', 1], ['al', 1], ['al', -1], ['pa', -1], ['mp', -1], ['vm', -1]];
-const LOOP = 17;
-const CAPTIONS = {
-  before: 'A question mid-walk resets the route.',
-  after: 'A new part answers on the phone. The walk goes on.',
-};
+
+function journey(t) {
+  const out = { rise: 1, wireOn: 1, pulse: null, broke: 0, ripple: -1, arrive: -1, phase: 'after', pain: 0, flash: null };
+  const hop = .62;
+  const run = (hops, t0) => {
+    const k = Math.floor((t - t0) / hop);
+    if (k < 0 || k >= hops.length) return null;
+    const [id, dir] = hops[k];
+    return { id, dir, u: smooth((t - t0 - k * hop) / hop) };
+  };
+  if (t < 4.6) {
+    out.phase = 'before';
+    out.rise = 0; out.wireOn = 0;
+    if (t > .7 && t < 1.95) out.pulse = run(BEFORE, .7) ?? { id: 'vm', dir: 1, u: 1 };
+    if (t >= 1.95) { out.broke = smooth((t - 1.95) / .3) * (1 - smooth((t - 4.2) / .4)); out.ripple = (t - 1.95) / 1.1; out.pain = out.broke; }
+  } else if (t < 5.7) {
+    out.rise = ease((t - 4.6) / .8);
+    out.wireOn = ease((t - 5.0) / .7);
+  } else if (t < 8.4) {
+    out.pulse = run(AFTER_A, 5.7);
+    if (t > 5.7 + AFTER_A.length * hop) out.arrive = (t - 5.7 - AFTER_A.length * hop) / 1;
+  } else {
+    out.pulse = run(AFTER_B, 8.5);
+    if (out.pulse && (out.pulse.id === 'pa' || out.pulse.id === 'al')) out.flash = out.pulse.id;
+    const end = 8.5 + AFTER_B.length * hop;
+    if (t > end) out.arrive = (t - end) / 1;
+  }
+  return out;
+}
 
 class SystemScene {
-  constructor(stage, mode) {
+  constructor(stage) {
     this.stage = stage;
-    this.mode = mode;
     this.canvas = stage.querySelector('canvas');
     this.labelsEl = stage.querySelector('.labels');
-    this.capEl = stage.querySelector('.cap');
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
     this.renderer.setClearColor(0x000000, 0);
@@ -622,28 +694,18 @@ class SystemScene {
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, .1, 200);
     this.mats = [];
     this.labels = [];
-    this.progress = mode === 'hero' ? 1 : 0;
     this.mouse = { x: 0, y: 0, tx: 0, ty: 0 };
-    this.clock = mode === 'hero' ? 0 : 0;
-    this.last = performance.now();
+    this.clock = 0;
     this.build();
     this.resize();
     new ResizeObserver(() => this.resize()).observe(stage);
     addEventListener('fathom-theme', () => this.recolor());
-    if (mode === 'hero') {
-      stage.addEventListener('pointermove', (e) => {
-        const r = stage.getBoundingClientRect();
-        this.mouse.tx = (e.clientX - r.left) / r.width - .5;
-        this.mouse.ty = (e.clientY - r.top) / r.height - .5;
-      });
-      stage.addEventListener('pointerleave', () => { this.mouse.tx = 0; this.mouse.ty = 0; });
-    }
-    this.visible = false;
-    new IntersectionObserver(([e]) => {
-      this.visible = e.isIntersecting;
-      if (this.visible && !this.raf) { this.last = performance.now(); this.tick(); }
-    }, { rootMargin: '120px' }).observe(stage);
-    this.frame(0);
+    stage.addEventListener('pointermove', (e) => {
+      const r = stage.getBoundingClientRect();
+      this.mouse.tx = (e.clientX - r.left) / r.width - .5;
+      this.mouse.ty = (e.clientY - r.top) / r.height - .5;
+    });
+    stage.addEventListener('pointerleave', () => { this.mouse.tx = 0; this.mouse.ty = 0; });
   }
 
   mat(kind, key, opacity = 1, extra = {}) {
@@ -662,7 +724,7 @@ class SystemScene {
     el.className = cls;
     el.innerHTML = html;
     this.labelsEl.appendChild(el);
-    const l = { el, pos, alpha: 1, shown: -1, cls };
+    const l = { el, pos, alpha: 0, shown: -1, cls };
     this.labels.push(l);
     return l;
   }
@@ -691,21 +753,6 @@ class SystemScene {
       return { g, lab, mats: [face.material, edge.material, gridLines.material] };
     });
 
-    // The page a diff arrives on.
-    {
-      const W = 10.2, D = 6.8;
-      const pts = [[-W / 2, -D / 2], [W / 2, -D / 2], [W / 2, D / 2], [-W / 2, D / 2], [-W / 2, -D / 2]].map(([x, z]) => new THREE.Vector3(x, 0, z));
-      this.page = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), this.mat('dash', 'ink', .35));
-      this.page.computeLineDistances();
-      s.add(this.page);
-      this.pageFace = new THREE.Mesh(new THREE.PlaneGeometry(W, D), this.mat('mesh', 'paper', .35));
-      this.pageFace.rotation.x = -Math.PI / 2;
-      this.pageFace.position.y = -.002;
-      s.add(this.pageFace);
-      this.pageLabel = this.label('lf', 'walkai #46 · +2,894 −148 · 32 files', new THREE.Vector3(-W / 2, 0, -D / 2));
-    }
-
-    // Lines of code: bars on the page, strata in the parts.
     this.bars = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }), BARS.length);
     this.bars.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     s.add(this.bars);
@@ -751,14 +798,12 @@ class SystemScene {
     });
     this.wire = Object.fromEntries(this.wires.map((x) => [x.w.id, x]));
 
-    // The request, travelling.
     const halo = radialTexture('rgba(255,255,255,1)', 'rgba(255,255,255,0)');
     this.pulse = new THREE.Mesh(new THREE.SphereGeometry(.075, 20, 14), this.mat('mesh', 'sig', 1, { depthWrite: true }));
     this.halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: halo, color: pal().sig, transparent: true, opacity: .45, depthWrite: false }));
     this.halo.scale.set(.75, .75, 1);
     s.add(this.pulse, this.halo);
 
-    // Where it broke, and where it arrived.
     const m = part.model;
     this.breakAt = new THREE.Vector3(m.x, top(m) + .02, m.z);
     this.cross = new THREE.Group();
@@ -777,7 +822,6 @@ class SystemScene {
     this.arrive.position.set(part.view.x, top(part.view) + .02, part.view.z);
     s.add(this.ripple, this.arrive);
     this.pain = this.label('lx', 'reset() stops navigation', this.cross.position.clone());
-
     this.recolor();
   }
 
@@ -794,7 +838,7 @@ class SystemScene {
     c.setHex(P.face);
     PARTS.forEach((p, i) => this.caps.setColorAt(i, c));
     this.caps.instanceColor.needsUpdate = true;
-    this.frame(0);
+    if (this.state) this.frame(0, this.state);
   }
 
   resize() {
@@ -803,154 +847,84 @@ class SystemScene {
     this.w = r.width; this.h = r.height;
     this.renderer.setSize(r.width, r.height, false);
     this.aspect = r.width / r.height;
-    // How much of the world to show: the whole stack, with room for the labels.
-    const need = this.mode === 'hero' ? 11.3 : 11.4;
-    this.vh = this.aspect < 1.12 ? need * 1.12 / this.aspect : need;
-    this.frame(0);
+    const need = 11.4;
+    this.vh = this.aspect < 1.15 ? need * 1.15 / this.aspect : need;
+    if (this.state) this.frame(0, this.state);
   }
 
-  place(zoom, yaw, pitch, target) {
-    const hh = this.vh / 2 / zoom, hw = hh * this.aspect;
+  place() {
+    const hh = this.vh / 2, hw = hh * this.aspect;
     Object.assign(this.camera, { left: -hw, right: hw, top: hh, bottom: -hh });
     this.camera.updateProjectionMatrix();
-    const R = 40;
+    const sway = reduced ? 0 : Math.sin(this.clock * .16) * .05;
+    const yaw = .44 + sway + this.mouse.x * .14, pitch = .43 - this.mouse.y * .05;
+    const target = new THREE.Vector3(.2, -.05, .1), R = 40;
     this.camera.position.set(target.x + Math.sin(yaw) * Math.cos(pitch) * R, target.y + Math.sin(pitch) * R, target.z + Math.cos(yaw) * Math.cos(pitch) * R);
     this.camera.lookAt(target);
   }
 
-  tick() {
-    if (!this.visible) { this.raf = 0; return; }
-    const now = performance.now();
-    const dt = Math.min(.05, (now - this.last) / 1000);
-    this.last = now;
-    if (!document.hidden) this.frame(dt);
-    this.raf = requestAnimationFrame(() => this.tick());
+  // Where a part's top sits on the screen, relative to the stage.
+  screen(id) {
+    const p = part[id];
+    const v = new THREE.Vector3(p.x, top(p), p.z).project(this.camera);
+    return { x: (v.x + 1) / 2 * this.w, y: (1 - v.y) / 2 * this.h };
   }
 
-  // The before-and-after loop: where the request is, what's new, what broke.
-  journey(t) {
-    const out = { rise: 1, wireOn: 1, pulse: null, broke: 0, ripple: -1, arrive: -1, phase: 'after', pain: 0, flash: null };
-    const hop = .62;
-    const run = (hops, t0) => {
-      const k = Math.floor((t - t0) / hop);
-      if (k < 0 || k >= hops.length) return null;
-      const [id, dir] = hops[k];
-      return { id, dir, u: smooth((t - t0 - k * hop) / hop) };
-    };
-    if (t < 4.6) {
-      out.phase = 'before';
-      out.rise = 0; out.wireOn = 0;
-      if (t > .7 && t < 1.95) out.pulse = run(BEFORE, .7) ?? { id: 'vm', dir: 1, u: 1 };
-      if (t >= 1.95) { out.broke = smooth((t - 1.95) / .3) * (1 - smooth((t - 4.2) / .4)); out.ripple = (t - 1.95) / 1.1; out.pain = out.broke; }
-    } else if (t < 5.7) {
-      out.rise = ease((t - 4.6) / .8);
-      out.wireOn = ease((t - 5.0) / .7);
-    } else if (t < 8.4) {
-      out.pulse = run(AFTER_A, 5.7);
-      if (t > 5.7 + AFTER_A.length * hop) out.arrive = (t - 5.7 - AFTER_A.length * hop) / 1;
-    } else if (t < 14.2) {
-      out.pulse = run(AFTER_B, 8.5);
-      if (out.pulse && (out.pulse.id === 'pa' || out.pulse.id === 'al')) out.flash = out.pulse.id;
-      const end = 8.5 + AFTER_B.length * hop;
-      if (t > end) out.arrive = (t - end) / 1;
-    } else if (t > 16.1) {
-      out.rise = 1 - ease((t - 16.1) / .8);
-      out.wireOn = out.rise;
-    }
-    return out;
-  }
-
-  frame(dt) {
+  // One frame of the film, from the state the director hands over.
+  frame(dt, F) {
+    this.state = F;
     if (!this.w) return;
     this.clock += dt;
     const P = pal();
-    const story = this.mode === 'story';
-    const p = this.progress;
-    // Story segments: the page, the parts gathering, the wires, the journey.
-    const gather = story ? span(p, .2, .5) : 1;
-    const wiring = story ? span(p, .46, .7) : 1;
-    const travel = story ? span(p, .72, .8) : 1;
-    if (story && travel <= 0) this.clock = 0;
-    const t = reduced ? 10 : (this.clock % LOOP);
-    const j = travel > 0 ? this.journey(t) : { rise: 1, wireOn: 1, pulse: null, broke: 0, ripple: -1, arrive: -1, phase: 'after', pain: 0, flash: null };
-
-    // Camera: a slow sway, a little parallax, and in the story a closer, steeper look at the page first.
     this.mouse.x += (this.mouse.tx - this.mouse.x) * .05;
     this.mouse.y += (this.mouse.ty - this.mouse.y) * .05;
-    const sway = reduced ? 0 : Math.sin(this.clock * .16) * .06;
-    const yaw = .44 + sway + this.mouse.x * .14 + (story ? (1 - ease(gather)) * .3 : 0);
-    const pitch = .43 - this.mouse.y * .05 + (story ? (1 - ease(gather)) * .42 : 0);
-    const zoom = story ? 1 + (1 - ease(gather)) * .12 : 1;
-    this.place(zoom, yaw, pitch, new THREE.Vector3(.2, story ? .1 - (1 - ease(gather)) * .25 : -.02, .1));
+    this.place();
+    const j = F.jt >= 0 ? journey(F.jt) : { rise: 1, wireOn: 1, pulse: null, broke: 0, ripple: -1, arrive: -1, phase: '', pain: 0, flash: null };
+    // The new part folds away for the before, gently.
+    if (F.jt >= 0 && F.jt < .6) j.rise = Math.max(j.rise, 1 - smooth(F.jt / .6));
+    const fade = F.fade;
 
-    // The page fades as its lines leave it.
-    const pageOn = story ? 1 - smooth(span(p, .26, .45)) : 0;
-    this.page.material.opacity = .35 * pageOn;
-    this.pageFace.material.opacity = .35 * pageOn;
-    this.page.visible = this.pageFace.visible = pageOn > .01;
-    this.pageLabel.alpha = pageOn;
-
-    // The processes appear under the parts.
-    const planesOn = story ? smooth(span(p, .24, .4)) : 1;
     for (const pl of this.planes) {
-      pl.mats.forEach((m) => { m.opacity = m.userData.base * planesOn; });
-      pl.g.visible = planesOn > .01;
-      pl.lab.alpha = planesOn;
+      pl.mats.forEach((m) => { m.opacity = m.userData.base * F.planes * fade; });
+      pl.g.visible = F.planes * fade > .01;
+      pl.lab.alpha = F.planes * fade;
     }
 
-    // Lines fly from the page into the parts they change, stacked as strata; churn falls away.
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), pos = new THREE.Vector3(), scl = new THREE.Vector3();
-    const from = new THREE.Vector3(), fromS = new THREE.Vector3(), to = new THREE.Vector3(), toS = new THREE.Vector3();
     BARS.forEach((b, i) => {
-      const local = story ? ease(span(gather, b.delay * .4, b.delay * .4 + .36)) : 1;
-      from.set(b.px, .012, b.pz); fromS.set(b.len, .018, .05);
-      if (b.part) {
-        const pt = part[b.part];
-        const rise = pt.id === 'local' ? j.rise : 1;
-        const slab = H / pt.lines;
-        to.set(pt.x, planeY(pt.plane) + .03 + (b.j + .5) * slab * rise, pt.z);
-        toS.set(pt.w * .9, Math.max(.0001, slab * .55 * rise), pt.d * .86);
-      } else {
-        to.set(b.px * .6, -6, b.pz);
-        toS.set(.0001, .0001, .0001);
-      }
-      pos.lerpVectors(from, to, local);
-      pos.y += Math.sin(Math.PI * local) * (b.part ? 1.8 : .4);
-      if (b.part) {
-        // In flight a line keeps its shape and piles up on its part; then the piles become blocks together.
-        const settle = story ? ease(span(gather, .8, 1)) : 1;
-        scl.set(fromS.x + (toS.x - fromS.x) * local, fromS.y + (toS.y - fromS.y) * settle, fromS.z + (toS.z - fromS.z) * settle);
-        if (b.part === 'local' && j.rise < .04 && local >= 1) scl.set(.0001, .0001, .0001);
-      } else {
-        scl.lerpVectors(fromS, toS, local);
-      }
+      const pt = part[b.part];
+      const rise = pt.id === 'local' ? j.rise : 1;
+      const filled = clamp((F.fill[pt.id] ?? 0) * pt.lines - b.j) * fade;
+      const slab = H / pt.lines;
+      pos.set(pt.x, planeY(pt.plane) + .03 + (b.j + .5) * slab * rise, pt.z);
+      const k = ease(filled) * (rise < .03 ? 0 : 1);
+      scl.set(pt.w * .9 * (.6 + .4 * k), Math.max(.0001, slab * .55 * rise * k), pt.d * .86 * (.6 + .4 * k));
+      if (k <= 0) scl.set(.0001, .0001, .0001);
       m4.compose(pos, q, scl);
       this.bars.setMatrixAt(i, m4);
     });
     this.bars.instanceMatrix.needsUpdate = true;
 
-    // Parts: their frames and labels arrive once their lines have.
-    const labelsOn = story ? smooth(span(p, .44, .54)) : 1;
     PARTS.forEach((pt, i) => {
       const P0 = this.parts[i];
       const rise = pt.id === 'local' ? j.rise : 1;
-      const landed = story ? smooth(span(gather, .8, 1)) : 1;
-      const on = landed * (pt.id === 'local' ? smooth(rise * 1.4) : 1);
+      const fill = pt.lines ? (F.fill[pt.id] ?? 0) : F.planes;
+      const on = smooth(fill * 2.5) * fade * (pt.id === 'local' ? smooth(rise * 1.4) : 1);
       P0.edges.material.opacity = P0.edges.material.userData.base * on;
-      P0.edges.scale.y = Math.max(.001, rise);
-      P0.edges.position.y = H / 2 * rise;
+      P0.edges.scale.y = Math.max(.001, rise * (pt.lines ? Math.max(.06, fill) : 1));
+      P0.edges.position.y = H / 2 * P0.edges.scale.y;
       P0.shadow.material.opacity = .1 * on;
-      P0.lab.alpha = on * labelsOn;
-      pos.set(pt.x, planeY(pt.plane) + .03 + H * rise, pt.z);
-      if (pt.lines && on > .01) scl.set(pt.w * .9, .012, pt.d * .86); else scl.set(.0001, .0001, .0001);
+      P0.lab.alpha = on;
+      const capY = planeY(pt.plane) + .03 + H * rise * (pt.lines ? Math.max(.06, fill) : 1);
+      pos.set(pt.x, capY, pt.z);
+      if (pt.lines && on > .01 && fill >= .99) scl.set(pt.w * .9, .012, pt.d * .86); else scl.set(.0001, .0001, .0001);
       m4.compose(pos, q, scl);
       this.caps.setMatrixAt(i, m4);
     });
     this.caps.instanceMatrix.needsUpdate = true;
 
-    // Wires draw themselves in, the new one only after the change.
     for (const W of this.wires) {
-      const on = (story ? wiring : 1) * (W.w.id === 'ml' ? j.wireOn : 1);
+      const on = F.wiring * fade * (W.w.id === 'ml' ? j.wireOn : 1);
       W.line.geometry.setDrawRange(0, Math.floor(W.n * on));
       W.line.visible = on > .005;
       if (W.port) {
@@ -960,7 +934,6 @@ class SystemScene {
       if (W.lab) W.lab.alpha = smooth(span(on, .8, 1)) * (W.w.cross ? 1 : 1 - j.pain);
     }
 
-    // The request.
     if (j.pulse) {
       const W = this.wire[j.pulse.id];
       const u = j.pulse.dir > 0 ? j.pulse.u : 1 - j.pulse.u;
@@ -986,71 +959,168 @@ class SystemScene {
     ripple(this.ripple, j.ripple);
     ripple(this.arrive, j.arrive);
     this.pain.alpha = j.pain;
-
-    // Caption.
-    if (this.capEl) {
-      const shown = (story ? travel : 1) > .5;
-      this.capEl.style.opacity = shown ? 1 : 0;
-      if (shown && this.phase !== j.phase) {
-        this.phase = j.phase;
-        const ph = this.capEl.querySelector('.phase');
-        ph.textContent = j.phase === 'before' ? 'Before' : 'After';
-        ph.classList.toggle('after', j.phase === 'after');
-        this.capEl.querySelector('.cap-text').textContent = CAPTIONS[j.phase];
-      }
-    }
+    this.phase = j.phase;
 
     this.renderer.render(this.scene, this.camera);
 
-    // Labels, pinned to their points in the drawing.
     const v = new THREE.Vector3();
     for (const l of this.labels) {
-      v.copy(l.pos).project(this.camera);
-      const x = (v.x + 1) / 2 * this.w, y = (1 - v.y) / 2 * this.h;
       const a = Math.round(clamp(l.alpha) * 100) / 100;
       if (a !== l.shown) { l.el.style.opacity = a; l.el.style.visibility = a > 0 ? 'visible' : 'hidden'; l.shown = a; }
       if (a <= 0) continue;
-      const flat = l.cls === 'lz' || l.cls === 'lf';
-      const part = l.cls.startsWith('lp');
-      const lift = l.cls === 'lz' ? '-18px' : l.cls === 'lf' ? '-24px' : l.cls === 'lx' ? '-50%' : l.cls.startsWith('lw') ? '-50%' : part ? '2px' : '-135%';
-      const across = flat || part ? '0' : l.cls === 'lx' ? '20px' : '-50%';
+      v.copy(l.pos).project(this.camera);
+      const x = (v.x + 1) / 2 * this.w, y = (1 - v.y) / 2 * this.h;
+      const flat = l.cls === 'lz';
+      const isPart = l.cls.startsWith('lp');
+      const lift = flat ? '-18px' : l.cls === 'lx' ? '-50%' : l.cls.startsWith('lw') ? '-50%' : isPart ? '2px' : '-135%';
+      const across = flat || isPart ? '0' : l.cls === 'lx' ? '20px' : '-50%';
       l.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(${across}, ${lift})`;
     }
   }
 }
 
-function start(id, mode) {
-  const stage = document.getElementById(id);
-  try {
-    return new SystemScene(stage, mode);
-  } catch (e) {
-    console.warn('Fathom: no WebGL, showing a picture instead', e);
-    stage.classList.add('no-gl');
-    return null;
+// The director: one clock, four chapters.
+const film = document.getElementById('film');
+const stageEl = document.getElementById('stage');
+const rowsEl = document.getElementById('rows');
+const codePane = document.getElementById('code');
+const readPane = document.getElementById('readpane');
+const scanEl = document.getElementById('scan');
+const flyEl = document.getElementById('fly');
+const say = document.getElementById('say');
+const sayPhase = say.querySelector('.phase'), sayText = say.querySelector('.text');
+const chapterBtns = [...document.querySelectorAll('#chapters button')];
+
+const NAMES = { view: 'WalkingView', model: 'WalkModel', local: 'localQuestion', plan: 'RoutePlanner', api: 'explore-v1', gate: 'enforceRouteContract' };
+const rows = CODE.map((c) => {
+  const el = document.createElement('div');
+  if (c.file) {
+    el.className = 'row file';
+    el.textContent = c.file;
+  } else {
+    el.className = `row ${c.k === '+' ? 'add' : c.k === '-' ? 'del' : ''}`;
+    el.innerHTML = `<span class="g">${c.k === '-' ? '−' : c.k}</span><code></code><span class="tag${c.p ? '' : ' noise'}">${c.p ? NAMES[c.p] : 'noise'}</span>`;
+    el.querySelector('code').textContent = c.t;
+  }
+  rowsEl.appendChild(el);
+  return { ...c, el };
+});
+const lines = rows.filter((r) => !r.file);
+const perPart = {};
+lines.forEach((r) => { if (r.p) perPart[r.p] = (perPart[r.p] ?? 0) + 1; });
+
+const T = { type: [.3, 2.0], scan: [2.3, 4.3], fly: [4.6, 7.7], read: [7.7, 8.5], wire: [8.2, 10.2], journey: 10.4, end: 24.8, loop: 26.2 };
+const CHAPTERS = [0, 4.6, 8.2, 10.4, 24.8];
+const SAY = [
+  [0, 'A pull request: 32 files of code.'],
+  [2.3, 'Fathom reads every line, and the repo around it.'],
+  [4.6, 'Lines become the parts they change. Noise drops out.'],
+  [8.2, 'Parts talk across processes. Every boundary is marked.'],
+];
+const FLY_DUR = .95;
+const flyStart = (i) => T.fly[0] + i * ((T.fly[1] - T.fly[0] - FLY_DUR) / (lines.length - 1));
+
+let scene = null;
+try { scene = new SystemScene(stageEl); } catch (e) { stageEl.classList.add('no-gl'); console.warn('Fathom: no WebGL', e); }
+
+// Ghosts: copies of lines that travel from the editor into the drawing.
+const ghosts = lines.map((r) => {
+  const g = document.createElement('span');
+  g.className = `ghost ${r.k === '+' ? 'add' : r.k === '-' ? 'del' : 'ctx'}`;
+  g.textContent = (r.k === '-' ? '− ' : '+ ') + r.t;
+  g.style.opacity = 0;
+  flyEl.appendChild(g);
+  return g;
+});
+
+let t = reduced ? 19 : 0, last = performance.now(), visible = false, raf = 0, lastSay = '';
+
+function render(dt) {
+  const filmBox = film.getBoundingClientRect();
+  const stageBox = stageEl.getBoundingClientRect();
+  // The editor: lines appear, a scan files them under parts, then they leave.
+  const shown = Math.floor(span(t, T.type[0], T.type[1]) * rows.length + .001);
+  const scanned = span(t, T.scan[0], T.scan[1]);
+  const rowsBox = rowsEl.getBoundingClientRect();
+  rows.forEach((r, i) => {
+    r.el.classList.toggle('hide', i >= shown);
+    r.el.classList.toggle('tagged', !r.file && scanned * rows.length > i);
+  });
+  scanEl.style.opacity = scanned > 0 && scanned < 1 ? 1 : 0;
+  scanEl.style.top = `${40 + 8 + scanned * (rowsBox.height - 16)}px`;
+  const fill = {};
+  lines.forEach((r, i) => {
+    const g = ghosts[i];
+    const u = (t - flyStart(i)) / FLY_DUR;
+    r.el.classList.toggle('gone', u > 0 && t < T.end);
+    if (u <= 0 || u >= 1 || !scene || t >= T.end) { g.style.opacity = 0; if (u >= 1 && r.p) fill[r.p] = (fill[r.p] ?? 0) + 1; return; }
+    const from = r.el.getBoundingClientRect();
+    const fx = from.left - filmBox.left + 24, fy = from.top - filmBox.top;
+    let tx, ty;
+    if (r.p) {
+      const s = scene.screen(r.p);
+      tx = stageBox.left - filmBox.left + s.x; ty = stageBox.top - filmBox.top + s.y;
+    } else {
+      tx = fx + 30; ty = fy + 46;
+    }
+    const e = ease(u);
+    const x = fx + (tx - fx) * e, y = fy + (ty - fy) * e - Math.sin(Math.PI * e) * (r.p ? 70 : -10);
+    const sc = r.p ? 1 - .85 * e : 1;
+    g.style.opacity = r.p ? (u < .85 ? 1 : 1 - (u - .85) / .15) : Math.max(0, 1 - e * 1.6);
+    g.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${sc.toFixed(3)})`;
+  });
+  Object.keys(perPart).forEach((p) => { fill[p] = (fill[p] ?? 0) / perPart[p]; });
+  // A part with no lines in the editor still gets its block once its neighbours land.
+  const landed = span(t, T.fly[0] + .8, T.fly[1]);
+  for (const p of PARTS) if (p.lines && fill[p.id] === undefined) fill[p.id] = landed;
+  for (const p of PARTS) if (p.lines) fill[p.id] = Math.max(fill[p.id] ?? 0, 0);
+
+  // The editor gives way to Fathom's reading, and comes back for the next showing.
+  const reading = t >= T.read[0] && t < T.end;
+  codePane.classList.toggle('off', reading);
+  readPane.classList.toggle('off', !reading);
+
+  const fade = 1 - span(t, T.end, T.end + 1);
+  const F = { planes: span(t, T.fly[0] - .2, T.fly[0] + .7), fill, wiring: span(t, T.wire[0], T.wire[1]), jt: t >= T.journey ? t - T.journey : -1, fade };
+  if (scene) scene.frame(dt, F);
+
+  // Chapters and the line under the film.
+  CHAPTERS.slice(0, 4).forEach((c0, k) => {
+    const c1 = CHAPTERS[k + 1];
+    chapterBtns[k].classList.toggle('on', t >= c0 && t < c1);
+    chapterBtns[k].querySelector('i b').style.width = `${span(t, c0, c1) * 100}%`;
+  });
+  let text = '', phase = '';
+  for (const [at, s] of SAY) if (t >= at) text = s;
+  if (t >= T.journey && scene) {
+    phase = scene.phase === 'before' ? 'Before' : 'After';
+    text = scene.phase === 'before' ? 'A question mid-walk resets the route.' : 'A new part answers on the phone. The walk goes on.';
+  }
+  const key = phase + text;
+  if (key !== lastSay) {
+    lastSay = key;
+    sayPhase.textContent = phase;
+    sayPhase.classList.toggle('after', phase === 'After');
+    sayText.textContent = text;
   }
 }
 
-const hero = start('hero-stage', 'hero');
-const story = start('story-stage', 'story');
-
-// The story is driven by scroll: four steps across the pinned section.
-const section = document.getElementById('story');
-const steps = [...section.querySelectorAll('.step')];
-const ticks = [...section.querySelectorAll('.ticks b')];
-const bounds = [0, .2, .46, .72, 1];
-const onScroll = () => {
-  const r = section.getBoundingClientRect();
-  const p = clamp(-r.top / (r.height - innerHeight));
-  if (story) story.progress = p;
-  let k = 0;
-  for (let i = 0; i < 4; i++) if (p >= bounds[i]) k = i;
-  steps.forEach((s, i) => s.classList.toggle('on', i === k));
-  ticks.forEach((t, i) => { t.style.width = `${clamp((p - bounds[i]) / (bounds[i + 1] - bounds[i])) * 100}%`; });
-  if (story && !story.raf) story.frame(0);
-};
-addEventListener('scroll', onScroll, { passive: true });
-addEventListener('resize', onScroll);
-onScroll();
+function tick() {
+  if (!visible) { raf = 0; return; }
+  const now = performance.now();
+  const dt = Math.min(.05, (now - last) / 1000);
+  last = now;
+  if (!document.hidden && !reduced) t = (t + dt) % T.loop;
+  render(dt);
+  raf = requestAnimationFrame(tick);
+}
+new IntersectionObserver(([e]) => {
+  visible = e.isIntersecting;
+  if (visible && !raf) { last = performance.now(); tick(); }
+}, { rootMargin: '80px' }).observe(film);
+chapterBtns.forEach((b, k) => b.addEventListener('click', () => { t = CHAPTERS[k] + .01; render(0); }));
+addEventListener('resize', () => render(0));
+render(0);
 </script>
 </body>
 </html>
