@@ -4,17 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Fathom: Don’t read the diff</title>
-<meta name="description" content="Fathom is a Mac app that reads a GitHub pull request as a story: what was wrong, the idea that fixes it, how it works now, and the choices it makes. Built for reviewing code that agents write.">
+<meta name="description" content="Fathom is a Mac app that reads a GitHub pull request as a short paper you referee: its behaviour before and after, the design and the idea it rests on, what it trades, what could go wrong, and what is still open. Built for reviewing code that agents write.">
 <meta property="og:title" content="Fathom: Don’t read the diff. Fathom it.">
-<meta property="og:description" content="A Mac app that tells a pull request back as a short paper: the problem, the idea, how it works now, the choices it makes. Free and open source.">
-<meta property="og:image" content="https://yask.dev/fathom/assets/og-v11.jpg">
+<meta property="og:description" content="A Mac app that reads a pull request as a short paper you referee: before and after, the design, the trade-offs, the risks and the open questions. Free and open source.">
+<meta property="og:image" content="https://yask.dev/fathom/assets/og-v12.jpg">
 <meta property="og:url" content="https://yask.dev/fathom">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://yask.dev/fathom/assets/og-v11.jpg">
+<meta name="twitter:image" content="https://yask.dev/fathom/assets/og-v12.jpg">
 <link rel="icon" type="image/png" href="/fathom/assets/favicon.png">
 <link rel="apple-touch-icon" href="/fathom/assets/apple-touch-icon.png">
-<link rel="preload" as="image" href="/fathom/assets/v8-overview-day.webp">
+<link rel="preload" as="image" href="/fathom/assets/v9-abstract-day.webp">
 <meta name="theme-color" content="#F7F6F2">
 <meta name="color-scheme" content="light">
 <script>
@@ -222,39 +222,39 @@ footer button:hover, footer a:hover { color: var(--ink); }
   <section class="hero">
     <span class="label"><i></i>A Mac app for code review</span>
     <h1><span class="l1">Don’t read the diff.</span> <em>Fathom it.</em></h1>
-    <p class="dek">Fathom reads a pull request and tells it back as a short paper: what was wrong, the idea that fixes it, how it works now, and the choices it makes. One sentence and one figure at a time.</p>
+    <p class="dek">Fathom reads a pull request as a short paper you referee: how the system behaved before and after, the idea it rests on, what it trades, what could go wrong, and what is still open. One sentence and one figure at a time.</p>
     <div class="cta">
       <a class="btn" href="https://github.com/yask123/fathom/releases/latest/download/Fathom.dmg"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg>Download for Mac</a>
       <a class="btn ghost" href="https://github.com/yask123/fathom">View source</a>
     </div>
-    <p class="meta"><span>v0.6</span><span>Notarized</span><span>macOS 26+</span><span>Free, MIT</span></p>
+    <p class="meta"><span>v0.7</span><span>Notarized</span><span>macOS 26+</span><span>Free, MIT</span></p>
   </section>
 
   <figure id="fig1">
     <div class="panel">
       <div class="stack">
-        <img class="shot on" src="/fathom/assets/v8-overview-day.webp" data-day="/fathom/assets/v8-overview-day.webp" data-night="/fathom/assets/v7-overview.webp" width="2400" height="1500" fetchpriority="high" alt="A reading’s title page: the pull request’s title, a byline, an abstract with run-in heads Problem, Idea and Now, and a table of contents.">
-        <img class="shot" src="/fathom/assets/v8-problem-day.webp" data-day="/fathom/assets/v8-problem-day.webp" data-night="/fathom/assets/v7-problem-fig.webp" width="2400" height="1500" loading="lazy" alt="The problem as a sequence diagram: actors across the top, time running down an axis, and the step where navigation stopped marked in red.">
-        <img class="shot" src="/fathom/assets/v8-idea-day.webp" data-day="/fathom/assets/v8-idea-day.webp" data-night="/fathom/assets/v7-idea.webp" width="2400" height="1500" loading="lazy" alt="The idea: WalkModel.generate with arrows to five parts, four of them new in green, each arrow labelled with what it does.">
-        <img class="shot" src="/fathom/assets/v8-now-day.webp" data-day="/fathom/assets/v8-now-day.webp" data-night="/fathom/assets/v7-now.webp" width="2400" height="1500" loading="lazy" alt="How it works now: the same sequence after the change, new steps in green, what each carries in angle brackets.">
+        <img class="shot on" src="/fathom/assets/v9-abstract-day.webp" data-day="/fathom/assets/v9-abstract-day.webp" data-night="/fathom/assets/v9-abstract.webp" width="2400" height="1500" fetchpriority="high" alt="A reading’s abstract: the title, a strip of vital signs (Feature, a one-way door, high risk, seven parts, four open questions), the run-in sentences Problem, Move and Price, and the contents.">
+        <img class="shot" src="/fathom/assets/v9-behaviour-day.webp" data-day="/fathom/assets/v9-behaviour-day.webp" data-night="/fathom/assets/v9-behaviour.webp" width="2400" height="1500" loading="lazy" alt="Behaviour as a diff: one sequence diagram of the journey before and after, a gutter of plus, minus and tilde signs, old steps struck through, and the step where navigation stopped marked in red.">
+        <img class="shot" src="/fathom/assets/v9-design-day.webp" data-day="/fathom/assets/v9-design-day.webp" data-night="/fathom/assets/v9-design.webp" width="2400" height="1500" loading="lazy" alt="The design as a blueprint: dashed boxes for the iOS app, the Next.js server and OpenAI, the parts inside them, and arrows labelled with what crosses between them.">
+        <img class="shot" src="/fathom/assets/v9-risk-day.webp" data-day="/fathom/assets/v9-risk-day.webp" data-night="/fathom/assets/v9-risk.webp" width="2400" height="1500" loading="lazy" alt="Risk: titled A one-way door, a three by three likelihood and impact matrix with four numbered hazards, and each hazard with when, then and what guards it.">
       </div>
     </div>
     <div class="tabs" role="group" aria-label="Views of Figure 1">
-      <button type="button" data-i="0" aria-pressed="true"><span>a</span>Overview</button>
-      <button type="button" data-i="1" aria-pressed="false"><span>b</span>Problem</button>
-      <button type="button" data-i="2" aria-pressed="false"><span>c</span>Idea</button>
-      <button type="button" data-i="3" aria-pressed="false"><span>d</span>How it works now</button>
+      <button type="button" data-i="0" aria-pressed="true"><span>a</span>Abstract</button>
+      <button type="button" data-i="1" aria-pressed="false"><span>b</span>Behaviour</button>
+      <button type="button" data-i="2" aria-pressed="false"><span>c</span>Design</button>
+      <button type="button" data-i="3" aria-pressed="false"><span>d</span>Risk</button>
     </div>
-    <figcaption><span class="label accent">Fig. 1</span><p id="subcap">The title page of a reading: an abstract in three sentences, then the contents, each line a way in.</p></figcaption>
+    <figcaption><span class="label accent">Fig. 1</span><p id="subcap">The abstract of a reading: the change’s vital signs, then Problem, Move and Price, then the contents.</p></figcaption>
   </figure>
 
   <section class="section" id="premise">
     <div class="side"><span class="label"><b>01</b>Premise</span></div>
     <div class="body">
       <h2>Agents write the lines. <em>You own the shape.</em></h2>
-      <p class="lede">When an agent writes the code and a bot checks that it does what it says, reading a diff line by line is no longer the reviewer’s job. The job is understanding the move.</p>
-      <p>What was wrong before? What is the one idea that fixes it? How does the system behave now, and what did the author give up to get there? A diff answers none of these directly: it is ordered by file rather than by thought, and gives every line the same weight.</p>
-      <p>Fathom reorders the change into the shape you would draw on a whiteboard for a colleague, and draws it. It never tells you whether the code is good; that judgement stays with you.<span class="fn">1</span></p>
+      <p class="lede">When an agent writes the code and a bot checks that it does what it says, reading a diff line by line is no longer the reviewer’s job. The job is judgement.</p>
+      <p>What was wrong before, and how does the system behave now? What idea does the change rest on, what does it give up, and what could go wrong once it ships? A diff answers none of these directly: it is ordered by file rather than by thought, and gives every line the same weight.</p>
+      <p>Fathom reorders the change into the shape you would draw on a whiteboard for a colleague, draws it, and sets out what a referee would weigh. Whether to ship it stays your call.<span class="fn">1</span></p>
       <p class="footnote"><span class="fn">1</span>Every figure here is Fathom reading one of the author’s own pull requests, walkai #46, unedited.</p>
     </div>
   </section>
@@ -263,82 +263,93 @@ footer button:hover, footer a:hover { color: var(--ink); }
     <div class="side"><span class="label"><b>02</b>Method</span></div>
     <div class="body">
       <h2>How a reading is made</h2>
-      <p>Fathom fetches the pull request and its diff through your GitHub CLI, labels every hunk, and asks Claude, through your own Claude Code, for two things at once: an outline of the change, and its story. The story is told with read-only access to a shallow checkout of the pull request, so its figures name real types and functions. Both stream onto the page as they are written, and are kept on your Mac.</p>
+      <p>Fathom fetches the pull request and its diff through your GitHub CLI, labels every hunk, and asks Claude, through your own Claude Code, for three things at once: an outline of the change, its story, and a referee’s reading. The story and the referee get read-only access to a shallow checkout of the pull request, so the figures name real types and functions, and the referee can check who calls what before it names a risk. It is told never to invent problems or give generic advice. Everything streams onto the page as it is written, and is kept on your Mac.</p>
     </div>
   </section>
 
   <figure class="wide">
     <div class="panel">
-      <svg class="diagram wide" viewBox="0 0 1060 360" role="img" aria-label="GitHub sends the pull request and its diff to Fathom, which labels every hunk and sends it to two Claude runs, an outline and a story with a read-only checkout; both stream into the reading, kept on your Mac. A time axis marks 0, about 2, about 5 and about 30 seconds.">
+      <svg class="diagram wide" viewBox="0 0 1060 400" role="img" aria-label="GitHub sends the pull request and its diff to Fathom, which labels every hunk and sends it to three Claude runs at once: the outline, the story and the referee, the last two with a read-only checkout. All three stream into the reading, kept on your Mac. A time axis marks 0, about 2, about 25 and about 45 seconds.">
         <defs><marker id="ah" viewBox="0 0 10 8" refX="9.5" refY="4" markerWidth="10" markerHeight="8" orient="auto-start-reverse"><path class="head" d="M0 0 L10 4 L0 8 L2.6 4 Z"/></marker></defs>
-        <path class="edge" d="M190 163 L298 163" marker-end="url(#ah)"/>
-        <path class="edge" d="M480 156 C 535 156, 530 79, 588 79" marker-end="url(#ah)"/>
-        <path class="edge" d="M480 170 C 535 170, 530 249, 588 249" marker-end="url(#ah)"/>
-        <path class="edge" d="M770 79 C 825 79, 820 156, 878 156" marker-end="url(#ah)"/>
-        <path class="edge" d="M770 249 C 825 249, 820 170, 878 170" marker-end="url(#ah)"/>
-        <text class="lbl" x="244" y="152" text-anchor="middle">the diff</text>
-        <text class="lbl" x="520" y="104" text-anchor="end">every hunk, labelled</text>
-        <text class="lbl" x="520" y="232" text-anchor="end">and a checkout</text>
-        <text class="lbl" x="830" y="96">streams in</text>
-        <text class="lbl" x="830" y="246">streams in</text>
-        <g transform="translate(10 128)"><rect class="box" width="180" height="70" rx="8"/><text class="name" x="16" y="29">github.com</text><text class="role" x="16" y="52">the pull request</text></g>
-        <g transform="translate(300 128)"><rect class="box" width="180" height="70" rx="8"/><text class="name" x="16" y="29">Fathom</text><text class="role" x="16" y="52">parses and labels</text></g>
-        <g transform="translate(590 44)"><rect class="box" width="180" height="70" rx="8"/><text class="name" x="16" y="29">claude -p</text><text class="kind" x="164" y="28" text-anchor="end">outline</text><text class="role" x="16" y="52">headline, chapters</text></g>
-        <g transform="translate(590 214)"><rect class="box" width="180" height="70" rx="8"/><text class="name" x="16" y="29">claude -p</text><text class="kind" x="164" y="28" text-anchor="end">story</text><text class="role" x="16" y="52">problem, idea, now</text></g>
-        <g transform="translate(880 128)"><rect class="box new" width="170" height="70" rx="8"/><text class="name" x="16" y="29">the reading</text><text class="role" x="16" y="52">kept on your Mac</text></g>
-        <path class="axis" d="M10 322 L1044 322"/>
-        <path class="head" d="M1052 322 L1043 318.5 L1045.5 322 L1043 325.5 Z"/>
-        <g class="axis"><path d="M100 317 L100 327"/><path d="M390 317 L390 327"/><path d="M680 317 L680 327"/><path d="M965 317 L965 327"/></g>
-        <text class="tick" x="100" y="348" text-anchor="middle">0 s</text>
-        <text class="tick" x="390" y="348" text-anchor="middle">≈2 s · diff on screen</text>
-        <text class="tick" x="680" y="348" text-anchor="middle">≈5 s · headline</text>
-        <text class="tick" x="965" y="348" text-anchor="middle">≈30 s · whole story</text>
+        <path class="edge" d="M190 183 L298 183" marker-end="url(#ah)"/>
+        <path class="edge" d="M480 174 C 535 174, 530 55, 588 55" marker-end="url(#ah)"/>
+        <path class="edge" d="M480 183 L588 183" marker-end="url(#ah)"/>
+        <path class="edge" d="M480 192 C 535 192, 530 311, 588 311" marker-end="url(#ah)"/>
+        <path class="edge" d="M770 55 C 825 55, 820 174, 878 174" marker-end="url(#ah)"/>
+        <path class="edge" d="M770 183 L878 183" marker-end="url(#ah)"/>
+        <path class="edge" d="M770 311 C 825 311, 820 192, 878 192" marker-end="url(#ah)"/>
+        <text class="lbl" x="244" y="172" text-anchor="middle">the diff</text>
+        <text class="lbl" x="520" y="96" text-anchor="end">every hunk, labelled</text>
+        <text class="lbl" x="520" y="282" text-anchor="end">and a checkout</text>
+        <text class="lbl" x="836" y="96">streams in</text>
+        <g transform="translate(10 148)"><rect class="box" width="180" height="70" rx="8"/><text class="name" x="16" y="29">github.com</text><text class="role" x="16" y="52">the pull request</text></g>
+        <g transform="translate(300 148)"><rect class="box" width="180" height="70" rx="8"/><text class="name" x="16" y="29">Fathom</text><text class="role" x="16" y="52">parses and labels</text></g>
+        <g transform="translate(590 20)"><rect class="box" width="180" height="70" rx="8"/><text class="name" x="16" y="29">claude -p</text><text class="kind" x="164" y="28" text-anchor="end">outline</text><text class="role" x="16" y="52">headline, chapters</text></g>
+        <g transform="translate(590 148)"><rect class="box" width="180" height="70" rx="8"/><text class="name" x="16" y="29">claude -p</text><text class="kind" x="164" y="28" text-anchor="end">story</text><text class="role" x="16" y="52">behaviour, design</text></g>
+        <g transform="translate(590 276)"><rect class="box" width="180" height="70" rx="8"/><text class="name" x="16" y="29">claude -p</text><text class="kind" x="164" y="28" text-anchor="end">referee</text><text class="role" x="16" y="52">trade-offs, risk</text></g>
+        <g transform="translate(880 148)"><rect class="box new" width="170" height="70" rx="8"/><text class="name" x="16" y="29">the reading</text><text class="role" x="16" y="52">kept on your Mac</text></g>
+        <path class="axis" d="M10 366 L1044 366"/>
+        <path class="head" d="M1052 366 L1043 362.5 L1045.5 366 L1043 369.5 Z"/>
+        <g class="axis"><path d="M100 361 L100 371"/><path d="M390 361 L390 371"/><path d="M680 361 L680 371"/><path d="M965 361 L965 371"/></g>
+        <text class="tick" x="100" y="392" text-anchor="middle">0 s</text>
+        <text class="tick" x="390" y="392" text-anchor="middle">≈2 s · diff on screen</text>
+        <text class="tick" x="680" y="392" text-anchor="middle">≈25 s · the figures</text>
+        <text class="tick" x="965" y="392" text-anchor="middle">≈45 s · the referee</text>
       </svg>
-      <svg class="diagram tall" viewBox="0 0 360 600" role="img" aria-label="GitHub, then Fathom, then two Claude runs side by side, then the reading.">
+      <svg class="diagram tall" viewBox="0 0 360 610" role="img" aria-label="GitHub, then Fathom, then three Claude runs side by side, the outline, the story and the referee, then the reading.">
         <defs><marker id="ah2" viewBox="0 0 10 8" refX="9.5" refY="4" markerWidth="10" markerHeight="8" orient="auto-start-reverse"><path class="head" d="M0 0 L10 4 L0 8 L2.6 4 Z"/></marker></defs>
         <path class="edge" d="M180 80 L180 146" marker-end="url(#ah2)"/>
-        <path class="edge" d="M150 218 C 150 260, 92 250, 92 288" marker-end="url(#ah2)"/>
-        <path class="edge" d="M210 218 C 210 260, 268 250, 268 288" marker-end="url(#ah2)"/>
-        <path class="edge" d="M92 360 C 92 400, 150 390, 150 438" marker-end="url(#ah2)"/>
-        <path class="edge" d="M268 360 C 268 400, 210 390, 210 438" marker-end="url(#ah2)"/>
+        <path class="edge" d="M140 218 C 140 255, 62 250, 62 288" marker-end="url(#ah2)"/>
+        <path class="edge" d="M180 218 L180 288" marker-end="url(#ah2)"/>
+        <path class="edge" d="M220 218 C 220 255, 298 250, 298 288" marker-end="url(#ah2)"/>
+        <path class="edge" d="M62 360 C 62 400, 140 395, 140 438" marker-end="url(#ah2)"/>
+        <path class="edge" d="M180 360 L180 438" marker-end="url(#ah2)"/>
+        <path class="edge" d="M298 360 C 298 400, 220 395, 220 438" marker-end="url(#ah2)"/>
         <text class="lbl" x="190" y="118">the diff</text>
-        <text class="tick" x="180" y="562" text-anchor="middle">≈30 s from link to story</text>
+        <text class="tick" x="180" y="552" text-anchor="middle">≈25 s to the figures</text>
+        <text class="tick" x="180" y="574" text-anchor="middle">≈45 s to the referee</text>
         <g transform="translate(60 10)"><rect class="box" width="240" height="70" rx="8"/><text class="name" x="16" y="29">github.com</text><text class="role" x="16" y="52">the pull request</text></g>
         <g transform="translate(60 148)"><rect class="box" width="240" height="70" rx="8"/><text class="name" x="16" y="29">Fathom</text><text class="role" x="16" y="52">parses and labels</text></g>
-        <g transform="translate(10 290)"><rect class="box" width="164" height="70" rx="8"/><text class="name" x="14" y="29">claude -p</text><text class="role" x="14" y="52">the outline</text></g>
-        <g transform="translate(186 290)"><rect class="box" width="164" height="70" rx="8"/><text class="name" x="14" y="29">claude -p</text><text class="role" x="14" y="52">the story</text></g>
+        <g transform="translate(6 290)"><rect class="box" width="112" height="70" rx="8"/><text class="name" x="12" y="29">claude -p</text><text class="role" x="12" y="52">the outline</text></g>
+        <g transform="translate(124 290)"><rect class="box" width="112" height="70" rx="8"/><text class="name" x="12" y="29">claude -p</text><text class="role" x="12" y="52">the story</text></g>
+        <g transform="translate(242 290)"><rect class="box" width="112" height="70" rx="8"/><text class="name" x="12" y="29">claude -p</text><text class="role" x="12" y="52">the referee</text></g>
         <g transform="translate(60 440)"><rect class="box new" width="240" height="70" rx="8"/><text class="name" x="16" y="29">the reading</text><text class="role" x="16" y="52">kept on your Mac</text></g>
       </svg>
     </div>
-    <figcaption><span class="label accent">Fig. 2</span><p>How a reading is made. Two runs of Claude Code work in parallel, one with a read-only checkout; each page fills in as it is written. Times are typical for a pull request of a few thousand lines.</p></figcaption>
+    <figcaption><span class="label accent">Fig. 2</span><p>How a reading is made. Three runs of Claude Code work in parallel, two of them with a read-only checkout; each page fills in as it is written. Times are typical for a pull request of a few thousand lines.</p></figcaption>
   </figure>
 
   <section class="section" id="anatomy">
     <div class="side"><span class="label"><b>03</b>Anatomy</span></div>
     <div class="body">
-      <h2>Six sections, <em>the same every time</em></h2>
-      <p>Each section is one sentence and one figure, so you always know where to look. Most of the time the abstract alone tells you what you are looking at.</p>
+      <h2>Seven pages, <em>the same every time</em></h2>
+      <p>A reading opens on an abstract: the change’s vital signs, and the whole pull request in three sentences, <i>Problem</i>, <i>Move</i> and <i>Price</i>. Then six pages, each one sentence and one figure, so you always know where to look.</p>
       <div class="parts">
-        <div class="part"><span class="label">01</span><h3>The problem</h3><p>How things went before, as a sequence diagram, with the step where it hurt marked in red.</p></div>
-        <div class="part"><span class="label">02</span><h3>The idea</h3><p>The key idea in a sentence, and the few parts that carry it, the new ones in green.</p></div>
-        <div class="part"><span class="label">03</span><h3>How it works now</h3><p>The same actors after the change, and what travels on every arrow. Flip to Before to compare.</p></div>
-        <div class="part"><span class="label">04</span><h3>Choices it makes</h3><p>Each decision as a fork: what was chosen, over what, and why, stated or inferred.</p></div>
-        <div class="part"><span class="label">05</span><h3>Promises that change</h3><p>Interfaces whose shape changes, member by member: endpoints, types, tables, config.</p></div>
-        <div class="part"><span class="label">06</span><h3>Where to look</h3><p>The two to four places in the code to read if you read nothing else.</p></div>
+        <div class="part"><span class="label">01</span><h3>Behaviour</h3><p>One journey through the system, before and after, as a diff: steps added, gone and changed, and where it broke.</p></div>
+        <div class="part"><span class="label">02</span><h3>Design</h3><p>Where each part runs and what crosses between them, as a blueprint. Then Box 1, the engineering idea it rests on.</p></div>
+        <div class="part"><span class="label">03</span><h3>Trade-offs</h3><p>Each decision as a ruled table: the options scored on what separates them, and why this one won.</p></div>
+        <div class="part"><span class="label">04</span><h3>Risk</h3><p>A one-way or two-way door, and each hazard by likelihood and impact, with its trigger and what guards it.</p></div>
+        <div class="part"><span class="label">05</span><h3>Questions</h3><p>What the diff leaves open. Settle it, have Fathom look into it, or put it to the author as a comment.</p></div>
+        <div class="part"><span class="label">06</span><h3>Evidence</h3><p>The passages to read if you read nothing else, with notes in the margin beside the lines.</p></div>
       </div>
     </div>
   </section>
 
   <figure class="wide">
-    <div class="panel"><img class="shot" src="/fathom/assets/v8-choices-day.webp" data-day="/fathom/assets/v8-choices-day.webp" data-night="/fathom/assets/v7-choices.webp" width="2400" height="1500" loading="lazy" decoding="async" alt="Choices it makes: four cards, each with what was chosen, what it was chosen over, and why."></div>
-    <figcaption><span class="label accent">Fig. 3</span><p>Choices it makes, each drawn as a fork: the road taken, the road not taken, and the reason. Every card links to the code it describes.</p></figcaption>
+    <div class="panel"><img class="shot" src="/fathom/assets/v9-tradeoffs-day.webp" data-day="/fathom/assets/v9-tradeoffs-day.webp" data-night="/fathom/assets/v9-tradeoffs.webp" width="2400" height="1500" loading="lazy" decoding="async" alt="What it trades: the price as the title, then each decision as a ruled table, the options as columns, criteria as rows, scored with Harvey balls, the chosen column shaded, and why it won."></div>
+    <figcaption><span class="label accent">Fig. 3</span><p>What it trades. Each decision is scored on what separates its options, the road taken is shaded, and it has to lose somewhere. Every table links to the code where the choice lives.</p></figcaption>
+  </figure>
+
+  <figure class="wide">
+    <div class="panel"><img class="shot" src="/fathom/assets/v9-questions-day.webp" data-day="/fathom/assets/v9-questions-day.webp" data-night="/fathom/assets/v9-questions.webp" width="2400" height="1500" loading="lazy" decoding="async" alt="Four questions this change leaves open, each with why it matters and the actions Ask Fathom, Ask the author, Read the code and Settle."></div>
+    <figcaption><span class="label accent">Fig. 4</span><p>The questions a change leaves open. Ask Fathom to look into one, or put it to the author: a comment opens on the code with the question written in.</p></figcaption>
   </figure>
 
   <section class="section" id="review">
     <div class="side"><span class="label"><b>04</b>Review</span></div>
     <div class="body">
       <h2>When you want the lines, <em>they make sense</em></h2>
-      <p><i>Changes</i> has the whole diff regrouped into chapters by purpose, each marked read, skim or skip, with a short note above every change. What people and review bots have already said on GitHub sits on the lines it is about. Click a line number to comment, reply in a thread, or suggest a change, and send it all as one review, under your own name.</p>
+      <p>When a reading sends you to the code, <i>Changes</i> has the whole diff regrouped into chapters by purpose, each marked read, skim or skip, with a short note above every change. What people and review bots have already said on GitHub sits on the lines it is about. Click a line number to comment, reply in a thread, or suggest a change, and send it all as one review, under your own name.</p>
       <table class="keys">
         <caption class="label">Table 1 · Keys</caption>
         <tbody>
@@ -355,7 +366,7 @@ footer button:hover, footer a:hover { color: var(--ink); }
 
   <figure class="wide">
     <div class="panel"><img class="shot" src="/fathom/assets/v8-changes-day.webp" data-day="/fathom/assets/v8-changes-day.webp" data-night="/fathom/assets/v7-changes.webp" width="2000" height="1250" loading="lazy" decoding="async" alt="Changes: chapters on the left; on the right the WalkModel changes with a short note above each, a pending review comment under one line and a comment box open under another."></div>
-    <figcaption><span class="label accent">Fig. 4</span><p>Changes, regrouped into chapters. A comment waiting to be sent sits under one line; a new one is being written under another.</p></figcaption>
+    <figcaption><span class="label accent">Fig. 5</span><p>Changes, regrouped into chapters. A comment waiting to be sent sits under one line; a new one is being written under another.</p></figcaption>
   </figure>
 
   <section class="section" id="appearance">
@@ -367,12 +378,12 @@ footer button:hover, footer a:hover { color: var(--ink); }
   </section>
 
   <figure class="wide">
-    <div class="panel"><img class="shot" src="/fathom/assets/v8-daynight.webp" width="2400" height="1500" loading="lazy" decoding="async" alt="The same page of a reading, the problem as a sequence diagram, shown half in the light appearance on warm paper and half in the dark appearance."></div>
-    <figcaption><span class="label accent">Fig. 5</span><p>The same reading by day and by night: the problem of walkai #46, light on the left, dark on the right.</p></figcaption>
+    <div class="panel"><img class="shot" src="/fathom/assets/v9-daynight.webp" width="2400" height="1500" loading="lazy" decoding="async" alt="The same page of a reading, behaviour before and after as a diff, shown half in the light appearance on warm paper and half in the dark appearance."></div>
+    <figcaption><span class="label accent">Fig. 6</span><p>The same reading by day and by night: the behaviour of walkai #46, light on the left, dark on the right.</p></figcaption>
   </figure>
 
   <div class="numbers" aria-label="By the numbers">
-    <div><div class="v">30<small>s</small></div><p>From a pull request link to its whole story. The headline arrives in five.</p></div>
+    <div><div class="v">30<small>s</small></div><p>From a pull request link to its figures. The referee’s pages follow within the minute.</p></div>
     <div><div class="v">0<small>s</small></div><p>To open it again. Readings are kept on your Mac.</p></div>
     <div><div class="v">0<small>keys</small></div><p>No account or server. It runs on your GitHub CLI and Claude plan.</p></div>
   </div>
@@ -380,8 +391,8 @@ footer button:hover, footer a:hover { color: var(--ink); }
   <section class="section" id="principle">
     <div class="side"><span class="label"><b>06</b>Principle</span></div>
     <div class="body">
-      <blockquote class="principle"><p>Fathom never tells you whether the code is good. It shows you what the code does.</p></blockquote>
-      <p>So there are <span class="struck">no verdicts</span>, <span class="struck">no risk scores</span> and <span class="struck">no robot approvals</span>. A choice the pull request does not state is marked <i>inferred</i>, and every figure links back to the lines it was drawn from.</p>
+      <blockquote class="principle"><p>Fathom never tells you whether to ship. It shows you what you would be shipping.</p></blockquote>
+      <p>So there are <span class="struck">no verdicts</span>, <span class="struck">no generic advice</span> and <span class="struck">no robot approvals</span>. A risk is named only when the diff shows it, with its trigger and what guards it; a reason the pull request does not state is marked <i>inferred</i>; and every figure links back to the lines it was drawn from.</p>
     </div>
   </section>
 
@@ -453,10 +464,10 @@ footer button:hover, footer a:hover { color: var(--ink); }
   const buttons = [...document.querySelectorAll('#fig1 .tabs button')];
   const caption = document.getElementById('subcap');
   const captions = [
-    'The title page of a reading: an abstract in three sentences, then the contents, each line a way in.',
-    'The problem, as a sequence diagram with time running down the page. Red marks the step where it went wrong.',
-    'The idea, and the parts that carry it. Green marks what is new; each arrow says what it does.',
-    'How it works now: the same actors after the change, new steps in green, what travels in angle brackets.',
+    'The abstract of a reading: the change’s vital signs, then Problem, Move and Price, then the contents.',
+    'Behaviour as a diff: one journey, before and after. + a step added, − one gone, ~ one changed, with what it was struck through. Red marks where it broke.',
+    'The design as a blueprint: each process a box, what crosses between the parts on every arrow, and each crossing of a process boundary marked.',
+    'Risk: whether a revert would undo it, and each hazard by likelihood and impact. A filled mark has nothing in the change guarding it.',
   ];
   let i = 0, picked = false, visible = false;
   const show = (n) => {
