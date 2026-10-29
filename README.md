@@ -151,10 +151,7 @@ with them and captures its window; `SHOOT_QUIET=1` leaves it where it opens inst
 | `FATHOM_APPEARANCE=light` | show the light (or `dark`) appearance without changing the saved choice |
 | `FATHOM_DUMP_PROMPT=/path` | write the reading prompt to a file |
 
-## Website
 
-`site/fathom/` is the page at [yask.dev/fathom](https://yask.dev/fathom): one HTML file and screenshots of the app.
-Preview with `python3 -m http.server 4360 --directory site` and open `/fathom/`.
 
 ## License
 
