@@ -361,6 +361,7 @@ enum Glyph {
         case "job": "clock.arrow.2.circlepath"
         case "config": "slider.horizontal.3"
         case "library": "shippingbox.fill"
+        case "guard": "checkmark.shield.fill"
         default: "square.stack.3d.up.fill"
         }
     }
@@ -479,6 +480,22 @@ enum Fmt {
 
 /// Small helpers for the words Claude writes.
 enum Prose {
+    /// A long name from the code may wrap where its words meet ("assertCan|Read", "place_|photos") instead of
+    /// wherever the line happens to run out. Short words are left whole.
+    static func breakable(_ s: String) -> String {
+        s.split(separator: " ", omittingEmptySubsequences: false).map { word -> String in
+            guard word.count > 11 else { return String(word) }
+            var out = ""
+            var last: Character?
+            for c in word {
+                if let l = last, (c.isUppercase && (l.isLowercase || l.isNumber)) || ("_./:".contains(l) && c.isLetter) { out.append("\u{200B}") }
+                out.append(c)
+                last = c
+            }
+            return out
+        }.joined(separator: " ")
+    }
+
     /// "only new routes stop navigation" → "Only new routes stop navigation."
     static func sentence(_ s: String) -> String {
         var out = s.trimmingCharacters(in: .whitespaces)

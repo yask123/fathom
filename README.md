@@ -17,6 +17,8 @@ yours. Then the code, in reading order. It runs on your own [GitHub CLI](https:/
     rail and crosses to another at each step. Where the change adds a step the line is green, where it changes one
     amber, a step it removes is a dashed red ghost, and a cross marks where things went wrong before. A few words
     sit beside each step with what travels there; everything else stays off the picture.
+    A check that can stop the request (an access policy, a validator, a limit) is always a step of its own, on a
+    rail marked with a shield, so you can see what happens before it and what never reaches it.
   - **One step at a time**: move the pointer over the stage and the step under it lights while the rest dims; the
     bar under the stage reads that step out (from, to, what it does, what it used to do, what travels). Click to
     pin it, `←` `→` to step like a debugger, `Space` to play the journey, `↩` to open the code behind the step.

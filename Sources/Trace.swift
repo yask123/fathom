@@ -963,7 +963,7 @@ struct StepLabel: View {
     var body: some View {
         let s = label.step
         VStack(alignment: .leading, spacing: 4) {
-            Text(mode == .before ? s.beforeDoes : s.does)
+            Text(Prose.breakable(mode == .before ? s.beforeDoes : s.does))
                 .font(.sans(12, .medium))
                 .foregroundStyle(label.ghost ? Color.text3 : Color.text1)
                 .strikethrough(label.ghost, color: Color.removed.opacity(0.7))

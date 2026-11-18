@@ -108,10 +108,13 @@ enum Analyst {
     - was: the situation before, at most 11 words, as a user or caller experienced it. Not the fix.
     - now: the same situation after, at most 11 words.
     - how: the key idea of the change, at most 11 words, the way you'd say it at a whiteboard.
-    - cast: the parts the journey passes through, 3–6, in the order it meets them. id: a short lowercase handle. \
+    - cast: the parts the journey passes through, 3–7, in the order it meets them. A part that can stop the \
+    request (an access policy, a validator, a rate limiter, a lock) is in the cast whenever the journey reaches it, \
+    changed or not. id: a short lowercase handle. \
     name: as written in the code, at most 22 characters (a type, function or file name, never a path), or "You" for \
     the person or outside caller who starts it. kind: person, ui, service, api, store, external (someone else's \
-    service), job, config or library. role: at most 3 words. where: the process or deployable it runs in, at most \
+    service), job, config, library or guard (a part whose job is to stop the request: authorization, validation, a \
+    limit). role: at most 3 words. where: the process or deployable it runs in, at most \
     2 words ("iOS app", "API server", "Postgres"), the same words for parts that run together; empty for a person. \
     change: added (new in this PR), changed (its code changes) or unchanged (context it talks to).
     - flow: one request's journey, told once for both versions, in time order, 3–8 steps. from and to are cast ids; \
@@ -119,7 +122,9 @@ enum Analyst {
     status: same (happens before and after), removed (only before), added (only after) or changed (both, \
     differently). Only for a changed step, was holds what it did before, at most 5 words. Only for a step that \
     isn't same, hunk is the id of the hunk where that change lives. The before journey (same, changed and removed \
-    steps) and the after journey (same, changed and added steps) must each read as complete.
+    steps) and the after journey (same, changed and added steps) must each read as complete. A check that can stop \
+    the request (authorization, validation, a limit) is a step of its own, in the place it happens in the order of \
+    execution, even when this PR doesn't touch it: where it sits in the journey is what the reader came to see.
     - breaks: the index in flow of the step where it went wrong before, or -1 when the problem was a step that was \
     missing. pain: at most 6 words, what went wrong there.
     - forks: 0–3 places where the change took one road and a reasonable engineer might have taken another, most \
@@ -134,7 +139,7 @@ enum Analyst {
      "headline":{"type":"string"},
      "kind":{"type":"string","enum":["feature","fix","refactor","performance","infra","tests","docs","chore","mixed"]},
      "was":{"type":"string"},"now":{"type":"string"},"how":{"type":"string"},
-     "cast":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","name","kind","role","where","change"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"kind":{"type":"string","enum":["person","ui","service","api","store","external","job","config","library"]},"role":{"type":"string"},"where":{"type":"string"},"change":{"type":"string","enum":["added","changed","unchanged"]}}}},
+     "cast":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["id","name","kind","role","where","change"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"kind":{"type":"string","enum":["person","ui","service","api","store","external","job","config","library","guard"]},"role":{"type":"string"},"where":{"type":"string"},"change":{"type":"string","enum":["added","changed","unchanged"]}}}},
      "flow":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["from","to","does","data","status"],"properties":{"from":{"type":"string"},"to":{"type":"string"},"does":{"type":"string"},"data":{"type":"string"},"status":{"type":"string","enum":["same","removed","added","changed"]},"was":{"type":"string"},"hunk":{"type":"string"}}}},
      "breaks":{"type":"integer"},
      "pain":{"type":"string"},
