@@ -1,10 +1,12 @@
 {
   "redirects": [
-    { "source": "/", "destination": "https://yask.dev/fathom", "permanent": false }
+    { "source": "/", "destination": "https://yask.dev/tracer", "permanent": false },
+    { "source": "/fathom", "destination": "https://yask.dev/tracer", "permanent": false },
+    { "source": "/fathom/", "destination": "https://yask.dev/tracer", "permanent": false }
   ],
   "headers": [
     {
-      "source": "/fathom/assets/(.*)",
+      "source": "/(tracer|fathom)/assets/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=604800, stale-while-revalidate=86400" }]
     }
   ]

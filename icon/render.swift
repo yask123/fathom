@@ -1,4 +1,5 @@
-// Renders Fathom's app icon: strata of a deep sea, a sounding line, and a sonar ping at depth.
+// Renders Tracer's app icon: a trace on a black board. It leaves a ring, takes the turn the change takes and lands
+// lit; the road not taken runs on a little way, dashed, and stops.
 import AppKit
 
 let S: CGFloat = 1024
@@ -16,92 +17,99 @@ let body = CGRect(x: 100, y: 100, width: 824, height: 824)
 let shape = CGPath(roundedRect: body, cornerWidth: 186, cornerHeight: 186, transform: nil)
 
 ctx.saveGState()
-ctx.setShadow(offset: CGSize(width: 0, height: -14), blur: 30, color: hex(0x020409, 0.5))
-ctx.addPath(shape); ctx.setFillColor(hex(0x0A1020)); ctx.fillPath()
+ctx.setShadow(offset: CGSize(width: 0, height: -14), blur: 30, color: hex(0x020308, 0.55))
+ctx.addPath(shape); ctx.setFillColor(hex(0x08090D)); ctx.fillPath()
 ctx.restoreGState()
 
 ctx.saveGState()
 ctx.addPath(shape); ctx.clip()
 
-// Water: lit teal at the surface, indigo at depth.
-let water = CGGradient(colorsSpace: cs, colors: [hex(0x15505A), hex(0x0C2734), hex(0x0A1328), hex(0x110D2A)] as CFArray,
-                       locations: [0, 0.38, 0.72, 1])!
-ctx.drawLinearGradient(water, start: CGPoint(x: 0, y: 924), end: CGPoint(x: 0, y: 100), options: [])
+// The board: near-black, a little violet light from where the trace lands.
+let board = CGGradient(colorsSpace: cs, colors: [hex(0x12121C), hex(0x0A0B11), hex(0x07080C)] as CFArray, locations: [0, 0.5, 1])!
+ctx.drawLinearGradient(board, start: CGPoint(x: 0, y: 924), end: CGPoint(x: 0, y: 100), options: [])
+let wash = CGGradient(colorsSpace: cs, colors: [hex(0xA88CFF, 0.2), hex(0xA88CFF, 0)] as CFArray, locations: [0, 1])!
+ctx.drawRadialGradient(wash, startCenter: CGPoint(x: 720, y: 660), startRadius: 0, endCenter: CGPoint(x: 720, y: 660), endRadius: 560, options: [])
 
-// Surface light.
-let light = CGGradient(colorsSpace: cs, colors: [hex(0x7FF0E6, 0.28), hex(0x7FF0E6, 0)] as CFArray, locations: [0, 1])!
-ctx.drawRadialGradient(light, startCenter: CGPoint(x: 512, y: 980), startRadius: 0, endCenter: CGPoint(x: 512, y: 980), endRadius: 560, options: [])
-
-// Strata.
-let hues: [UInt32] = [0x62E6DC, 0x5BB4F2, 0x7F8CF6, 0xA68AF2]
-func wave(_ y0: CGFloat, _ amp: CGFloat, _ phase: CGFloat) -> CGMutablePath {
-    // Runs past both edges so the round caps fall outside the clip.
-    let p = CGMutablePath()
-    p.move(to: CGPoint(x: 80, y: y0 + amp * sin(-20 / 824 * .pi * 2 + phase)))
-    var x: CGFloat = 80
-    while x <= 944 {
-        p.addLine(to: CGPoint(x: x, y: y0 + amp * sin((x - 100) / 824 * .pi * 2 + phase)))
-        x += 8
+// Dots every 56 points.
+ctx.setFillColor(hex(0xD2D8FF, 0.1))
+var gy: CGFloat = 128
+while gy < 924 {
+    var gx: CGFloat = 128
+    while gx < 924 {
+        ctx.fillEllipse(in: CGRect(x: gx - 2.5, y: gy - 2.5, width: 5, height: 5))
+        gx += 56
     }
-    return p
+    gy += 56
 }
-let tops: [CGFloat] = [560, 440, 330, 220]
-for (i, y0) in tops.enumerated() {
-    let edge = wave(y0, 16 - CGFloat(i) * 2, CGFloat(i) * 1.3 + 0.4)
-    let fill = edge.mutableCopy()!
-    fill.addLine(to: CGPoint(x: 944, y: 80)); fill.addLine(to: CGPoint(x: 80, y: 80)); fill.closeSubpath()
+
+let a = CGPoint(x: 236, y: 372), b = CGPoint(x: 440, y: 372), c = CGPoint(x: 584, y: 652), d = CGPoint(x: 780, y: 652)
+let e = CGPoint(x: 660, y: 372)
+
+// The road not taken.
+ctx.saveGState()
+ctx.setStrokeColor(hex(0xC8CEEA, 0.4))
+ctx.setLineWidth(15)
+ctx.setLineCap(.round)
+ctx.setLineDash(phase: 0, lengths: [8, 40])
+ctx.move(to: CGPoint(x: b.x + 44, y: b.y)); ctx.addLine(to: e)
+ctx.strokePath()
+ctx.restoreGState()
+ctx.setStrokeColor(hex(0xC8CEEA, 0.5))
+ctx.setLineWidth(11)
+ctx.strokeEllipse(in: CGRect(x: e.x + 26, y: e.y - 24, width: 48, height: 48))
+
+// The trace, with its glow.
+let trace = CGMutablePath()
+trace.move(to: a); trace.addLine(to: b); trace.addLine(to: c); trace.addLine(to: d)
+for (width, alpha, blur) in [(CGFloat(34), CGFloat(0.9), CGFloat(60)), (34, 1, 22)] {
     ctx.saveGState()
-    ctx.addPath(fill); ctx.clip()
-    let g = CGGradient(colorsSpace: cs, colors: [hex(hues[i], 0.2), hex(hues[i], 0.04)] as CFArray, locations: [0, 1])!
-    ctx.drawLinearGradient(g, start: CGPoint(x: 0, y: y0 + 20), end: CGPoint(x: 0, y: y0 - 130), options: [.drawsAfterEndLocation])
-    ctx.restoreGState()
-    // Glowing edge.
-    ctx.saveGState()
-    ctx.setShadow(offset: .zero, blur: 18, color: hex(hues[i], 0.8))
-    ctx.addPath(edge)
-    ctx.setStrokeColor(hex(hues[i], 0.9 - CGFloat(i) * 0.12))
-    ctx.setLineWidth(7)
+    ctx.setShadow(offset: .zero, blur: blur, color: hex(0x9A78FF, alpha))
+    ctx.addPath(trace)
+    ctx.setStrokeColor(hex(0xA88CFF))
+    ctx.setLineWidth(width)
     ctx.setLineCap(.round)
+    ctx.setLineJoin(.round)
     ctx.strokePath()
     ctx.restoreGState()
 }
+// A lighter core, so it reads as lit rather than painted.
+ctx.addPath(trace)
+ctx.setStrokeColor(hex(0xE6DDFF, 0.85))
+ctx.setLineWidth(10)
+ctx.setLineCap(.round)
+ctx.setLineJoin(.round)
+ctx.strokePath()
 
-// The sounding line, from the surface to the third stratum.
-let depth = CGPoint(x: 512, y: 300)
+// Where it starts: a ring.
+ctx.setFillColor(hex(0x0A0B11))
+ctx.fillEllipse(in: CGRect(x: a.x - 52, y: a.y - 52, width: 104, height: 104))
 ctx.saveGState()
-let lineG = CGGradient(colorsSpace: cs, colors: [hex(0xBFFBF5, 0.1), hex(0xBFFBF5, 0.95)] as CFArray, locations: [0, 1])!
-ctx.addRect(CGRect(x: 505, y: depth.y, width: 14, height: 924 - depth.y))
-ctx.clip()
-ctx.drawLinearGradient(lineG, start: CGPoint(x: 0, y: 924), end: CGPoint(x: 0, y: depth.y), options: [])
+ctx.setShadow(offset: .zero, blur: 24, color: hex(0x9A78FF, 0.9))
+ctx.setStrokeColor(hex(0xA88CFF))
+ctx.setLineWidth(30)
+ctx.strokeEllipse(in: CGRect(x: a.x - 52, y: a.y - 52, width: 104, height: 104))
 ctx.restoreGState()
 
-// Sonar rings.
-for (k, r) in [CGFloat(70), 135, 205].enumerated() {
-    ctx.saveGState()
-    ctx.setShadow(offset: .zero, blur: 12, color: hex(0x62E6DC, 0.7))
-    ctx.setStrokeColor(hex(0x9FF5EC, 0.75 - CGFloat(k) * 0.22))
-    ctx.setLineWidth(6 - CGFloat(k))
-    ctx.strokeEllipse(in: CGRect(x: depth.x - r, y: depth.y - r * 0.42, width: r * 2, height: r * 0.84))
-    ctx.restoreGState()
-}
-
-// The return.
+// Where it lands: lit green.
+let halo = CGGradient(colorsSpace: cs, colors: [hex(0x4DF0A8, 0.55), hex(0x4DF0A8, 0)] as CFArray, locations: [0, 1])!
+ctx.drawRadialGradient(halo, startCenter: d, startRadius: 0, endCenter: d, endRadius: 190, options: [])
 ctx.saveGState()
-let glow = CGGradient(colorsSpace: cs, colors: [hex(0xE9FFFC, 1), hex(0x62E6DC, 0.9), hex(0x62E6DC, 0)] as CFArray, locations: [0, 0.35, 1])!
-ctx.drawRadialGradient(glow, startCenter: depth, startRadius: 0, endCenter: depth, endRadius: 70, options: [])
+ctx.setShadow(offset: .zero, blur: 30, color: hex(0x4DF0A8, 0.95))
+ctx.setFillColor(hex(0x4DF0A8))
+ctx.fillEllipse(in: CGRect(x: d.x - 62, y: d.y - 62, width: 124, height: 124))
 ctx.restoreGState()
-ctx.setFillColor(hex(0xFFFFFF))
-ctx.fillEllipse(in: CGRect(x: depth.x - 22, y: depth.y - 22, width: 44, height: 44))
+ctx.setFillColor(hex(0xDFFFF0, 0.9))
+ctx.fillEllipse(in: CGRect(x: d.x - 26, y: d.y - 26, width: 52, height: 52))
 
 // Glass sheen along the top edge.
-let sheen = CGGradient(colorsSpace: cs, colors: [hex(0xFFFFFF, 0.16), hex(0xFFFFFF, 0)] as CFArray, locations: [0, 1])!
-ctx.drawLinearGradient(sheen, start: CGPoint(x: 0, y: 924), end: CGPoint(x: 0, y: 760), options: [])
+let sheen = CGGradient(colorsSpace: cs, colors: [hex(0xFFFFFF, 0.1), hex(0xFFFFFF, 0)] as CFArray, locations: [0, 1])!
+ctx.drawLinearGradient(sheen, start: CGPoint(x: 0, y: 924), end: CGPoint(x: 0, y: 780), options: [])
 ctx.restoreGState()
 
 // Rim.
 ctx.saveGState()
 ctx.addPath(shape)
-ctx.setStrokeColor(hex(0xFFFFFF, 0.14))
+ctx.setStrokeColor(hex(0xC8BEFF, 0.2))
 ctx.setLineWidth(3)
 ctx.strokePath()
 ctx.restoreGState()

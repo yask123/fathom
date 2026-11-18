@@ -4,15 +4,41 @@ import AppKit
 import SwiftUI
 
 enum CodeInk {
-    // Night: soft pastels on deep water. Day: printed inks on paper, dark enough to read without strain.
-    static let text = Color.adaptive(light: 0x2A2824, dark: 0xD3DAE5)
-    static let keyword = Color.adaptive(light: 0x7B3FA0, dark: 0xC5A8FF)
-    static let type = Color.adaptive(light: 0x1D6C82, dark: 0x82D9E6)
-    static let function = Color.adaptive(light: 0x2D58A0, dark: 0x8FBBFF)
-    static let string = Color.adaptive(light: 0x8A5410, dark: 0xE9C590)
-    static let number = Color.adaptive(light: 0xA9452A, dark: 0xF2A988)
-    static let comment = Color.adaptive(light: 0x8E8A80, dark: 0x5F6A7C)
-    static let attr = Color.adaptive(light: 0x9C3568, dark: 0xF3A3BC)
+    // Dark: soft neons on black. Paper: printed inks, dark enough to read without strain. Each colour is kept as
+    // AppKit's too, because the diff's lines are drawn there.
+    static let textNS = NSColor.adaptive(light: 0x23252E, dark: 0xD5DAE8)
+    static let keywordNS = NSColor.adaptive(light: 0x7B3FA0, dark: 0xC5A8FF)
+    static let typeNS = NSColor.adaptive(light: 0x1D6C82, dark: 0x82D9E6)
+    static let functionNS = NSColor.adaptive(light: 0x2D58A0, dark: 0x8FBBFF)
+    static let stringNS = NSColor.adaptive(light: 0x8A5410, dark: 0xE9C590)
+    static let numberNS = NSColor.adaptive(light: 0xA9452A, dark: 0xF2A988)
+    static let commentNS = NSColor.adaptive(light: 0x8A8C99, dark: 0x626A80)
+    static let attrNS = NSColor.adaptive(light: 0x9C3568, dark: 0xF3A3BC)
+    /// Behind the words that changed inside an edited line.
+    static let addMarkNS = NSColor.adaptive(light: 0x0C8A5E, dark: 0x4DF0A8, lightAlpha: 0.26, darkAlpha: 0.26)
+    static let delMarkNS = NSColor.adaptive(light: 0xD22B5B, dark: 0xFF5D8F, lightAlpha: 0.28, darkAlpha: 0.28)
+
+    static let text = Color(nsColor: textNS)
+    static let keyword = Color(nsColor: keywordNS)
+    static let type = Color(nsColor: typeNS)
+    static let function = Color(nsColor: functionNS)
+    static let string = Color(nsColor: stringNS)
+    static let number = Color(nsColor: numberNS)
+    static let comment = Color(nsColor: commentNS)
+    static let attr = Color(nsColor: attrNS)
+    static let addMark = Color(nsColor: addMarkNS)
+    static let delMark = Color(nsColor: delMarkNS)
+
+    private static let table: [Color: NSColor] = [
+        text: textNS, keyword: keywordNS, type: typeNS, function: functionNS, string: stringNS, number: numberNS,
+        comment: commentNS, attr: attrNS, addMark: addMarkNS, delMark: delMarkNS,
+    ]
+
+    /// The AppKit colour for one of the colours above.
+    static func ns(_ color: Color?) -> NSColor? {
+        guard let color else { return nil }
+        return table[color] ?? NSColor(color)
+    }
 }
 
 enum Highlighter {
@@ -167,6 +193,21 @@ enum Highlighter {
             }
             return out
         }
+    }
+
+    /// A coloured line as the diff's canvas draws it: AppKit colours, the code font, tabs as four spaces.
+    static func ns(_ a: AttributedString) -> NSAttributedString {
+        let out = NSMutableAttributedString()
+        for run in a.runs {
+            var attrs: [NSAttributedString.Key: Any] = [
+                .font: CodeStyle.font,
+                .foregroundColor: CodeInk.ns(run.swiftUI.foregroundColor) ?? CodeInk.textNS,
+            ]
+            if let mark = CodeInk.ns(run.swiftUI.backgroundColor) { attrs[CodeStyle.mark] = mark }
+            out.append(NSAttributedString(string: String(a[run.range].characters).replacingOccurrences(of: "\t", with: "    "),
+                                          attributes: attrs))
+        }
+        return out
     }
 
     static func plain(_ line: String) -> AttributedString {

@@ -1,7 +1,14 @@
-// Fathom's look: deep ink water by night, warm paper by day, one sonar accent, and depth hues for the layers of a system.
+// The look: near-black, one violet signal, and three neon inks that mean something (new, changed, gone).
+// Monospace for names and labels, the system face for sentences. Neon only on the edges: wires, outlines, marks.
 
 import AppKit
 import SwiftUI
+
+/// What the app is called, in one place.
+enum Brand {
+    static let name = "Tracer"
+    static let line = "Follow the change."
+}
 
 extension Color {
     init(hex: UInt32, alpha: Double = 1) {
@@ -12,84 +19,103 @@ extension Color {
                   opacity: alpha)
     }
 
-    /// A colour for each appearance: the night one Fathom was drawn in, and a day one on warm paper.
+    /// A colour for each appearance: neon on black, and a deeper ink of the same hue for paper.
     static func adaptive(light: UInt32, dark: UInt32, lightAlpha: Double = 1, darkAlpha: Double = 1) -> Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            let hex = isDark ? dark : light
-            return NSColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
-                           blue: CGFloat(hex & 0xFF) / 255, alpha: CGFloat(isDark ? darkAlpha : lightAlpha))
-        })
+        Color(nsColor: .adaptive(light: light, dark: dark, lightAlpha: lightAlpha, darkAlpha: darkAlpha))
     }
 
-    /// A film over the page: white on the night water, ink on the day paper. Hairlines, hovers and wells.
-    static func wash(_ opacity: Double) -> Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                ? NSColor.white.withAlphaComponent(CGFloat(opacity))
-                : NSColor(srgbRed: 0.11, green: 0.10, blue: 0.08, alpha: CGFloat(opacity * 0.8))
-        })
-    }
+    /// A film over the page: white on black, ink on paper. Hairlines, hovers and wells.
+    static func wash(_ opacity: Double) -> Color { Color(nsColor: .wash(opacity)) }
 
-    /// A recessed field (a text box, a code block): darker water at night, a little darker paper by day.
+    /// A recessed field (a text box, a code block).
     static func well(_ opacity: Double) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
                 ? NSColor.black.withAlphaComponent(CGFloat(opacity))
-                : NSColor(srgbRed: 0.35, green: 0.30, blue: 0.20, alpha: CGFloat(opacity * 0.22))
+                : NSColor(srgbRed: 0.2, green: 0.22, blue: 0.32, alpha: CGFloat(opacity * 0.2))
         })
     }
 
-    /// The deepest colour, and the one text takes on top of a bright fill (a badge, a dot, a button).
-    static let ink = adaptive(light: 0xFBFAF6, dark: 0x06080C)
-    static let hair = wash(0.08)
+    /// The text that sits on a bright fill (a badge, a dot, a button).
+    static let ink = Color(nsColor: .inkInk)
+    static let hair = wash(0.09)
 
-    // Day: warm paper and brown-black ink, easy on the eyes. Night: deep water.
-    static let canvas = adaptive(light: 0xF3F0E8, dark: 0x0A0D12)
-    static let sidebar = adaptive(light: 0xEBE7DE, dark: 0x0C1016)
-    static let card = adaptive(light: 0xFBF9F4, dark: 0x0D1218)
-    static let sheet = adaptive(light: 0xF6F3EC, dark: 0x0B0F16)
+    static let canvas = adaptive(light: 0xF4F4F7, dark: 0x08090D)
+    static let sidebar = adaptive(light: 0xECECF1, dark: 0x0B0C12)
+    static let card = adaptive(light: 0xFFFFFF, dark: 0x0F1118)
+    static let sheet = adaptive(light: 0xF7F7FA, dark: 0x0C0D13)
+    /// What a figure's labels sit on, so they mask the lines behind them: the canvas itself.
+    static let paper = canvas
 
-    static let text1 = adaptive(light: 0x1C1B18, dark: 0xE8EBF0)
-    static let text2 = adaptive(light: 0x57544D, dark: 0xA2AAB7)
-    static let text3 = adaptive(light: 0x8C887F, dark: 0x6C7483)
+    static let text1 = adaptive(light: 0x14151B, dark: 0xECEEF5)
+    static let text2 = adaptive(light: 0x4C505E, dark: 0x9CA2B2)
+    static let text3 = Color(nsColor: .text3Ink)
 
-    /// The one accent: the colour of a sonar return, kept quiet. Deeper by day so it reads on paper.
-    static let sonar = adaptive(light: 0x1B7C76, dark: 0x6CCDC8)
-    // Meaning, in inks rather than neons: new, changed, removed.
-    static let added = adaptive(light: 0x2E7A55, dark: 0x6DC59B)
-    static let changed = adaptive(light: 0x9E6418, dark: 0xD6AC6B)
-    static let removed = adaptive(light: 0xB23F37, dark: 0xDE7B7B)
-    static let calm = adaptive(light: 0x4A6491, dark: 0x8EA4C8)
+    /// The one accent: the colour of the trace itself, of anything live or selected.
+    static let signal = Color(nsColor: .signalInk)
+    // What a mark means, the way a diff means it: new, changed, gone.
+    static let added = Color(nsColor: .addedInk)
+    static let changed = adaptive(light: 0xA36700, dark: 0xFFC857)
+    static let removed = Color(nsColor: .removedInk)
+    static let calm = adaptive(light: 0x2C6BD0, dark: 0x6FB6FF)
     static let merged = adaptive(light: 0x7048C2, dark: 0xB49CFF)
-    /// A plain arrow in a figure.
-    static let stroke = adaptive(light: 0x4B4943, dark: 0xC9CFD8)
+    /// A plain wire in a figure.
+    static let stroke = adaptive(light: 0x3B3F4C, dark: 0xB9BFCE)
+    /// The trace itself where nothing changed: light, with the signal colour as its halo.
+    static let trace = adaptive(light: 0x2A2D3A, dark: 0xEFEBFF)
+    /// The ground the trace is drawn on.
+    static let stage = adaptive(light: 0xFFFFFF, dark: 0x0B0C13, lightAlpha: 0.75, darkAlpha: 0.72)
+    /// The far end of the headline's gradient.
+    static let headlineEnd = adaptive(light: 0x3A2FA0, dark: 0xC9BEFF)
+    /// One hue per process the trace passes through. None of them green, amber or red: those mean new, changed, gone.
+    static let lanes: [Color] = [
+        .signal,
+        adaptive(light: 0x2C6BD0, dark: 0x6FB6FF),
+        adaptive(light: 0x0E8C99, dark: 0x5EE0E6),
+        adaptive(light: 0xB8409A, dark: 0xF58AD8),
+        adaptive(light: 0x5B62D6, dark: 0x8C9BFF),
+    ]
 
-    static let cardTint = adaptive(light: 0xFFFFFF, dark: 0x0D121A, lightAlpha: 0.55, darkAlpha: 0.5)
-    static let sidebarTint = adaptive(light: 0xF1EDE4, dark: 0x0A1016, lightAlpha: 0.5, darkAlpha: 0.42)
+    static let cardTint = adaptive(light: 0xFFFFFF, dark: 0x0E1017, lightAlpha: 0.6, darkAlpha: 0.55)
+}
 
-    /// Layer hues, surface to abyss.
-    static let depth: [Color] = [0x62E6DC, 0x5BB4F2, 0x7F8CF6, 0xA68AF2, 0xCB8BDF].map { Color(hex: $0) }
-    static func depth(_ i: Int) -> Color { depth[max(0, min(i, depth.count - 1))] }
+/// The same colours for what AppKit draws itself (the lines of a diff): each is defined here once, and the SwiftUI
+/// colour above is made from it.
+extension NSColor {
+    static func adaptive(light: UInt32, dark: UInt32, lightAlpha: Double = 1, darkAlpha: Double = 1) -> NSColor {
+        NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            let hex = isDark ? dark : light
+            return NSColor(srgbRed: CGFloat((hex >> 16) & 0xFF) / 255, green: CGFloat((hex >> 8) & 0xFF) / 255,
+                           blue: CGFloat(hex & 0xFF) / 255, alpha: CGFloat(isDark ? darkAlpha : lightAlpha))
+        }
+    }
+
+    static func wash(_ opacity: Double) -> NSColor {
+        NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(srgbRed: 0.82, green: 0.85, blue: 1, alpha: CGFloat(opacity))
+                : NSColor(srgbRed: 0.08, green: 0.09, blue: 0.14, alpha: CGFloat(opacity * 0.85))
+        }
+    }
+
+    static let inkInk = adaptive(light: 0xFFFFFF, dark: 0x06070B)
+    static let text3Ink = adaptive(light: 0x858A99, dark: 0x5F6577)
+    static let signalInk = adaptive(light: 0x5F45E0, dark: 0xA88CFF)
+    static let addedInk = adaptive(light: 0x0C8A5E, dark: 0x4DF0A8)
+    static let removedInk = adaptive(light: 0xD22B5B, dark: 0xFF5D8F)
 }
 
 extension Font {
-    /// STIX Two, the face of scientific journals, for titles and the story's sentences, with old-style figures.
-    /// New York if it's missing.
-    static func serif(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        Typeface.stix(size, weight: weight)
+    /// Headlines: the system face, set tight.
+    static func display(_ size: CGFloat, _ weight: Font.Weight = .semibold) -> Font {
+        .system(size: size, weight: weight)
     }
-    static func serifItalic(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        Typeface.stix(size, weight: weight, italic: true)
+    /// Sentences.
+    static func sans(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
+        .system(size: size, weight: weight)
     }
-    /// Small capitals, as in a book's running heads and a journal's "Fig. 1.": every letter small, spaced by the caller.
-    static func smallCaps(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
-        Typeface.stix(size, weight: weight, caps: .all)
-    }
-    /// A run-in head: a capital, then small capitals ("Problem." as in a structured abstract).
-    static func runIn(_ size: CGFloat) -> Font {
-        Typeface.stix(size, caps: .lower)
-    }
+    /// Names from the code, labels, numbers, keys.
     static func mono(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font {
         .system(size: size, weight: weight, design: .monospaced)
     }
@@ -102,40 +128,7 @@ enum Motion {
     static let slow = Animation.smooth(duration: 0.9)
 }
 
-enum Typeface {
-    static let hasSTIX = NSFont(name: "STIXTwoText", size: 12) != nil
-
-    enum Caps { case none, lower, all }
-
-    /// STIX Two Text with its OpenType features: old-style figures always, small capitals when asked.
-    static func stix(_ size: CGFloat, weight: Font.Weight = .regular, italic: Bool = false, caps: Caps = .none) -> Font {
-        guard hasSTIX else {
-            let f = Font.system(size: size, weight: weight, design: .serif)
-            return italic ? f.italic() : caps == .none ? f : f.smallCaps()
-        }
-        var traits: [NSFontDescriptor.TraitKey: Any] = [.weight: nsWeight(weight).rawValue]
-        if italic { traits[.symbolic] = NSFontDescriptor.SymbolicTraits.italic.rawValue }
-        var features: [[NSFontDescriptor.FeatureKey: Int]] = [
-            [.typeIdentifier: kNumberCaseType, .selectorIdentifier: kLowerCaseNumbersSelector],
-        ]
-        if caps != .none { features.append([.typeIdentifier: kLowerCaseType, .selectorIdentifier: kLowerCaseSmallCapsSelector]) }
-        if caps == .all { features.append([.typeIdentifier: kUpperCaseType, .selectorIdentifier: kUpperCaseSmallCapsSelector]) }
-        let descriptor = NSFontDescriptor(fontAttributes: [.family: "STIX Two Text", .traits: traits, .featureSettings: features])
-        guard let font = NSFont(descriptor: descriptor, size: size) else { return .system(size: size, design: .serif) }
-        return Font(font as CTFont)
-    }
-
-    private static func nsWeight(_ w: Font.Weight) -> NSFont.Weight {
-        switch w {
-        case .medium: .medium
-        case .semibold: .semibold
-        case .bold, .heavy, .black: .bold
-        default: .regular
-        }
-    }
-}
-
-/// A section label, set like a paper's: small monospaced capitals, spaced out.
+/// A label: small monospaced capitals, spaced out.
 struct Eyebrow: View {
     let text: String
     var color: Color = .text3
@@ -146,149 +139,180 @@ struct Eyebrow: View {
     }
 
     var body: some View {
-        Text(text)
-            .font(.smallCaps(12.5))
-            .tracking(1.1)
+        Text(text.uppercased())
+            .font(.mono(10.5, .medium))
+            .tracking(1.4)
             .foregroundStyle(color)
     }
 }
 
 /// A hairline rule.
 struct Rule: View {
-    var opacity = 0.08
+    var opacity = 0.09
     var body: some View { Rectangle().fill(Color.wash(opacity)).frame(height: 0.5) }
 }
 
-/// A figure on a faint engineering grid with registration marks at its corners, and a caption under it set the
-/// way journals set them: "Fig. 1." in small capitals, then the sentence.
-struct Figure<Content: View>: View {
-    let number: Int
-    let caption: String
-    @ViewBuilder var content: Content
+/// A section of the trace: a short lit tick, its name in capitals, a count or note, then a hairline to the edge.
+struct SectionMark<Trailing: View>: View {
+    let title: String
+    var note = ""
+    var tint: Color = .signal
+    @ViewBuilder var trailing: Trailing
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            content
-                .padding(.vertical, 26)
-                .padding(.horizontal, 22)
-                .frame(maxWidth: .infinity)
-                .background(GridPaper())
-                .overlay(Rectangle().strokeBorder(Color.wash(0.045), lineWidth: 0.5))
-                .overlay(CropMarks())
-            if !caption.isEmpty {
-                (Text("Fig. \(number).").font(.smallCaps(14)).foregroundStyle(Color.text2)
-                 + Text("   " + caption).font(.serif(14.5)).foregroundStyle(Color.text3))
-                    .lineSpacing(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: 760, alignment: .leading)
+        HStack(alignment: .center, spacing: 10) {
+            Capsule().fill(tint).frame(width: 14, height: 2)
+                .shadow(color: tint.opacity(0.7), radius: 4)
+            Text(title.uppercased())
+                .font(.mono(11, .semibold))
+                .tracking(1.6)
+                .foregroundStyle(Color.text1)
+            if !note.isEmpty {
+                Text(note)
+                    .font(.mono(11))
+                    .foregroundStyle(Color.text3)
+                    .lineLimit(1)
             }
+            Rule(opacity: 0.08)
+            trailing
         }
     }
 }
 
-/// The small L-shaped marks a draughtsman puts at a plate's corners.
-struct CropMarks: View {
+extension SectionMark where Trailing == EmptyView {
+    init(title: String, note: String = "", tint: Color = .signal) {
+        self.init(title: title, note: note, tint: tint) { EmptyView() }
+    }
+}
+
+/// A key and what it does, for the line of hints under a figure: [space] play.
+struct KeyHint: View {
+    let key: String
+    let does: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(key)
+                .font(.mono(10, .medium))
+                .foregroundStyle(Color.text2)
+                .padding(.horizontal, 5)
+                .frame(minWidth: 18, minHeight: 17)
+                .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.wash(0.05)))
+                .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Color.wash(0.14), lineWidth: 0.5))
+            Text(does)
+                .font(.mono(10.5))
+                .foregroundStyle(Color.text3)
+        }
+    }
+}
+
+/// A quiet action in monospace: "code →".
+struct InkButton: View {
+    let title: String
+    var icon: String? = "arrow.right"
+    var leading: String? = nil
+    var tint: Color = .text3
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                if let leading { Image(systemName: leading).font(.system(size: 9.5, weight: .semibold)) }
+                Text(title).font(.mono(11, .medium))
+                if let icon { Image(systemName: icon).font(.system(size: 8.5, weight: .bold)) }
+            }
+            .foregroundStyle(hover ? Color.text1 : tint)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = QA.hover($0) }
+    }
+}
+
+/// Dots every 22 points, barely there: the board a figure is drawn on.
+struct DotGrid: View {
+    var step: CGFloat = 22
+
     var body: some View {
         Canvas { ctx, size in
-            let l: CGFloat = 9, inset: CGFloat = -0.5
-            var p = Path()
-            for (x, y, dx, dy) in [(inset, inset, 1.0, 1.0), (size.width - inset, inset, -1.0, 1.0),
-                                   (inset, size.height - inset, 1.0, -1.0), (size.width - inset, size.height - inset, -1.0, -1.0)] {
-                p.move(to: CGPoint(x: x + dx * l, y: y)); p.addLine(to: CGPoint(x: x, y: y)); p.addLine(to: CGPoint(x: x, y: y + dy * l))
-            }
-            ctx.stroke(p, with: .color(.wash(0.32)), lineWidth: 0.75)
-        }
-        .allowsHitTesting(false)
-    }
-}
-
-/// A book's running head: where you are, in small capitals, over a hairline.
-struct RunningHead: View {
-    let left: String
-    let right: String
-
-    var body: some View {
-        VStack(spacing: 9) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(left).lineLimit(1)
-                Spacer(minLength: 20)
-                Text(right).lineLimit(1)
-            }
-            .font(.smallCaps(12))
-            .tracking(1.2)
-            .foregroundStyle(Color.text3)
-            Rule(opacity: 0.1)
-        }
-    }
-}
-
-/// The colour a figure's paper comes out as, for labels and parts that sit on it and mask the grid.
-extension Color {
-    static let paper = adaptive(light: 0xF1EEE6, dark: 0x0D1015)
-}
-
-/// Dots every 16 points, barely there: the paper the figures are drawn on.
-struct GridPaper: View {
-    var body: some View {
-        Canvas { ctx, size in
-            let step: CGFloat = 16
             var dots = Path()
-            var y = step
+            var y = step / 2
             while y < size.height {
-                var x = step
+                var x = step / 2
                 while x < size.width {
                     dots.addRect(CGRect(x: x, y: y, width: 1, height: 1))
                     x += step
                 }
                 y += step
             }
-            ctx.fill(dots, with: .color(.wash(0.09)))
+            ctx.fill(dots, with: .color(.wash(0.085)))
         }
-        .background(Color.wash(0.012))
         .allowsHitTesting(false)
     }
 }
 
 extension View {
-    /// A pane of dark Liquid Glass.
+    /// A pane of Liquid Glass, for what floats over the page.
     func card(_ radius: CGFloat = 22, tint: Color = .cardTint, interactive: Bool = false) -> some View {
         glassEffect(interactive ? .regular.tint(tint).interactive() : .regular.tint(tint),
                     in: .rect(cornerRadius: radius, style: .continuous))
     }
 
-    func hairline(_ radius: CGFloat, opacity: Double = 0.08) -> some View {
+    func hairline(_ radius: CGFloat, opacity: Double = 0.09) -> some View {
         overlay {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
                 .strokeBorder(Color.wash(opacity), lineWidth: 0.5)
         }
     }
+
+    /// A soft halo in the dark; nothing on paper, where a glow only smudges.
+    func neon(_ color: Color, radius: CGFloat = 8, strength: Double = 0.55) -> some View {
+        modifier(NeonGlow(color: color, radius: radius, strength: strength))
+    }
 }
 
-/// A flat, quiet card for anything that scrolls or redraws often (glass is kept for the chrome).
+private struct NeonGlow: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
+    let color: Color
+    let radius: CGFloat
+    let strength: Double
+
+    func body(content: Content) -> some View {
+        content.shadow(color: scheme == .dark ? color.opacity(strength) : .clear, radius: radius)
+    }
+}
+
+/// A flat, quiet card for anything that scrolls or redraws often (glass is kept for what floats).
 struct Surface: View {
     var radius: CGFloat = 8
 
     var body: some View {
         RoundedRectangle(cornerRadius: radius, style: .continuous)
-            .fill(Color.adaptive(light: 0xFBF9F4, dark: 0x0A0E15, lightAlpha: 0.7, darkAlpha: 0.66))
+            .fill(Color.adaptive(light: 0xFFFFFF, dark: 0x0C0D14, lightAlpha: 0.75, darkAlpha: 0.8))
             .overlay {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(Color.wash(0.065), lineWidth: 0.75)
+                    .strokeBorder(Color.wash(0.07), lineWidth: 0.75)
             }
     }
 }
 
-/// Whether the keyboard is in a text field or editor, so single-key shortcuts (j, k, n, p, x, ← →) stand aside.
+/// Whether the keyboard is in a text field or editor, so single-key shortcuts (j, k, n, p, x, ← →, space) stand aside.
 enum Typing {
     @MainActor static var active: Bool { NSApp.keyWindow?.firstResponder is NSText }
 }
 
 /// Switches for screenshots. FATHOM_NO_HOVER=1 ignores the pointer, so a capture shows no hover state.
 enum QA {
-    static let noHover = ProcessInfo.processInfo.environment["FATHOM_NO_HOVER"] == "1"
-    static let storyEnd = ProcessInfo.processInfo.environment["FATHOM_STORY_END"] == "1"
-    /// FATHOM_FLOW=before or after opens the behaviour figure on that telling.
-    static let flow = ProcessInfo.processInfo.environment["FATHOM_FLOW"] ?? "diff"
+    static let env = ProcessInfo.processInfo.environment
+    static let noHover = env["FATHOM_NO_HOVER"] == "1"
+    /// FATHOM_FLOW=before or after opens the flow on that telling; FATHOM_STEP=3 opens it stopped on a step.
+    static let flow = env["FATHOM_FLOW"] ?? "diff"
+    static let step = env["FATHOM_STEP"].flatMap(Int.init)
+    /// FATHOM_SECTION=end opens the trace scrolled to its end.
+    static let section = env["FATHOM_SECTION"]
+    /// Nothing moves: everything is drawn as it ends up. Set for a picture rendered off screen (FATHOM_RENDER).
+    static let still = env["FATHOM_RENDER"] != nil || env["FATHOM_STILL"] == "1"
     static func hover(_ h: Bool) -> Bool { noHover ? false : h }
 }
 
@@ -306,50 +330,56 @@ extension Change {
 
     var word: String {
         switch self {
-        case .added: "New"
-        case .modified: "Changed"
-        case .removed: "Removed"
-        case .unchanged: "Context"
+        case .added: "new"
+        case .modified: "changed"
+        case .removed: "removed"
+        case .unchanged: "context"
+        }
+    }
+
+    /// The mark a diff gives it.
+    var sign: String {
+        switch self {
+        case .added: "+"
+        case .modified: "~"
+        case .removed: "−"
+        case .unchanged: ""
         }
     }
 }
 
 enum Glyph {
-    static func component(_ kind: String) -> String {
+    /// The mark for a part of the system, by what sort of thing it is.
+    static func part(_ kind: String) -> String {
         switch kind {
+        case "person": "person.fill"
         case "ui": "macwindow"
-        case "api": "network"
-        case "service": "gearshape.2"
-        case "state": "circle.hexagongrid"
-        case "store": "cylinder"
-        case "external": "globe"
+        case "service": "gearshape.fill"
+        case "api": "point.3.connected.trianglepath.dotted"
+        case "store": "cylinder.split.1x2.fill"
+        case "external": "cloud.fill"
         case "job": "clock.arrow.2.circlepath"
         case "config": "slider.horizontal.3"
-        case "library": "shippingbox"
-        case "test": "checkmark.seal"
-        default: "square"
+        case "library": "shippingbox.fill"
+        default: "square.stack.3d.up.fill"
         }
     }
 
     static func kindWord(_ kind: String) -> String {
         switch kind {
-        case "feature": "Feature"
-        case "fix": "Fix"
-        case "refactor": "Refactor"
-        case "performance": "Performance"
-        case "infra": "Infrastructure"
-        case "tests": "Tests"
-        case "docs": "Docs"
-        case "chore": "Chore"
-        case "mixed": "Mixed"
-        default: kind.capitalized
+        case "feature": "feature"
+        case "fix": "fix"
+        case "refactor": "refactor"
+        case "performance": "perf"
+        case "infra": "infra"
+        case "tests": "tests"
+        case "docs": "docs"
+        case "chore": "chore"
+        case "mixed": "mixed"
+        default: kind.lowercased()
         }
     }
 }
-
-// MARK: - Backdrop
-
-/// The window's water: still, deep, with a little light at the surface and grain.
 
 // MARK: - Small shared pieces
 
@@ -439,6 +469,32 @@ enum Fmt {
     static func clock(_ seconds: Double) -> String {
         let s = max(0, Int(seconds.rounded()))
         return String(format: "%d:%02d", s / 60, s % 60)
+    }
+
+    /// "4.2 s"
+    static func seconds(_ s: Double) -> String {
+        s < 10 ? String(format: "%.1f s", s) : "\(Int(s.rounded())) s"
+    }
+}
+
+/// Small helpers for the words Claude writes.
+enum Prose {
+    /// "only new routes stop navigation" → "Only new routes stop navigation."
+    static func sentence(_ s: String) -> String {
+        var out = s.trimmingCharacters(in: .whitespaces)
+        // A name from the code keeps its case: "conversation-v4 header…", "placeDetail is…".
+        let word = out.prefix { !$0.isWhitespace }
+        let code = word.contains { $0.isNumber || "-_.()/:".contains($0) } || word.dropFirst().contains(where: \.isUppercase)
+        if let first = out.first, first.isLowercase, !code { out = first.uppercased() + out.dropFirst() }
+        if let last = out.last, !".!?".contains(last) { out += "." }
+        return out
+    }
+
+    /// The same without the full stop, for a headline.
+    static func title(_ s: String) -> String {
+        var out = sentence(s)
+        if out.hasSuffix(".") { out.removeLast() }
+        return out
     }
 }
 

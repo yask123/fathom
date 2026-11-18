@@ -1,4 +1,4 @@
-// What Fathom knows: pull requests from GitHub, and the brief and map Claude writes about them.
+// What the app knows: pull requests from GitHub, and what Claude reads in them (the trace and the outline).
 
 import Foundation
 
@@ -49,10 +49,11 @@ struct PRRef: Hashable, Codable, Identifiable, Sendable {
     var web: URL { URL(string: "https://github.com/\(owner)/\(repo)/pull/\(number)")! }
     var fileKey: String { "\(owner)__\(repo)__\(number)" }
 
-    /// Accepts a PR link, `owner/repo#123`, `owner/repo/pull/123` or a `fathom://` link.
+    /// Accepts a PR link, `owner/repo#123`, `owner/repo/pull/123` or one of the app's own links (`tracer://`, and
+    /// `fathom://` from before the rename).
     static func parse(_ text: String) -> PRRef? {
         var s = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        for prefix in ["fathom://open?url=", "fathom://", "https://", "http://", "www.", "github.com/"] where s.hasPrefix(prefix) {
+        for prefix in ["tracer://open?url=", "tracer://", "fathom://open?url=", "fathom://", "https://", "http://", "www.", "github.com/"] where s.hasPrefix(prefix) {
             s.removeFirst(prefix.count)
         }
         s = s.removingPercentEncoding ?? s
@@ -227,7 +228,7 @@ struct Viewer: Sendable, Equatable, Codable {
     var avatar: URL?
 }
 
-// MARK: - The brief
+// MARK: - The outline
 
 enum Attention: String, Sendable {
     case focus, skim, skip
@@ -258,146 +259,138 @@ struct HunkNote: Sendable {
     var note: String
 }
 
+/// The diff sorted into reading order for the Code tab: chapters by purpose, and a few words on each change.
 struct Brief: Sendable {
-    var headline = ""
-    var kind = ""
     var chapters: [Chapter] = []
     var notes: [HunkNote] = []
-    var contracts: [Contract] = []
 
     init() {}
 
     init(_ j: J) {
-        headline = j["headline"].string
-        kind = j["kind"].string
         chapters = j["chapters"].array.enumerated().map { i, c in
             Chapter(id: i, title: c["title"].string,
                     attention: Attention(rawValue: c["attention"].string) ?? .skim, hunks: c["hunks"].strings)
         }
         notes = j["notes"].array.map { HunkNote(hunk: $0["hunk"].string, anchor: $0["anchor"].string, note: $0["note"].string) }
-        contracts = j["contracts"].array.enumerated().compactMap { i, c in
-            let name = c["name"].string
-            guard !name.isEmpty else { return nil }
-            return Contract(id: i, name: name, kind: c["kind"].string, change: Change(rawValue: c["change"].string) ?? .modified,
-                            file: c["file"].string,
-                            members: c["members"].array.map { ContractMember(name: $0["name"].string, change: Change(rawValue: $0["change"].string) ?? .modified) }
-                                .filter { !$0.name.isEmpty })
-        }
     }
 
-    var isEmpty: Bool { headline.isEmpty && chapters.isEmpty }
+    var isEmpty: Bool { chapters.isEmpty }
 }
 
-/// An interface whose shape the PR changes: an endpoint, a type, a table, an event, a config key.
-struct Contract: Identifiable, Sendable {
-    var id: Int
-    var name: String
-    var kind: String
-    var change: Change
-    var file: String
-    var members: [ContractMember]
-}
+// MARK: - The trace
 
-struct ContractMember: Hashable, Sendable {
-    var name: String
-    var change: Change
-}
-
-// MARK: - The story
-
-/// How the change works, drawn: the system before and after as one journey, the parts it lives in and what crosses
-/// between them, and the engineering idea it rests on.
-struct Story: Sendable {
+/// What the change does, drawn: one request's journey through the system, told once for before and after, with the
+/// parts it passes through and where each one runs.
+struct Trace: Sendable {
     /// Whether a step of the journey happens before, after, or both.
     enum Status: String, Sendable {
         case same, removed, added, changed
     }
 
+    /// A part the journey passes through, or the person who starts it.
+    struct Actor: Sendable, Identifiable, Hashable {
+        var id: String
+        var name: String
+        /// What sort of thing it is (person, ui, service, api, store, external, job, config, library), for its mark.
+        var kind: String
+        var role: String
+        /// The process or deployable it runs in ("iOS app", "API server"); empty for a person.
+        var place: String
+        var change: Change
+
+        var isPerson: Bool {
+            let n = name.lowercased()
+            return kind == "person" || n == "you" || n == "user" || (place.isEmpty && id == "you")
+        }
+    }
+
+    /// A place where the change took one road over another.
+    struct Fork: Sendable, Identifiable, Hashable {
+        var id: Int
+        var title: String
+        var chose: String
+        var over: [String]
+        var why: String
+        /// The step of the flow where the choice shows, or -1.
+        var step: Int
+        var hunk: String
+    }
+
     /// One step of the journey, told once for both versions.
-    struct Beat: Sendable, Hashable, Identifiable {
+    struct Step: Sendable, Hashable, Identifiable {
         var id: Int
         var from: String
         var to: String
         var does: String
         var data: String
         var status: Status
-        var wasDoes: String
-        var wasData: String
+        var was: String
+        /// Where this step's change lives in the diff, when it changes.
+        var hunk: String
 
         var inBefore: Bool { status != .added }
         var inAfter: Bool { status != .removed }
         /// The step as it went before the change.
-        var beforeDoes: String { status == .changed && !wasDoes.isEmpty ? wasDoes : does }
-        var beforeData: String { status == .changed && !wasData.isEmpty ? wasData : data }
+        var beforeDoes: String { status == .changed && !was.isEmpty ? was : does }
     }
 
-    struct Part: Sendable, Identifiable, Hashable {
-        var id: String
-        var name: String
-        var kind: String
-        var change: Change
-        var role: String
-        /// The process or deployable it runs in ("iOS app", "API server").
-        var place: String
-
-        var isNew: Bool { change == .added }
-    }
-
-    struct Link: Sendable, Hashable {
-        var from: String
-        var to: String
-        var label: String
-        var change: Change
-    }
-
-    struct Concept: Sendable, Hashable {
-        var name: String
-        var gist: String
-        var here: String
-        var kin: String
-    }
-
-    struct Term: Sendable, Hashable {
-        var term: String
-        var meaning: String
-    }
-
-    var problem = ""
-    var after = ""
-    var move = ""
-    var flow: [Beat] = []
+    var headline = ""
+    var kind = ""
+    var was = ""
+    var now = ""
+    var how = ""
+    var cast: [Actor] = []
+    var flow: [Step] = []
     var breaks = -1
     var pain = ""
-    var parts: [Part] = []
-    var links: [Link] = []
-    var concept: Concept?
-    var terms: [Term] = []
+    var forks: [Fork] = []
 
     init() {}
 
-    init(_ j: J) {
-        problem = j["problem"].string
-        after = j["after"].string
-        move = j["move"].string
-        flow = j["flow"].array.enumerated().map { i, s in
-            Beat(id: i, from: s["from"].string, to: s["to"].string, does: s["does"].string, data: s["data"].string,
-                 status: Status(rawValue: s["status"].string) ?? .same, wasDoes: s["wasDoes"].string, wasData: s["wasData"].string)
-        }.filter { !$0.from.isEmpty && !$0.to.isEmpty }
+    /// `partial` is for an answer still being written: the entry Claude is in the middle of is left out until it's
+    /// whole, so a half-typed id never shows up as a part of its own.
+    init(_ j: J, partial: Bool = false) {
+        headline = j["headline"].string
+        kind = j["kind"].string
+        was = j["was"].string
+        now = j["now"].string
+        how = j["how"].string
+        var actors = j["cast"].array.map {
+            Actor(id: $0["id"].string, name: $0["name"].string, kind: $0["kind"].string, role: $0["role"].string,
+                  place: $0["where"].string, change: Self.change($0["change"].string))
+        }
+        var steps = j["flow"].array.map { s in
+            Step(id: 0, from: s["from"].string, to: s["to"].string, does: s["does"].string, data: s["data"].string,
+                 status: Status(rawValue: s["status"].string) ?? .same, was: s["was"].string, hunk: s["hunk"].string)
+        }
+        if partial && !j["breaks"].exists {
+            if steps.isEmpty { if !actors.isEmpty { actors.removeLast() } } else { steps.removeLast() }
+        }
+        actors = actors.filter { !$0.id.isEmpty && !$0.name.isEmpty }
+        steps = steps.filter { !$0.from.isEmpty && !$0.to.isEmpty && !$0.does.isEmpty }
+        var known = Set(actors.map(\.id))
+        if partial {
+            // Mid-answer, a step that names a part not in the cast is one whose id is still being typed: it waits.
+            steps = steps.filter { known.contains($0.from) && known.contains($0.to) }
+        } else {
+            // In the finished answer, a step may name a part the cast left out; it joins under its own name.
+            for s in steps {
+                for id in [s.from, s.to] where known.insert(id).inserted {
+                    actors.append(Actor(id: id, name: id, kind: "", role: "", place: "", change: .unchanged))
+                }
+            }
+        }
+        cast = actors
+        flow = steps.enumerated().map { i, s in var s = s; s.id = i; return s }
         breaks = j["breaks"].exists ? j["breaks"].int : -1
         pain = j["pain"].string
-        parts = j["parts"].array.map {
-            Part(id: $0["id"].string, name: $0["name"].string, kind: $0["kind"].string, change: Self.change($0["change"].string),
-                 role: $0["role"].string, place: $0["where"].string)
-        }.filter { !$0.id.isEmpty && !$0.name.isEmpty }
-        let ids = Set(parts.map(\.id))
-        links = j["links"].array.map {
-            Link(from: $0["from"].string, to: $0["to"].string, label: $0["label"].string, change: Self.change($0["change"].string))
-        }.filter { ids.contains($0.from) && ids.contains($0.to) && $0.from != $0.to }
-        let c = j["concept"]
-        if !c["name"].string.isEmpty {
-            concept = Concept(name: c["name"].string, gist: c["gist"].string, here: c["here"].string, kin: c["kin"].string)
+        var fs = j["forks"].array.enumerated().map { n, f in
+            Fork(id: n, title: f["title"].string, chose: f["chose"].string, over: f["over"].strings.filter { !$0.isEmpty },
+                 why: f["why"].string, step: f["step"].exists ? f["step"].int : -1, hunk: f["hunk"].string)
         }
-        terms = j["terms"].array.map { Term(term: $0["term"].string, meaning: $0["meaning"].string) }.filter { !$0.term.isEmpty }
+        // The fork still being written waits until it's whole.
+        if partial, !fs.isEmpty { fs.removeLast() }
+        forks = fs.filter { !$0.title.isEmpty && !$0.chose.isEmpty }
     }
 
     static func change(_ s: String) -> Change {
@@ -409,117 +402,8 @@ struct Story: Sendable {
         }
     }
 
-    var isEmpty: Bool { problem.isEmpty && move.isEmpty && after.isEmpty }
-    var before: [Beat] { flow.filter(\.inBefore) }
-    var now: [Beat] { flow.filter(\.inAfter) }
-}
-
-// MARK: - The critique
-
-/// What a referee would want: what the change trades away, how it could fail and whether it can be undone, the
-/// questions it leaves open, and the passages that carry it.
-struct Critique: Sendable {
-    struct Choice: Sendable, Identifiable, Hashable {
-        var id: Int
-        var title: String
-        var options: [String]
-        var criteria: [Criterion]
-        var why: String
-        var stated: Bool
-        var hunks: [String]
-    }
-
-    struct Criterion: Sendable, Hashable {
-        var name: String
-        var scores: [Int]
-    }
-
-    struct Risk: Sendable, Identifiable, Hashable {
-        var id: Int
-        var title: String
-        var when: String
-        var effect: String
-        var likelihood: Int
-        var impact: Int
-        var guardedBy: String
-        var hunks: [String]
-
-        var score: Int { likelihood * impact }
-    }
-
-    struct Question: Sendable, Identifiable, Hashable {
-        var id: Int
-        var q: String
-        var why: String
-        var hunk: String
-    }
-
-    struct Evidence: Sendable, Identifiable, Hashable {
-        var id: Int
-        var hunk: String
-        var why: String
-        var marks: [Mark]
-    }
-
-    struct Mark: Sendable, Hashable {
-        var anchor: String
-        var note: String
-    }
-
-    var price = ""
-    var choices: [Choice] = []
-    var door = ""
-    var doorWhy = ""
-    var risks: [Risk] = []
-    var questions: [Question] = []
-    var evidence: [Evidence] = []
-
-    init() {}
-
-    init(_ j: J) {
-        price = j["price"].string
-        choices = j["choices"].array.enumerated().map { n, c in
-            let options = c["options"].strings.filter { !$0.isEmpty }
-            return Choice(id: n, title: c["title"].string, options: options,
-                          criteria: c["criteria"].array.map { k in
-                              Criterion(name: k["name"].string,
-                                        scores: k["scores"].array.prefix(options.count).map { min(max($0.int, 0), 4) })
-                          }.filter { !$0.name.isEmpty },
-                          why: c["why"].string, stated: c["stated"].bool, hunks: c["hunks"].strings)
-        }.filter { !$0.title.isEmpty && !$0.options.isEmpty }
-        door = j["door"].string
-        doorWhy = j["doorWhy"].string
-        risks = j["risks"].array.enumerated().map { n, r in
-            Risk(id: n, title: r["title"].string, when: r["when"].string, effect: r["effect"].string,
-                 likelihood: min(max(r["likelihood"].int, 1), 3), impact: min(max(r["impact"].int, 1), 3),
-                 guardedBy: r["guard"].string, hunks: r["hunks"].strings)
-        }.filter { !$0.title.isEmpty }
-        questions = j["questions"].array.enumerated().map { n, q in
-            Question(id: n, q: q["q"].string, why: q["why"].string, hunk: q["hunk"].string)
-        }.filter { !$0.q.isEmpty }
-        evidence = j["evidence"].array.enumerated().map { n, e in
-            Evidence(id: n, hunk: e["hunk"].string, why: e["why"].string,
-                     marks: e["marks"].array.map { Mark(anchor: $0["anchor"].string, note: $0["note"].string) }.filter { !$0.note.isEmpty })
-        }.filter { !$0.hunk.isEmpty }
-    }
-
-    var isEmpty: Bool { price.isEmpty && choices.isEmpty && door.isEmpty && risks.isEmpty && questions.isEmpty && evidence.isEmpty }
-    var oneWay: Bool { door == "one-way" }
-
-    /// The worst risk's level, 0 when there are none: 1 low, 2 moderate, 3 high.
-    var level: Int {
-        guard let top = risks.map(\.score).max() else { return 0 }
-        return top >= 6 ? 3 : top >= 3 ? 2 : 1
-    }
-
-    static func levelWord(_ level: Int) -> String {
-        switch level {
-        case 3: "High"
-        case 2: "Moderate"
-        case 1: "Low"
-        default: "None found"
-        }
-    }
+    var isEmpty: Bool { headline.isEmpty && was.isEmpty && cast.isEmpty }
+    func actor(_ id: String) -> Actor? { cast.first { $0.id == id } }
 }
 
 // MARK: - Review

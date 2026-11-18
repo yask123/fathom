@@ -1,4 +1,5 @@
-// One pull request: a single quiet bar, then the Map (the system, with code on demand) or the Changes.
+// One pull request: a thin bar of text, then the Trace (what it does, drawn) or the Code (the diff, in reading
+// order). In focus, the bar goes too and only the page is left.
 
 import SwiftUI
 
@@ -8,7 +9,10 @@ struct PRView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TopBar(session: session, inset: store.sidebarShown ? 22 : 82)
+            if !store.focus {
+                TopBar(session: session, inset: store.sidebarShown ? 20 : 84)
+                    .transition(.opacity.combined(with: .offset(y: -8)))
+            }
             ZStack {
                 if let error = session.loadError {
                     LoadFailure(message: error) { session.start() }
@@ -16,18 +20,26 @@ struct PRView: View {
                     LoadingPR()
                 } else {
                     // Both stay mounted so each keeps its place; the tab cross-fades between them.
-                    let map = session.tab == .brief
-                    StoryView(session: session)
-                        .opacity(map ? 1 : 0)
-                        .allowsHitTesting(map)
-                        .accessibilityHidden(!map)
+                    let trace = session.tab == .brief
+                    TraceView(session: session)
+                        .opacity(trace ? 1 : 0)
+                        .allowsHitTesting(trace)
+                        .accessibilityHidden(!trace)
                     ChangesView(session: session)
-                        .opacity(map ? 0 : 1)
-                        .allowsHitTesting(!map)
-                        .accessibilityHidden(map)
+                        .opacity(trace ? 0 : 1)
+                        .allowsHitTesting(!trace)
+                        .accessibilityHidden(trace)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .overlay(alignment: .topTrailing) {
+            if store.focus {
+                FocusHint(tab: session.tab)
+                    .padding(.top, 14)
+                    .padding(.trailing, 18)
+                    .transition(.opacity)
+            }
         }
         .overlay(alignment: .bottom) {
             if session.askOpen && session.diff != nil {
@@ -39,14 +51,19 @@ struct PRView: View {
         }
         .animation(Motion.spring, value: session.askOpen)
         .background {
-            // Esc closes the newest thing first: a comment box, the question box, then a filter on the changes.
+            // Esc closes the newest thing first: a comment box, the question box, a selection in the code, a filter
+            // on the code, then focus.
             Button("") {
                 if session.compose != nil {
                     session.cancelCompose(discard: false)
                 } else if session.askOpen {
                     withAnimation(Motion.spring) { session.askOpen = false }
+                } else if session.tab == .changes, !session.selection.isEmpty {
+                    session.selection.clear()
                 } else if session.tab == .changes, session.fileFilter != nil {
                     session.clearFilter()
+                } else if store.focus {
+                    store.toggleFocus()
                 }
             }
             .keyboardShortcut(.cancelAction)
@@ -74,82 +91,100 @@ struct TopBar: View {
     let inset: CGFloat
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             if !store.sidebarShown {
-                Button {
+                BarIcon(symbol: "sidebar.left", help: "Show the pull requests (⌃⌘S)") {
                     withAnimation(Motion.spring) { store.sidebarShown = true }
-                } label: {
-                    Image(systemName: "sidebar.left")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color.text3)
-                        .frame(width: 28, height: 28)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .help("Show the inbox (⌃⌘S)")
                 .transition(.opacity)
             }
-            HStack(alignment: .firstTextBaseline, spacing: 9) {
-                Text(session.detail?.title ?? session.ref.id)
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundStyle(Color.text1)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(verbatim: "\(session.ref.repo) #\(session.ref.number)")
-                    .font(.mono(11))
-                    .foregroundStyle(Color.text3)
+                    .font(.mono(11.5, .medium))
+                    .foregroundStyle(Color.text2)
                     .lineLimit(1)
                     .fixedSize()
+                Text(session.detail?.title ?? "")
+                    .font(.sans(12.5))
+                    .foregroundStyle(Color.text3)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .layoutPriority(-1)
             }
-            .layoutPriority(-1)
             InfoButton(session: session)
             Spacer(minLength: 12)
-            ViewSwitch(session: session)
+            TabSwitch(session: session)
                 .fixedSize()
+            Rectangle().fill(Color.wash(0.1)).frame(width: 0.5, height: 16)
             AskButton(session: session)
+            BarIcon(symbol: "viewfinder", help: "Focus: only the page (⇧⌘F)") { store.toggleFocus() }
             ReviewButton(session: session)
                 .fixedSize()
         }
         .padding(.leading, inset)
-        .padding(.trailing, 18)
-        .padding(.top, 10)
-        .frame(height: 58)
+        .padding(.trailing, 16)
+        .padding(.top, 6)
+        .frame(height: 46)
+        .overlay(alignment: .bottom) { Rule(opacity: 0.07) }
         .animation(Motion.spring, value: inset)
     }
 }
 
-/// Map | Changes, a glass capsule with a sliding pill.
-struct ViewSwitch: View {
+/// A small glyph in the bar that lights when pointed at.
+struct BarIcon: View {
+    let symbol: String
+    let help: String
+    var on = false
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(on ? Color.signal : hover ? Color.text1 : Color.text3)
+                .frame(width: 26, height: 26)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = QA.hover($0) }
+        .help(help)
+    }
+}
+
+/// trace · code: two words, the current one underlined in the signal colour.
+struct TabSwitch: View {
     @Bindable var session: PRSession
     @Namespace private var space
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 18) {
             ForEach(PRTab.allCases) { tab in
                 let on = session.tab == tab
                 Button {
                     withAnimation(Motion.spring) { session.tab = tab }
                 } label: {
-                    Text(tab.title)
-                        .font(.system(size: 12.5, weight: on ? .semibold : .medium))
-                        .foregroundStyle(on ? Color.text1 : Color.text3)
-                        .padding(.horizontal, 15)
-                        .frame(height: 28)
-                        .background {
+                    VStack(spacing: 5) {
+                        Text(tab.title.lowercased())
+                            .font(.mono(12, on ? .semibold : .regular))
+                            .foregroundStyle(on ? Color.text1 : Color.text3)
+                        ZStack {
+                            Capsule().fill(Color.clear).frame(height: 1.5)
                             if on {
-                                Capsule().fill(Color.wash(0.11))
-                                    .overlay(Capsule().strokeBorder(Color.wash(0.1), lineWidth: 0.5))
-                                    .matchedGeometryEffect(id: "pill", in: space)
+                                Capsule().fill(Color.signal).frame(height: 1.5)
+                                    .neon(.signal, radius: 4, strength: 0.9)
+                                    .matchedGeometryEffect(id: "tab", in: space)
                             }
                         }
-                        .contentShape(Capsule())
+                    }
+                    .fixedSize()
+                    .padding(.top, 6)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(tab == .brief ? "Story (⌘1)" : "Changes (⌘2)")
+                .help(tab == .brief ? "Trace (⌘1)" : "Code (⌘2)")
             }
         }
-        .padding(3)
-        .glassEffect(.regular.tint(Color.cardTint), in: .capsule)
     }
 }
 
@@ -162,50 +197,82 @@ struct AskButton: View {
             withAnimation(Motion.spring) { session.askOpen.toggle() }
             if session.askOpen { session.askFocusTick += 1 }
         } label: {
-            Image(systemName: "sparkle")
-                .font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(session.askOpen || hover ? Color.sonar : Color.text2)
-                .symbolEffect(.pulse, isActive: session.askRunning)
-                .frame(width: 34, height: 34)
-                .contentShape(Circle())
-                .overlay(alignment: .topTrailing) {
-                    if !session.askMessages.isEmpty && !session.askOpen {
-                        Circle().fill(Color.sonar).frame(width: 6, height: 6).offset(x: -6, y: 6)
-                    }
+            HStack(spacing: 6) {
+                Image(systemName: "sparkle")
+                    .font(.system(size: 10.5, weight: .semibold))
+                    .symbolEffect(.pulse, isActive: session.askRunning)
+                Text("ask")
+                    .font(.mono(12))
+                Text("⌘K")
+                    .font(.mono(9.5, .medium))
+                    .foregroundStyle(Color.text3)
+            }
+            .foregroundStyle(session.askOpen || hover ? Color.signal : Color.text2)
+            .frame(height: 26)
+            .contentShape(Rectangle())
+            .overlay(alignment: .topTrailing) {
+                if !session.askMessages.isEmpty && !session.askOpen {
+                    Circle().fill(Color.signal).frame(width: 5, height: 5).offset(x: 6, y: 2)
                 }
+            }
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.tint(Color.cardTint).interactive(), in: .circle)
         .onHover { hover = QA.hover($0) }
-        .help("Ask Claude about this PR (⌘K)")
+        .help("Ask Claude about this pull request (⌘K)")
     }
 }
 
 struct ReviewButton: View {
     @Bindable var session: PRSession
+    @State private var hover = false
 
     var body: some View {
         let pending = session.pending.count
+        let lit = pending > 0 || hover
         Button {
             session.reviewOpen = true
         } label: {
             HStack(spacing: 6) {
-                Text("Review")
+                Text("review")
+                    .font(.mono(12, .semibold))
                 if pending > 0 {
                     Text("\(pending)")
                         .font(.mono(10.5, .bold))
-                        .foregroundStyle(Color.ink)
-                        .padding(.horizontal, 5)
-                        .background(Capsule().fill(Color.sonar))
                         .contentTransition(.numericText())
                 }
             }
-            .font(.system(size: 12.5, weight: .semibold))
-            .padding(.horizontal, 4)
+            .foregroundStyle(pending > 0 ? Color.ink : hover ? Color.signal : Color.text1)
+            .padding(.horizontal, 12)
+            .frame(height: 26)
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(pending > 0 ? Color.signal : Color.signal.opacity(hover ? 0.12 : 0)))
+            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(lit ? Color.signal.opacity(0.7) : Color.wash(0.2), lineWidth: 0.9))
+            .neon(.signal, radius: 8, strength: pending > 0 ? 0.45 : 0)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.glassProminent)
-        .tint(Color(hex: pending > 0 ? 0x1F6F6B : 0x1A2230))
+        .buttonStyle(.plain)
+        .onHover { hover = QA.hover($0) }
+        .animation(Motion.snappy, value: hover)
         .help("Write and send your review (⌘↩)")
+    }
+}
+
+/// In focus the bar is gone; this says where you are and how to get back, and fades to almost nothing.
+struct FocusHint: View {
+    let tab: PRTab
+    @State private var fresh = true
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(tab.title.lowercased())
+                .foregroundStyle(Color.text2)
+            KeyHint(key: "esc", does: "leave focus")
+        }
+        .font(.mono(10.5))
+        .opacity(fresh ? 1 : 0.28)
+        .task {
+            try? await Task.sleep(for: .seconds(2.5))
+            withAnimation(Motion.slow) { fresh = false }
+        }
     }
 }
 
@@ -227,15 +294,15 @@ struct InfoButton: View {
                 Image(systemName: "info.circle")
                 if talk > 0 {
                     Image(systemName: "bubble.left")
-                        .font(.system(size: 10.5, weight: .medium))
+                        .font(.system(size: 10, weight: .medium))
                     Text("\(talk)")
-                        .font(.mono(10.5, .semibold))
+                        .font(.mono(10.5, .medium))
                 }
             }
-            .font(.system(size: 12.5, weight: .medium))
+            .font(.system(size: 12, weight: .medium))
             .foregroundStyle(open || hover ? Color.text1 : Color.text3)
             .frame(height: 24)
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 2)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -266,10 +333,10 @@ struct PRInfo: View {
                         Avatar(url: d.authorAvatar, name: d.author, size: 26)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(d.author)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(.sans(13, .semibold))
                                 .foregroundStyle(Color.text1)
                             Text("Opened \(Fmt.since(d.createdAt)) · updated \(Fmt.since(d.updatedAt)) · \(d.commitCount) commit\(d.commitCount == 1 ? "" : "s")")
-                                .font(.system(size: 11.5))
+                                .font(.sans(11.5))
                                 .foregroundStyle(Color.text3)
                         }
                         Spacer()
@@ -283,7 +350,7 @@ struct PRInfo: View {
                         if let checks = d.checks {
                             HStack(spacing: 5) {
                                 ChecksDot(state: checks, always: true)
-                                Text("Checks \(checks.lowercased())").font(.system(size: 11)).foregroundStyle(Color.text3)
+                                Text("Checks \(checks.lowercased())").font(.sans(11)).foregroundStyle(Color.text3)
                             }
                         }
                     }
@@ -318,19 +385,19 @@ struct PRInfo: View {
             Rectangle().fill(Color.hair).frame(height: 0.5)
             HStack(spacing: 10) {
                 if let at = session.soundedAt {
-                    Text("Read by \((session.soundedModel ?? "opus").capitalized) \(Fmt.since(at))")
-                        .font(.system(size: 11.5))
+                    Text("traced by \(session.soundedModel ?? "sonnet") \(Fmt.since(at))")
+                        .font(.mono(10.5))
                         .foregroundStyle(Color.text3)
                 }
                 Spacer()
-                Button("Read again") {
+                Button("Trace again") {
                     dismiss()
                     session.sound()
                 }
                 .buttonStyle(.glass)
                 .controlSize(.small)
                 .disabled(session.isSounding)
-                .help("Have Claude read this PR again (⇧⌘R)")
+                .help("Have Claude read this pull request again (⇧⌘R)")
                 Button {
                     NSWorkspace.shared.open(session.ref.web)
                 } label: {
@@ -369,32 +436,25 @@ struct StateTag: View {
     let detail: PRDetail
 
     var body: some View {
-        let (word, color): (String, Color) = detail.isDraft ? ("Draft", .text3)
-            : detail.state == "MERGED" ? ("Merged", Color.merged)
-            : detail.state == "CLOSED" ? ("Closed", .removed)
-            : ("Open", .added)
+        let (word, color): (String, Color) = detail.isDraft ? ("draft", .text3)
+            : detail.state == "MERGED" ? ("merged", Color.merged)
+            : detail.state == "CLOSED" ? ("closed", .removed)
+            : ("open", .added)
         Text(word)
-            .font(.system(size: 10.5, weight: .bold))
+            .font(.mono(10.5, .semibold))
             .foregroundStyle(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .background(Capsule().fill(color.opacity(0.12)))
-    }
-}
-
-/// A tiny sonar ping, for "working".
-struct SonarPip: View {
-    var body: some View {
-        PingView(rings: 2, period: 1.4, dot: 4)
+            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(color.opacity(0.12)))
     }
 }
 
 struct LoadingPR: View {
     var body: some View {
         VStack(spacing: 14) {
-            SonarPip().frame(width: 34, height: 34)
-            Text("Fetching the pull request…")
-                .font(.system(size: 13))
+            ScanBar().frame(width: 160, height: 2)
+            Text("fetching the pull request")
+                .font(.mono(11))
                 .foregroundStyle(Color.text3)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -408,13 +468,13 @@ struct LoadFailure: View {
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 26, weight: .light))
+                .font(.system(size: 24, weight: .light))
                 .foregroundStyle(Color.changed)
             Text("Couldn't open this pull request")
-                .font(.serif(22))
+                .font(.display(20))
                 .foregroundStyle(Color.text1)
             Text(message)
-                .font(.system(size: 12.5))
+                .font(.sans(12.5))
                 .foregroundStyle(Color.text2)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 460)

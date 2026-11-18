@@ -1,4 +1,4 @@
-// The window: a floating glass inbox on the left, and the stage — home, or one pull request.
+// The window: the pull requests on the left when you want them, and the stage — home, or one pull request.
 
 import SwiftUI
 
@@ -8,9 +8,9 @@ struct RootView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            if store.sidebarShown {
+            if store.sidebarShown && !store.focus {
                 Sidebar()
-                    .frame(width: 312)
+                    .frame(width: 304)
                     .transition(.move(edge: .leading).combined(with: .opacity))
                 Rectangle().fill(Color.wash(0.07)).frame(width: 0.5)
             }
@@ -27,7 +27,7 @@ struct RootView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .ignoresSafeArea(.container, edges: .top)
-        .containerBackground(for: .window) { Color.canvas }
+        .containerBackground(for: .window) { Backdrop() }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { store.windowWidth = $0 }
         .task {
             // FATHOM_SETTINGS=1 opens Settings on launch, for screenshots.
@@ -36,6 +36,22 @@ struct RootView: View {
                 openSettings()
             }
         }
+    }
+}
+
+/// The window's ground: near-black, with a little violet light falling in from the top edge. Flat on paper.
+struct Backdrop: View {
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        ZStack {
+            Color.canvas
+            if scheme == .dark {
+                RadialGradient(colors: [Color.signal.opacity(0.12), Color.signal.opacity(0)],
+                               center: UnitPoint(x: 0.5, y: -0.18), startRadius: 0, endRadius: 520)
+            }
+        }
+        .ignoresSafeArea()
     }
 }
 
@@ -62,16 +78,16 @@ struct Sidebar: View {
                     } label: {
                         VStack(spacing: 7) {
                             HStack(spacing: 5) {
-                                Text(f.title)
-                                    .font(.system(size: 12, weight: on ? .medium : .regular))
+                                Text(f.title.lowercased())
+                                    .font(.mono(11.5, on ? .semibold : .regular))
                                     .foregroundStyle(on ? Color.text1 : Color.text3)
                                 if n > 0 {
                                     Text("\(n)")
                                         .font(.mono(10, .medium))
-                                        .foregroundStyle(f == .forYou ? Color.sonar : Color.text3)
+                                        .foregroundStyle(f == .forYou ? Color.signal : Color.text3)
                                 }
                             }
-                            Rectangle().fill(on ? Color.text1.opacity(0.85) : .clear).frame(height: 1)
+                            Capsule().fill(on ? Color.signal : .clear).frame(height: 1.5)
                         }
                         .fixedSize()
                         .contentShape(Rectangle())
@@ -163,7 +179,7 @@ struct RepoSwitcher: View {
                         .foregroundStyle(Color.text3)
                         .lineLimit(1)
                     Text(store.repo.map { String($0.split(separator: "/").last ?? "") } ?? "Choose a repository")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.mono(13.5, .semibold))
                         .foregroundStyle(Color.text1)
                         .lineLimit(1)
                 }
@@ -177,8 +193,8 @@ struct RepoSwitcher: View {
             }
             .padding(.horizontal, 11)
             .padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.wash(hover || open ? 0.05 : 0.02)))
-            .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(Color.wash(0.09), lineWidth: 0.5))
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.wash(hover || open ? 0.05 : 0.02)))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.wash(0.1), lineWidth: 0.5))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -254,7 +270,7 @@ struct RepoRow: View {
                 if waiting > 0 {
                     Text("\(waiting) for you")
                         .font(.system(size: 10.5, weight: .semibold))
-                        .foregroundStyle(Color.sonar)
+                        .foregroundStyle(Color.signal)
                 } else if repo.open > 0 {
                     Text("\(repo.open) open")
                         .font(.system(size: 10.5))
@@ -286,8 +302,9 @@ struct PullRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Circle()
-                .fill(requested ? Color.sonar : Color.clear)
-                .frame(width: 6, height: 6)
+                .fill(requested ? Color.signal : Color.clear)
+                .frame(width: 5, height: 5)
+                .neon(.signal, radius: 4, strength: requested ? 0.8 : 0)
                 .padding(.top, 6)
                 .help(requested ? "Your review is requested" : "")
             VStack(alignment: .leading, spacing: 5) {
@@ -316,13 +333,13 @@ struct PullRow: View {
                 .foregroundStyle(Color.text3)
             }
             if reading {
-                SonarPip().frame(width: 12, height: 12).help("Fathom is reading this now")
+                Pip().frame(width: 12, height: 12).help("\(Brand.name) is reading this now")
             } else if sounded {
-                Image(systemName: "book.closed")
-                    .font(.system(size: 9.5))
-                    .foregroundStyle(Color.text3.opacity(0.8))
-                    .padding(.top, 3)
-                    .help("Fathom has read this commit")
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 8))
+                    .foregroundStyle(Color.signal.opacity(0.7))
+                    .padding(.top, 4)
+                    .help("Already traced: it opens at once")
             }
         }
         .padding(.leading, 10)
@@ -330,7 +347,7 @@ struct PullRow: View {
         .padding(.vertical, 11)
         .background(Color.wash(selected ? 0.05 : hover ? 0.025 : 0))
         .overlay(alignment: .leading) {
-            if selected { Rectangle().fill(Color.sonar).frame(width: 1.5) }
+            if selected { Rectangle().fill(Color.signal).frame(width: 1.5).neon(.signal, radius: 4, strength: 0.8) }
         }
         .contentShape(Rectangle())
         .onHover { hover = QA.hover($0) }
@@ -380,7 +397,7 @@ struct SidebarFooter: View {
                 SettingsLink {
                     Label("Connect GitHub", systemImage: "person.crop.circle.badge.plus")
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.sonar)
+                        .foregroundStyle(Color.signal)
                         .lineLimit(1)
                 }
                 .buttonStyle(.plain)
@@ -394,8 +411,8 @@ struct SidebarFooter: View {
             Spacer()
             Menu {
                 Picker("Model", selection: $store.model) {
-                    Text("Claude Opus — deepest").tag("opus")
-                    Text("Claude Sonnet — quicker").tag("sonnet")
+                    Text("Claude Sonnet — quickest").tag("sonnet")
+                    Text("Claude Opus — deeper, slower").tag("opus")
                 }
                 .pickerStyle(.inline)
                 Divider()
@@ -404,18 +421,18 @@ struct SidebarFooter: View {
                 }
                 .pickerStyle(.inline)
                 Divider()
-                Toggle("Sonar ping when a reading is done", isOn: $store.ping)
-                Toggle("Read new review requests in the background", isOn: $store.autoRead)
-                    .help("Fathom reads PRs waiting for you before you open them. Uses your Claude plan.")
+                Toggle("Play a sound when a trace is ready", isOn: $store.ping)
+                Toggle("Trace new review requests in the background", isOn: $store.autoRead)
+                    .help("\(Brand.name) reads PRs waiting for you before you open them, so they open at once. Uses your Claude plan.")
                 Divider()
                 SettingsLink { Text("Settings…") }
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "sparkle")
                         .font(.system(size: 9.5, weight: .bold))
-                        .foregroundStyle(Color.sonar)
-                    Text(store.model == "opus" ? "Opus" : "Sonnet")
-                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(Color.signal)
+                    Text(store.model == "opus" ? "opus" : "sonnet")
+                        .font(.mono(11, .medium))
                         .foregroundStyle(Color.text2)
                 }
             }
@@ -441,12 +458,12 @@ struct LinkField: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "link")
-                .font(.system(size: compact ? 11 : 14, weight: .semibold))
-                .foregroundStyle(focused ? Color.sonar : Color.text3)
-            TextField(compact ? "Paste a pull request link" : "Paste a pull request link — or owner/repo#123", text: $text)
+            Text("›")
+                .font(.mono(compact ? 13 : 16, .bold))
+                .foregroundStyle(focused ? Color.signal : Color.text3)
+            TextField(compact ? "paste a pull request link" : "paste a pull request link, or owner/repo#123", text: $text)
                 .textFieldStyle(.plain)
-                .font(.system(size: compact ? 12.5 : 14.5))
+                .font(.mono(compact ? 12 : 13.5))
                 .foregroundStyle(Color.text1)
                 .focused($focused)
                 .textContentType(nil)
@@ -457,7 +474,7 @@ struct LinkField: View {
                         .font(.system(size: compact ? 10 : 12, weight: .bold))
                         .foregroundStyle(Color.ink)
                         .frame(width: compact ? 20 : 26, height: compact ? 20 : 26)
-                        .background(Circle().fill(Color.sonar))
+                        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.signal))
                 }
                 .buttonStyle(.plain)
                 .transition(.scale.combined(with: .opacity))
@@ -466,12 +483,13 @@ struct LinkField: View {
         .padding(.horizontal, compact ? 11 : 16)
         .frame(height: compact ? 34 : 48)
         .background {
-            RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.well(focused ? 0.3 : 0.18))
+            RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.well(focused ? 0.34 : 0.2))
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .strokeBorder(bad ? Color.removed.opacity(0.7) : focused ? Color.sonar.opacity(0.45) : Color.wash(0.1),
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .strokeBorder(bad ? Color.removed.opacity(0.8) : focused ? Color.signal.opacity(0.7) : Color.wash(0.12),
                               lineWidth: focused || bad ? 1 : 0.5)
+                .neon(bad ? .removed : .signal, radius: 8, strength: focused || bad ? 0.35 : 0)
         }
         .offset(x: bad ? -4 : 0)
         .animation(Motion.snappy, value: focused)
@@ -494,26 +512,42 @@ struct LinkField: View {
     }
 }
 
-/// The mark: three strata and a sounding line ending in a ping.
-struct FathomGlyph: View {
+/// The mark: a trace. It leaves a ring, takes the turn the change takes, and lands lit; the road not taken runs on
+/// a little way, dashed, and stops.
+struct TraceMark: View {
+    @Environment(\.colorScheme) private var scheme
+
     var body: some View {
         Canvas { ctx, size in
             let w = size.width, h = size.height
-            for i in 0..<3 {
-                let y = h * (0.42 + CGFloat(i) * 0.2)
-                var p = Path()
-                p.move(to: CGPoint(x: w * 0.06, y: y))
-                p.addCurve(to: CGPoint(x: w * 0.94, y: y),
-                           control1: CGPoint(x: w * 0.36, y: y - h * 0.09),
-                           control2: CGPoint(x: w * 0.64, y: y + h * 0.09))
-                ctx.stroke(p, with: .color(Color.depth(i + 1).opacity(0.9 - Double(i) * 0.18)), style: StrokeStyle(lineWidth: max(1.2, w * 0.075), lineCap: .round))
+            let lw = max(1.4, h * 0.065)
+            let a = CGPoint(x: w * 0.12, y: h * 0.7), b = CGPoint(x: w * 0.38, y: h * 0.7)
+            let c = CGPoint(x: w * 0.58, y: h * 0.32), d = CGPoint(x: w * 0.82, y: h * 0.32)
+            let e = CGPoint(x: w * 0.68, y: h * 0.7)
+            var alt = Path()
+            alt.move(to: b)
+            alt.addLine(to: e)
+            ctx.stroke(alt, with: .color(.wash(0.34)), style: StrokeStyle(lineWidth: lw * 0.75, lineCap: .round, dash: [lw * 1.2, lw * 2]))
+            let r = lw * 1.5
+            ctx.stroke(Path(ellipseIn: CGRect(x: e.x + lw * 0.6, y: e.y - r, width: r * 2, height: r * 2)), with: .color(.wash(0.4)), lineWidth: lw * 0.7)
+            var main = Path()
+            main.move(to: a)
+            main.addLine(to: b)
+            main.addLine(to: c)
+            main.addLine(to: d)
+            if scheme == .dark {
+                ctx.stroke(main, with: .color(Color.signal.opacity(0.1)), style: StrokeStyle(lineWidth: lw * 5, lineCap: .round, lineJoin: .round))
+                ctx.stroke(main, with: .color(Color.signal.opacity(0.22)), style: StrokeStyle(lineWidth: lw * 2.6, lineCap: .round, lineJoin: .round))
             }
-            var line = Path()
-            line.move(to: CGPoint(x: w * 0.5, y: h * 0.04))
-            line.addLine(to: CGPoint(x: w * 0.5, y: h * 0.7))
-            ctx.stroke(line, with: .color(Color.sonar.opacity(0.85)), style: StrokeStyle(lineWidth: max(1, w * 0.06), lineCap: .round))
-            let r = w * 0.11
-            ctx.fill(Path(ellipseIn: CGRect(x: w * 0.5 - r, y: h * 0.72 - r, width: r * 2, height: r * 2)), with: .color(Color.sonar))
+            ctx.stroke(main, with: .color(Color.signal), style: StrokeStyle(lineWidth: lw, lineCap: .round, lineJoin: .round))
+            let s = lw * 1.9
+            ctx.fill(Path(ellipseIn: CGRect(x: a.x - s, y: a.y - s, width: s * 2, height: s * 2)), with: .color(Color.canvas))
+            ctx.stroke(Path(ellipseIn: CGRect(x: a.x - s, y: a.y - s, width: s * 2, height: s * 2)), with: .color(Color.signal), lineWidth: lw)
+            let t = lw * 2.1
+            if scheme == .dark {
+                ctx.fill(Path(ellipseIn: CGRect(x: d.x - t * 1.9, y: d.y - t * 1.9, width: t * 3.8, height: t * 3.8)), with: .color(Color.added.opacity(0.16)))
+            }
+            ctx.fill(Path(ellipseIn: CGRect(x: d.x - t, y: d.y - t, width: t * 2, height: t * 2)), with: .color(Color.added))
         }
     }
 }

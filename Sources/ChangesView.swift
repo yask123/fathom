@@ -1,5 +1,5 @@
-// Changes: the diff regrouped by meaning. Chapters in reading order, a short note per change, mechanical changes
-// set aside, and comments that go straight into your GitHub review.
+// Code: the diff regrouped by meaning. Chapters in reading order, a short note per change, mechanical changes
+// set aside, and comments that go straight into your GitHub review. In focus the rail goes and the diff is centred.
 
 import SwiftUI
 
@@ -21,7 +21,8 @@ struct DocRow: Identifiable {
         case chapter(ChapterInfo, collapsed: Bool)
         case fileHeader(DiffFile, Hunk)
         case note(String, hunk: String, top: Bool)
-        case line(DiffLine, hunk: Hunk, index: Int, file: DiffFile, last: Bool)
+        /// A run of a hunk's lines with nothing set between them, drawn as one view.
+        case lines(hunk: Hunk, range: Range<Int>, file: DiffFile, last: Bool)
         case comment(PendingComment)
         case thread(ReviewThread, hunk: String)
         case composer(Compose)
@@ -78,7 +79,7 @@ extension PRSession {
 
     func changesRows() -> RowsCache {
         // Touch what the rows are built from so the view still updates when it changes.
-        _ = brief.kind
+        _ = brief.chapters.count
         _ = diff?.files.count
         var h = Hasher()
         h.combine(briefVersion)
@@ -94,6 +95,7 @@ extension PRSession {
         h.combine(pending.map(\.body))
         h.combine(reviewed.sorted())
         h.combine(briefState.isRunning)
+        h.combine(lineSplits)
         let key = h.finalize()
         if let c = rowsCache, c.key == key { return c }
         let chapters = chapterInfos
@@ -108,6 +110,9 @@ extension PRSession {
         }
         let c = RowsCache(key: key, chapters: chapters, rows: rows, chapterOfRow: owner, indexOfRow: index, threadsInChapter: threads)
         rowsCache = c
+        var hunks: [String] = []
+        for r in rows { if case .lines(let h, _, _, _) = r.kind, hunks.last != h.id { hunks.append(h.id) } }
+        selection.setOrder(hunks)
         return c
     }
 
@@ -154,9 +159,18 @@ extension PRSession {
         if let top = hn.first(where: { $0.anchor.isEmpty }) ?? hn.first {
             rows.append(DocRow(id: "note:\(h.id):top", chapter: chapter, kind: .note(top.note, hunk: h.id, top: true)))
         }
+        // Lines go out in runs, each drawn as one view. A run ends where something is set into the diff (a
+        // conversation, a comment, the comment box), where a jump wants to land, or when it's long enough.
+        var start = 0
+        func flush(upTo end: Int) {
+            guard end > start else { return }
+            rows.append(DocRow(id: "line:\(h.id):\(start)", chapter: chapter,
+                               kind: .lines(hunk: h, range: start..<end, file: f, last: end == h.lines.count)))
+            start = end
+        }
         for (i, l) in h.lines.enumerated() {
-            rows.append(DocRow(id: "line:\(h.id):\(i)", chapter: chapter,
-                               kind: .line(l, hunk: h, index: i, file: f, last: i == h.lines.count - 1)))
+            if i > start, i - start >= CodeStyle.chunk || lineSplits.contains("\(h.id):\(i)") { flush(upTo: i) }
+            var set: [DocRow] = []
             let side = l.kind == .del ? "LEFT" : "RIGHT"
             if let no = l.kind == .del ? l.old : l.new {
                 let key = "\(f.path):\(side):\(no)"
@@ -164,16 +178,21 @@ extension PRSession {
                 var here = threads[key] ?? []
                 if l.kind == .context, let old = l.old { here += threads["\(f.path):LEFT:\(old)"] ?? [] }
                 for t in here {
-                    rows.append(DocRow(id: "thread:\(t.id)", chapter: chapter, kind: .thread(t, hunk: h.id)))
+                    set.append(DocRow(id: "thread:\(t.id)", chapter: chapter, kind: .thread(t, hunk: h.id)))
                 }
                 for c in comments[key] ?? [] {
-                    rows.append(DocRow(id: "comment:\(c.id)", chapter: chapter, kind: .comment(c)))
+                    set.append(DocRow(id: "comment:\(c.id)", chapter: chapter, kind: .comment(c)))
                 }
                 if let c = compose, c.kind == .new, c.key == key, c.inPanel == inPanel {
-                    rows.append(DocRow(id: "composer:\(key)", chapter: chapter, kind: .composer(c)))
+                    set.append(DocRow(id: "composer:\(key)", chapter: chapter, kind: .composer(c)))
                 }
             }
+            if !set.isEmpty {
+                flush(upTo: i + 1)
+                rows += set
+            }
         }
+        flush(upTo: h.lines.count)
         rows.append(DocRow(id: "end:\(h.id)", chapter: chapter, kind: .hunkEnd))
         return rows
     }
@@ -208,12 +227,6 @@ extension PRSession {
         }
         return rows
     }
-
-    /// One hunk's rows, for the story's "Where to look" page.
-    func lookRows(_ hunk: String) -> [DocRow] {
-        guard let diff, let h = diff.hunk(hunk), let f = diff.file(ofHunk: hunk) else { return [] }
-        return hunkRows(h, f, chapter: -2, notes: notesByHunk, comments: commentsByLine, threads: threadsByLine, inPanel: true)
-    }
 }
 
 /// A jump through the diff, from a key, the rail, or the story.
@@ -224,8 +237,12 @@ struct DiffJump: Equatable {
 }
 
 struct ChangesView: View {
+    @Environment(AppStore.self) private var store
     @Bindable var session: PRSession
-    @State private var topRow: String?
+    /// The first row on screen. Kept off to the side, not as view state: it changes with every row scrolled past,
+    /// and nothing should redraw for that. The chapter it belongs to is state, and changes far less often.
+    @State private var top = TopRow()
+    @State private var currentChapter: Int?
     @State private var jump: DiffJump?
     @State private var flash: String?
     @FocusState private var keys: Bool
@@ -233,14 +250,23 @@ struct ChangesView: View {
     var body: some View {
         let cache = session.changesRows()
         HStack(alignment: .top, spacing: 14) {
-            ChapterRail(session: session, chapters: cache.chapters, chapterOfRow: cache.chapterOfRow,
-                        threads: cache.threadsInChapter, topRow: $topRow) { id in
-                jump = DiffJump(id: "chapter:\(id)")
+            if !store.focus {
+                ChapterRail(session: session, chapters: cache.chapters,
+                            threads: cache.threadsInChapter, current: currentChapter) { id in
+                    jump = DiffJump(id: "chapter:\(id)")
+                }
+                .frame(width: 256)
+                .padding(.top, 12)
+                .padding(.bottom, 16)
+                .transition(.move(edge: .leading).combined(with: .opacity))
             }
-            .frame(width: 262)
-            .padding(.bottom, 16)
 
-            DiffList(session: session, rows: cache.rows, index: cache.indexOfRow, topRow: $topRow, jump: jump)
+            DiffList(session: session, rows: cache.rows, index: cache.indexOfRow, top: top, jump: jump) { id in
+                let chapter = cache.chapterOfRow[id]
+                if chapter != currentChapter { currentChapter = chapter }
+            }
+                .frame(maxWidth: store.focus ? 1060 : .infinity)
+                .frame(maxWidth: .infinity)
                 .overlay(alignment: .top) {
                     if session.fileFilter != nil {
                         FilterBanner(label: session.filterLabel) { session.clearFilter() }
@@ -250,6 +276,7 @@ struct ChangesView: View {
                 }
         }
         .padding(.leading, 18)
+        .padding(.top, store.focus ? 30 : 0)
         .focusable()
         .focusEffectDisabled()
         .focused($keys)
@@ -257,7 +284,7 @@ struct ChangesView: View {
             // Letters typed into a comment box are words, not jumps.
             guard !Typing.active, press.modifiers.isEmpty else { return .ignored }
             let rows = cache.rows
-            let here = topRow.flatMap { cache.indexOfRow[$0] } ?? 0
+            let here = top.id.flatMap { cache.indexOfRow[$0] } ?? 0
             func move(_ prefix: String, forward: Bool) {
                 let target = forward
                     ? rows[min(here + 1, rows.count)...].firstIndex { $0.id.hasPrefix(prefix) }
@@ -272,7 +299,7 @@ struct ChangesView: View {
             case "k": move("hunk:", forward: false)
             case "n": move("chapter:", forward: true)
             case "p": move("chapter:", forward: false)
-            case "x": if let c = cache.chapterOfRow[topRow ?? ""], c >= 0 { session.toggleReviewed(c) }
+            case "x": if let c = cache.chapterOfRow[top.id ?? ""], c >= 0 { session.toggleReviewed(c) }
             default: return .ignored
             }
             return .handled
@@ -299,13 +326,43 @@ struct ChangesView: View {
     }
 }
 
+/// For the scroll benchmark: how many rows of each kind were built. Counts nothing outside a benchmark run.
+enum RowCount {
+    static let on = ProcessInfo.processInfo.environment["FATHOM_SCROLLBENCH"] != nil
+    nonisolated(unsafe) static var built: [String: Int] = [:]
+
+    static func hit(_ kind: DocRow.Kind) {
+        guard on else { return }
+        let name: String = switch kind {
+        case .chapter: "chapter"
+        case .fileHeader: "file"
+        case .note: "note"
+        case .lines: "lines"
+        case .comment: "comment"
+        case .thread: "thread"
+        case .composer: "composer"
+        case .mechanical: "mechanical"
+        case .hunkEnd: "end"
+        case .finale: "finale"
+        }
+        built[name, default: 0] += 1
+    }
+}
+
+/// Where the diff is scrolled to: the first row on screen.
+final class TopRow {
+    var id: String?
+}
+
 /// The diff itself. It only hands its scroll position up, so scrolling doesn't redraw anything else.
 struct DiffList: View {
     @Bindable var session: PRSession
     let rows: [DocRow]
     let index: [String: Int]
-    @Binding var topRow: String?
+    let top: TopRow
     let jump: DiffJump?
+    /// Called when a different row becomes the first on screen.
+    let moved: (String) -> Void
     @State private var settling: UUID?
 
     var body: some View {
@@ -325,7 +382,10 @@ struct DiffList: View {
             // which finds rows the lazy list hasn't laid out yet.
             .onScrollTargetVisibilityChange(idType: String.self, threshold: 0.25) { ids in
                 let first = ids.min { (index[$0] ?? .max) < (index[$1] ?? .max) }
-                if let first, first != topRow { topRow = first }
+                if let first, first != top.id {
+                    top.id = first
+                    moved(first)
+                }
             }
             .scrollIndicators(.automatic)
             .onChange(of: jump) { _, j in
@@ -361,15 +421,15 @@ struct Finale: View {
     var body: some View {
         let all = done == total
         VStack(spacing: 12) {
-            Image(systemName: all ? "checkmark.seal.fill" : "water.waves")
-                .font(.system(size: 24, weight: .light))
-                .foregroundStyle(all ? Color.added : Color.sonar.opacity(0.7))
+            Image(systemName: all ? "checkmark.seal.fill" : "arrow.down.to.line")
+                .font(.system(size: 20, weight: .light))
+                .foregroundStyle(all ? Color.added : Color.signal.opacity(0.8))
                 .symbolEffect(.bounce, value: all)
             Text(all ? "That's the whole change." : "End of the diff")
-                .font(.serif(21))
+                .font(.display(18))
                 .foregroundStyle(Color.text1)
             Text("\(done) of \(total) understood")
-                .font(.system(size: 12))
+                .font(.mono(11))
                 .foregroundStyle(Color.text3)
                 .monospacedDigit()
             Button {
@@ -380,7 +440,7 @@ struct Finale: View {
                     .padding(.horizontal, 6)
             }
             .buttonStyle(.glassProminent)
-            .tint(all ? Color(hex: 0x2E7D4F) : Color(hex: 0x1F6F6B))
+            .tint(all ? Color(hex: 0x1D8A5E) : Color(hex: 0x5B45C9))
             .padding(.top, 4)
         }
         .frame(maxWidth: .infinity)
@@ -425,13 +485,11 @@ struct FilterBanner: View {
 struct ChapterRail: View {
     @Bindable var session: PRSession
     let chapters: [ChapterInfo]
-    let chapterOfRow: [String: Int]
     let threads: [Int: Int]
-    @Binding var topRow: String?
+    let current: Int?
     let jump: (Int) -> Void
 
     var body: some View {
-        let current = chapterOfRow[topRow ?? ""]
         let byMeaning = !session.byFile && !session.brief.chapters.isEmpty
         let done = chapters.filter { session.reviewed.contains($0.id) }.count
         VStack(alignment: .leading, spacing: 0) {
@@ -468,9 +526,9 @@ struct ChapterRail: View {
                     .padding(.bottom, 10)
             } else if session.briefState.isRunning {
                 HStack(spacing: 7) {
-                    SonarPip().frame(width: 12, height: 12)
-                    Text("Grouping by meaning…")
-                        .font(.system(size: 11))
+                    Pip().frame(width: 12, height: 12)
+                    Text("sorting into reading order")
+                        .font(.mono(10.5))
                         .foregroundStyle(Color.text3)
                 }
                 .padding(.horizontal, 14)
@@ -490,7 +548,7 @@ struct ChapterRail: View {
 
             ConversationNote(session: session, threads: threads.values.reduce(0, +))
         }
-        .background(Surface(radius: 20))
+        .background(Surface(radius: 12))
         .animation(Motion.spring, value: chapters.map(\.id))
     }
 }
@@ -519,7 +577,7 @@ struct ConversationNote: View {
                 }
                 if yours > 0 {
                     Button { session.reviewOpen = true } label: {
-                        label("text.bubble", "\(yours) of yours waiting to be sent", .sonar, link: true)
+                        label("text.bubble", "\(yours) of yours waiting to be sent", .signal, link: true)
                     }
                     .buttonStyle(.plain)
                     .help("Open your review (⌘↩)")
@@ -551,8 +609,8 @@ struct ReadingBar: View {
         let total = CGFloat(max(r.focus + r.skim + r.skip, 1))
         GeometryReader { geo in
             HStack(spacing: 2) {
-                Capsule().fill(Color.sonar).frame(width: max(2, geo.size.width * CGFloat(r.focus) / total))
-                Capsule().fill(Color.sonar.opacity(0.35)).frame(width: max(2, geo.size.width * CGFloat(r.skim) / total))
+                Capsule().fill(Color.signal).frame(width: max(2, geo.size.width * CGFloat(r.focus) / total))
+                Capsule().fill(Color.signal.opacity(0.35)).frame(width: max(2, geo.size.width * CGFloat(r.skim) / total))
                 Capsule().fill(Color.wash(0.1))
             }
         }
@@ -625,8 +683,8 @@ struct AttentionDot: View {
     var body: some View {
         Group {
             switch attention {
-            case .focus: Circle().fill(Color.sonar)
-            case .skim: Circle().strokeBorder(Color.sonar.opacity(0.8), lineWidth: 1.2)
+            case .focus: Circle().fill(Color.signal)
+            case .skim: Circle().strokeBorder(Color.signal.opacity(0.8), lineWidth: 1.2)
             case .skip: Circle().fill(Color.text3.opacity(0.5))
             }
         }
@@ -641,10 +699,9 @@ struct AttentionTag: View {
         HStack(spacing: 5) {
             AttentionDot(attention: attention)
             Text(attention.word.lowercased())
-                .font(.smallCaps(12))
-                .tracking(1)
+                .font(.mono(10.5, .medium))
         }
-        .foregroundStyle(attention == .skip ? Color.text3 : Color.sonar.opacity(attention == .focus ? 1 : 0.7))
+        .foregroundStyle(attention == .skip ? Color.text3 : Color.signal.opacity(attention == .focus ? 1 : 0.7))
     }
 }
 
@@ -657,6 +714,7 @@ struct DocRowView: View {
     @Environment(\.inPanel) private var inPanel
 
     var body: some View {
+        let _ = RowCount.hit(row.kind)
         switch row.kind {
         case .chapter(let ch, let collapsed):
             ChapterHeader(session: session, chapter: ch, collapsed: collapsed)
@@ -687,10 +745,13 @@ struct DocRowView: View {
             }
         case .note(let text, _, let top):
             NoteRow(text: text, top: top)
-        case .line(let l, let h, let i, let f, let last):
-            LineRow(session: session, line: l, hunk: h, index: i, file: f, last: last,
-                    text: session.lines["\(h.id):\(i)"] ?? Highlighter.plain(l.text))
-                .overlay { flashOverlay("line:\(h.id):\(i)") }
+        case .lines(let h, let range, let f, let last):
+            CodeChunk(hunk: h, range: range, last: last, code: session.code, stamp: session.codeStamp,
+                      flash: flashLine(in: h), selection: session.selection) { i in
+                let l = h.lines[i]
+                session.startComposing(Compose(kind: .new, path: f.path, line: (l.kind == .del ? l.old : l.new) ?? 0,
+                                               side: l.kind == .del ? "LEFT" : "RIGHT", hunk: h.id, inPanel: inPanel))
+            }
         case .comment(let c):
             CommentRow(session: session, comment: c)
         case .thread(let t, let hunk):
@@ -706,10 +767,16 @@ struct DocRowView: View {
         }
     }
 
+    /// The line of this hunk a jump just landed on, if any.
+    private func flashLine(in h: Hunk) -> Int? {
+        guard let flash, flash.hasPrefix("line:\(h.id):") else { return nil }
+        return Int(flash.dropFirst("line:\(h.id):".count))
+    }
+
     @ViewBuilder private func flashOverlay(_ id: String) -> some View {
         if flash == id {
             RoundedRectangle(cornerRadius: 4)
-                .fill(Color.sonar.opacity(0.14))
+                .fill(Color.signal.opacity(0.14))
                 .allowsHitTesting(false)
                 .transition(.opacity)
         }
@@ -726,12 +793,12 @@ struct ChapterHeader: View {
         let done = session.reviewed.contains(chapter.id)
         VStack(alignment: .leading, spacing: 7) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text("\(chapter.number)")
-                    .font(.serif(19))
-                    .foregroundStyle(Color.text3)
+                Text(String(format: "%02d", chapter.number))
+                    .font(.mono(11.5, .medium))
+                    .foregroundStyle(done ? Color.added.opacity(0.8) : Color.signal.opacity(collapsed ? 0.5 : 0.9))
                 Text(chapter.title)
-                    .font(chapter.isFile ? .mono(15, .medium) : .serif(23))
-                    .tracking(chapter.isFile ? 0 : -0.1)
+                    .font(chapter.isFile ? .mono(14.5, .medium) : .display(19))
+                    .tracking(chapter.isFile ? 0 : -0.3)
                     .foregroundStyle(collapsed ? Color.text2 : Color.text1)
                 Spacer()
                 Button {
@@ -768,11 +835,17 @@ struct ChapterHeader: View {
                     .controlSize(.small)
                 }
             }
-            .font(.system(size: 11))
+            .font(.mono(10.5))
             .foregroundStyle(Color.text3)
+            if !collapsed {
+                let tint = done ? Color.added : Color.signal
+                LinearGradient(colors: [tint.opacity(0.7), tint.opacity(0.16), tint.opacity(0)], startPoint: .leading, endPoint: .trailing)
+                    .frame(height: 1)
+                    .padding(.top, 5)
+            }
         }
-        .padding(.top, chapter.number == 1 ? 14 : 40)
-        .padding(.bottom, collapsed ? 4 : 14)
+        .padding(.top, chapter.number == 1 ? 18 : 40)
+        .padding(.bottom, collapsed ? 4 : 12)
         .opacity(done && !collapsed ? 0.85 : 1)
     }
 }
@@ -797,9 +870,11 @@ struct FileHeader: View {
                     .foregroundStyle(file.status == .added ? Color.added : file.status == .deleted ? Color.removed : Color.calm)
             }
             Spacer(minLength: 8)
+            ChangeBar(additions: hunk.additions, deletions: hunk.deletions)
             Text("L\(hunk.newStart)")
                 .font(.mono(10.5))
                 .foregroundStyle(Color.text3.opacity(0.7))
+                .frame(minWidth: 30, alignment: .trailing)
             Button {
                 var url = ref.web.appending(path: "files")
                 if let head { url = URL(string: "https://github.com/\(ref.slug)/blob/\(head)/\(file.path)#L\(hunk.newStart)") ?? url }
@@ -824,6 +899,27 @@ struct FileHeader: View {
     }
 }
 
+/// A change's make-up at a glance: green for what it adds, rose for what it takes away, sized to each other.
+struct ChangeBar: View {
+    let additions: Int
+    let deletions: Int
+
+    var body: some View {
+        let total = CGFloat(max(additions + deletions, 1))
+        let width: CGFloat = 44
+        HStack(spacing: 1.5) {
+            if additions > 0 {
+                Capsule().fill(Color.added.opacity(0.85)).frame(width: max(3, (width - 1.5) * CGFloat(additions) / total))
+            }
+            if deletions > 0 {
+                Capsule().fill(Color.removed.opacity(0.8)).frame(width: max(3, (width - 1.5) * CGFloat(deletions) / total))
+            }
+        }
+        .frame(width: width, height: 3, alignment: .trailing)
+        .help("+\(additions) −\(deletions) in this change")
+    }
+}
+
 struct NoteRow: View {
     let text: String
     let top: Bool
@@ -832,8 +928,8 @@ struct NoteRow: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: "arrow.turn.down.right")
                 .font(.system(size: 8.5, weight: .bold))
-                .foregroundStyle(Color.sonar.opacity(0.6))
-            Text(md(text, base: Color.sonar.opacity(0.8), code: Color.sonar, size: 11.5))
+                .foregroundStyle(Color.signal.opacity(0.6))
+            Text(md(text, base: Color.signal.opacity(0.8), code: Color.signal, size: 11.5))
                 .font(.system(size: 11.5, weight: .medium))
                 .lineLimit(1)
             Spacer(minLength: 0)
@@ -844,91 +940,10 @@ struct NoteRow: View {
         .background(Color.wash(0.03))
         .background(alignment: .leading) {
             if !top {
-                Rectangle().fill(Color.sonar.opacity(0.06))
-                    .overlay(alignment: .leading) { Rectangle().fill(Color.sonar.opacity(0.6)).frame(width: 2) }
+                Rectangle().fill(Color.signal.opacity(0.06))
+                    .overlay(alignment: .leading) { Rectangle().fill(Color.signal.opacity(0.6)).frame(width: 2) }
                     .padding(.leading, 94)
             }
-        }
-    }
-}
-
-struct LineRow: View {
-    @Bindable var session: PRSession
-    @Environment(\.inPanel) private var inPanel
-    let line: DiffLine
-    let hunk: Hunk
-    let index: Int
-    let file: DiffFile
-    let last: Bool
-    let text: AttributedString
-    @State private var hover = false
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            // The gutter. A click on the line numbers starts a comment, as on GitHub.
-            HStack(spacing: 0) {
-                Text(line.old.map(String.init) ?? "")
-                    .frame(width: 42, alignment: .trailing)
-                Text(line.new.map(String.init) ?? "")
-                    .frame(width: 42, alignment: .trailing)
-            }
-            .foregroundStyle(Color.text3.opacity(hover ? 0.95 : 0.5))
-            .contentShape(Rectangle())
-            .onTapGesture(perform: comment)
-            ZStack {
-                if hover {
-                    Button(action: comment) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 9, weight: .heavy))
-                            .foregroundStyle(Color.ink)
-                            .frame(width: 16, height: 16)
-                            .background(RoundedRectangle(cornerRadius: 5, style: .continuous).fill(Color.sonar))
-                    }
-                    .buttonStyle(.plain)
-                    .help("Comment on this line")
-                    .transition(.scale(scale: 0.6).combined(with: .opacity))
-                } else {
-                    Text(sign).foregroundStyle(signColor)
-                }
-            }
-            .frame(width: 24)
-            Text(text)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.trailing, 14)
-        }
-        .font(.mono(12))
-        .lineSpacing(2)
-        .padding(.vertical, 1.5)
-        .background(rowFill)
-        .background(Color.wash(0.03))
-        .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: last ? 5 : 0, bottomTrailingRadius: last ? 5 : 0, style: .continuous))
-        .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = QA.hover(h) } }
-    }
-
-    private func comment() {
-        let side = line.kind == .del ? "LEFT" : "RIGHT"
-        let no = (line.kind == .del ? line.old : line.new) ?? 0
-        session.startComposing(Compose(kind: .new, path: file.path, line: no, side: side, hunk: hunk.id, inPanel: inPanel))
-    }
-
-    private var sign: String {
-        switch line.kind {
-        case .add: "+"
-        case .del: "−"
-        default: ""
-        }
-    }
-
-    private var signColor: Color {
-        line.kind == .add ? Color.added : Color.removed
-    }
-
-    private var rowFill: Color {
-        switch line.kind {
-        case .add: Color.added.opacity(hover ? 0.13 : 0.085)
-        case .del: Color.removed.opacity(hover ? 0.13 : 0.085)
-        default: Color.wash(hover ? 0.03 : 0)
         }
     }
 }
@@ -974,7 +989,7 @@ struct PendingCard: View {
 
     var body: some View {
         CommentBubble(author: session.store?.viewer?.login ?? "You", avatar: session.store?.viewer?.avatar,
-                      date: nil, text: comment.body, tag: "Pending", tagTint: .sonar, plain: true) {
+                      date: nil, text: comment.body, tag: "Pending", tagTint: .signal, plain: true) {
             HStack(spacing: 12) {
                 Button("Edit") {
                     session.startComposing(Compose(kind: .edit(comment.id), path: comment.path, line: comment.line,
@@ -988,8 +1003,8 @@ struct PendingCard: View {
             .opacity(hover ? 1 : 0)
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.sonar.opacity(0.055)))
-        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.sonar.opacity(0.22), lineWidth: 0.75))
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.signal.opacity(0.055)))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.signal.opacity(0.22), lineWidth: 0.75))
         .onHover { hover = QA.hover($0) }
     }
 }
@@ -1269,7 +1284,7 @@ struct Composer: View {
                         .padding(.horizontal, 4)
                 }
                 .buttonStyle(.glassProminent)
-                .tint(Color(hex: 0x1F6F6B))
+                .tint(Color(hex: 0x5B45C9))
                 .controlSize(.small)
                 .disabled(empty)
             }
@@ -1280,7 +1295,7 @@ struct Composer: View {
         .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.card))
         .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
-            .strokeBorder(Color.sonar.opacity(focused ? 0.5 : 0.22), lineWidth: focused ? 1 : 0.75))
+            .strokeBorder(Color.signal.opacity(focused ? 0.5 : 0.22), lineWidth: focused ? 1 : 0.75))
         .animation(Motion.snappy, value: focused)
         .onAppear {
             Task { @MainActor in
@@ -1345,7 +1360,7 @@ struct MechanicalRow: View {
                     .foregroundStyle(Color.text3)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Set aside")
-                        .font(.serif(19))
+                        .font(.display(15))
                         .foregroundStyle(Color.text2)
                     Text("\(files.count) mechanical file\(files.count == 1 ? "" : "s") — " + Set(files.compactMap { $0.noise?.word }).sorted().joined(separator: ", "))
                         .font(.system(size: 11.5))

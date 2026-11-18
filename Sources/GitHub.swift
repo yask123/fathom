@@ -6,7 +6,7 @@ enum GitHub {
     static var gh: String? { Shell.which("gh") }
 
     static func ghRun(_ args: [String], input: Data? = nil, timeout: TimeInterval = 60) async throws -> Shell.Output {
-        guard let gh else { throw ShellError(message: "Install the GitHub CLI to use Fathom. Open Settings (⌘,) to set it up.") }
+        guard let gh else { throw ShellError(message: "Install the GitHub CLI to use Tracer. Open Settings (⌘,) to set it up.") }
         let out = try await Shell.run(gh, args, input: input, timeout: timeout)
         if out.status != 0 {
             let text = out.errorText
@@ -204,7 +204,7 @@ enum GitHub {
         } catch {
             let text = error.localizedDescription
             if text.contains("too large") || text.contains("exceeded") || text.contains("406") {
-                throw ShellError(message: "GitHub won't serve a diff this large. Fathom reads PRs up to about 20,000 lines.")
+                throw ShellError(message: "GitHub won't serve a diff this large. Tracer reads PRs up to about 20,000 lines.")
             }
             throw error
         }

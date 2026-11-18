@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tracer: watch what a pull request does</title>
+<meta name="description" content="Tracer draws a pull request as one line of light through your system: where the request goes, what the change adds, what it removes, where it used to break. A free, open-source Mac app. It draws. You think.">
+<meta property="og:title" content="Tracer: watch what a pull request does">
+<meta property="og:description" content="A pull request, drawn as one line of light through your system. Free, open-source Mac app.">
+<meta property="og:image" content="https://yask.dev/tracer/assets/og.jpg">
+<meta property="og:url" content="https://yask.dev/tracer">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://yask.dev/tracer/assets/og.jpg">
+<link rel="icon" type="image/png" href="/tracer/assets/icon-64.png">
+<link rel="apple-touch-icon" href="/tracer/assets/icon-180.png">
+<meta name="theme-color" content="#08090D">
+<meta name="color-scheme" content="dark">
+<style>
+:root {
+  --bg: #08090D; --card: #0D0E15; --t1: #ECEEF5; --t2: #9CA2B2; --t3: #6B7286;
+  --sig: #A88CFF; --add: #4DF0A8; --chg: #FFC857; --del: #FF5D8F; --line: #EFEBFF;
+  --hair: rgba(209, 217, 255, .09); --hair2: rgba(209, 217, 255, .16);
+  --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; scroll-padding-top: 72px; }
+body { margin: 0; background: var(--bg); color: var(--t1); font: 400 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; overflow-x: hidden; }
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(900px 520px at 18% -8%, rgba(168, 140, 255, .13), transparent 62%), radial-gradient(760px 480px at 92% 4%, rgba(111, 182, 255, .07), transparent 60%); }
+a { color: inherit; text-decoration: none; }
+img { display: block; max-width: 100%; height: auto; }
+.wrap { width: 100%; max-width: 1244px; margin: 0 auto; padding: 0 32px; }
+.mono { font-family: var(--mono); }
+::selection { background: rgba(168, 140, 255, .34); }
+
+/* Nav */
+.nav { position: sticky; top: 0; z-index: 30; background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3); border-bottom: 1px solid transparent; transition: border-color .2s; }
+.nav.ruled { border-bottom-color: var(--hair); }
+.nav .wrap { display: flex; align-items: center; height: 60px; gap: 26px; }
+.brand { display: flex; align-items: center; gap: 10px; font: 600 15px var(--sans); letter-spacing: -.01em; }
+.brand img { width: 24px; height: 24px; border-radius: 6px; }
+.nav nav { display: flex; gap: 24px; margin-left: auto; font: 500 12px var(--mono); color: var(--t2); }
+.nav nav a:hover { color: var(--t1); }
+.pill { font: 600 12px var(--mono); padding: 7px 13px; border-radius: 9px; border: 1px solid var(--hair2); color: var(--t1); transition: border-color .15s, background .15s; }
+.pill:hover { border-color: rgba(168, 140, 255, .7); background: rgba(168, 140, 255, .1); }
+
+/* Hero */
+.hero { padding-top: 84px; padding-bottom: 44px; }
+.eyebrow { font: 500 11.5px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--sig); margin: 0 0 22px; display: flex; align-items: center; gap: 10px; }
+.eyebrow i { width: 22px; height: 2px; border-radius: 2px; background: var(--sig); box-shadow: 0 0 10px var(--sig); }
+h1 { font: 650 clamp(40px, 6.4vw, 78px)/1.02 var(--sans); letter-spacing: -.042em; margin: 0; max-width: 13ch;
+  background: linear-gradient(92deg, #FFFFFF 10%, #C9BEFF 92%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lede { font-size: clamp(17px, 1.55vw, 20px); line-height: 1.55; color: var(--t2); max-width: 60ch; margin: 26px 0 0; }
+.lede b { color: var(--t1); font-weight: 550; }
+.get { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 34px; }
+.brew { display: inline-flex; align-items: center; gap: 12px; font: 500 13.5px var(--mono); color: var(--t1); background: rgba(209, 217, 255, .045); border: 1px solid var(--hair2); border-radius: 12px; padding: 13px 14px 13px 16px; cursor: pointer; transition: border-color .15s, background .15s; max-width: 100%; }
+.brew:hover { border-color: rgba(168, 140, 255, .7); background: rgba(168, 140, 255, .08); }
+.brew .p { color: var(--add); }
+.brew code { font: inherit; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brew .c { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--t3); border-left: 1px solid var(--hair2); padding-left: 12px; min-width: 58px; text-align: left; }
+.brew.done .c { color: var(--add); }
+.dl { display: inline-flex; align-items: center; gap: 9px; font: 600 13.5px var(--sans); color: #0A0812; background: var(--sig); border-radius: 12px; padding: 13px 18px; box-shadow: 0 0 0 1px rgba(168, 140, 255, .5), 0 8px 30px -8px rgba(168, 140, 255, .65); transition: transform .15s, box-shadow .15s; }
+.dl:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px rgba(168, 140, 255, .7), 0 12px 36px -8px rgba(168, 140, 255, .8); }
+.dl svg { width: 14px; height: 14px; }
+.fine { font: 400 12px var(--mono); color: var(--t3); margin: 18px 0 0; }
+
+/* The live trace */
+.demo { padding-top: 28px; }
+.pr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; font: 500 11.5px var(--mono); color: var(--t3); margin-bottom: 12px; }
+.pr .k { color: var(--sig); } .pr .a { color: var(--add); } .pr .d { color: var(--del); }
+.pr .note { margin-left: auto; }
+.headline { font: 620 clamp(24px, 3.1vw, 38px)/1.12 var(--sans); letter-spacing: -.03em; margin: 0 0 22px; max-width: none; background: linear-gradient(92deg, var(--t1), #C9BEFF); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.panel { position: relative; border-radius: 20px; background: rgba(11, 12, 19, .72); border: 1px solid var(--hair2); overflow: hidden; }
+.panel::before { content: ""; position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(rgba(209, 217, 255, .11) 1px, transparent 1.2px); background-size: 24px 24px; -webkit-mask-image: radial-gradient(760px 420px at 50% 50%, rgba(0, 0, 0, .9), rgba(0, 0, 0, .15)); mask-image: radial-gradient(760px 420px at 50% 50%, rgba(0, 0, 0, .9), rgba(0, 0, 0, .15)); }
+.scroller { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.scroller::-webkit-scrollbar { display: none; }
+.sizer { position: relative; }
+.stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; cursor: default; outline: none; user-select: none; -webkit-user-select: none; }
+.stage > svg { position: absolute; inset: 0; overflow: visible; }
+.stage .seg, .stage .gl { fill: none; stroke-linecap: round; stroke-linejoin: round; transition: opacity .22s ease, stroke-width .22s ease; }
+.stage .dot { transition: opacity .22s ease; }
+.beam { position: absolute; top: 0; pointer-events: none; opacity: 0; transition: opacity .2s ease, left .22s cubic-bezier(.3, .8, .3, 1);
+  background: linear-gradient(90deg, transparent, rgba(209, 217, 255, .06) 32%, rgba(209, 217, 255, .06) 68%, transparent);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent); }
+.lane-name { position: absolute; font: 600 9px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; white-space: nowrap; opacity: .85; }
+.chip { position: absolute; left: 16px; display: flex; align-items: center; gap: 9px; transform: translateY(-50%); transition: opacity .2s; }
+.chip .ic { width: 27px; height: 27px; border-radius: 8px; display: grid; place-items: center; flex: none; }
+.chip .ic svg { width: 14px; height: 14px; }
+.chip .nm { font: 500 11.5px/1.2 var(--mono); color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; gap: 4px; }
+.chip.person .nm { font: 600 12.5px/1.2 var(--sans); }
+.chip .sg { font-weight: 700; }
+.chip .rl { font: 400 10.5px/1.25 var(--sans); color: var(--t3); white-space: nowrap; margin-top: 1.5px; }
+.chip .tx { min-width: 0; }
+.lab { position: absolute; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: none; opacity: 0; transform: translateY(4px); transition: opacity .3s ease, transform .3s ease; }
+.lab.on { opacity: 1; transform: none; }
+.lab.dim { opacity: .3; }
+.lab.beside { transform: translateY(-50%); }
+.lab.beside.on { transform: translateY(-50%); }
+.lab .does { font: 500 12px/1.22 var(--sans); color: var(--t1); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lab.ghost .does { color: var(--t3); text-decoration: line-through; text-decoration-color: rgba(255, 93, 143, .7); }
+.pk { font: 500 9.5px/1.35 var(--mono); padding: 1.5px 6px; border-radius: 99px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.pain { position: absolute; transform: translate(-50%, -50%); font: 500 11px var(--sans); color: var(--del); white-space: nowrap; padding: 2.5px 9px; border-radius: 99px; background: linear-gradient(rgba(255, 93, 143, .12), rgba(255, 93, 143, .12)), var(--bg); border: .7px solid rgba(255, 93, 143, .4); opacity: 0; transition: opacity .3s; pointer-events: none; }
+.pain.on { opacity: 1; } .pain.dim { opacity: .3; }
+.legend { position: absolute; left: 18px; top: 11px; display: flex; gap: 13px; font: 400 9.5px var(--mono); color: var(--t3); pointer-events: none; }
+.legend span { display: flex; align-items: center; gap: 5px; }
+.legend i { width: 12px; height: 2.5px; border-radius: 2px; }
+.legend i.g { width: 14px; height: 0; border-top: 1.5px dashed rgba(255, 93, 143, .85); border-radius: 0; }
+.rule { position: absolute; transform: translate(-50%, -50%); font: 400 9.5px var(--mono); color: var(--t3); display: flex; gap: 3px; pointer-events: none; transition: color .2s; }
+.rule.on { color: var(--t1); font-weight: 700; } .rule.pin { color: var(--sig); }
+.rule b { font-weight: 700; }
+
+.caption { display: flex; align-items: center; gap: 16px; margin-top: 14px; min-height: 44px; }
+.play { width: 38px; height: 38px; flex: none; border-radius: 50%; border: 1px solid rgba(168, 140, 255, .6); background: rgba(168, 140, 255, .12); color: var(--sig); display: grid; place-items: center; cursor: pointer; transition: background .15s, color .15s, box-shadow .15s; box-shadow: 0 0 14px -4px rgba(168, 140, 255, .5); }
+.play:hover, .play.on { background: var(--sig); color: #0A0812; box-shadow: 0 0 18px -2px rgba(168, 140, 255, .8); }
+.play svg { width: 12px; height: 12px; }
+.say { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.say .tag { font: 600 11.5px var(--mono); color: var(--sig); }
+.say .n { font: 700 11.5px var(--mono); }
+.say .route { font: 400 11.5px var(--mono); color: var(--t2); }
+.say .route i { font-style: normal; color: var(--t3); padding: 0 3px; }
+.say .txt { font: 500 17px/1.3 var(--sans); letter-spacing: -.01em; color: var(--t1); }
+.say .was { font: 400 12.5px var(--sans); color: var(--t3); text-decoration: line-through; text-decoration-color: rgba(255, 93, 143, .6); }
+.modes { display: flex; padding: 3px; border-radius: 99px; border: 1px solid var(--hair); background: rgba(209, 217, 255, .03); flex: none; }
+.modes button { font: 500 11.5px var(--mono); color: var(--t3); background: none; border: 0; padding: 6px 13px; border-radius: 99px; cursor: pointer; transition: color .15s, background .2s; }
+.modes button:hover { color: var(--t2); }
+.modes button.on { color: var(--t1); background: rgba(209, 217, 255, .1); font-weight: 700; }
+.hint { font: 400 11px var(--mono); color: var(--t3); margin: 12px 0 0; }
+.hint .touch { display: none; }
+@media (hover: none) { .hint .desk { display: none; } .hint .touch { display: inline; } }
+.hint kbd { font: inherit; color: var(--t2); border: 1px solid var(--hair2); border-radius: 5px; padding: 1px 5px; }
+
+/* Sections */
+section.block { padding-top: 120px; }
+.kicker { display: flex; align-items: center; gap: 12px; font: 600 11.5px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--t1); margin: 0 0 20px; }
+.kicker::before { content: ""; width: 20px; height: 2px; border-radius: 2px; background: var(--sig); }
+.kicker::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--hair2), transparent); }
+h2 { font: 620 clamp(28px, 3.6vw, 44px)/1.08 var(--sans); letter-spacing: -.034em; margin: 0; max-width: 20ch; }
+.sub { color: var(--t2); font-size: 17px; max-width: 58ch; margin: 16px 0 0; }
+
+.read { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; margin-top: 44px; border-top: 1px solid var(--hair); }
+.read div { padding: 22px 22px 0 0; }
+.read svg { width: 100%; max-width: 150px; height: 26px; display: block; overflow: visible; }
+.read h3 { font: 600 12px var(--mono); margin: 12px 0 5px; }
+.read p { font-size: 13.5px; line-height: 1.5; color: var(--t2); margin: 0; }
+
+.forks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 40px; }
+.fork { border: 1px solid var(--hair); border-radius: 14px; background: rgba(14, 16, 23, .55); padding: 20px 22px 18px; }
+.fork h3 { font: 500 14px var(--sans); color: var(--t2); margin: 0 0 14px; }
+.fork ul { list-style: none; margin: 0; padding: 0; }
+.fork li { position: relative; padding: 3px 0 3px 40px; font-size: 14.5px; color: var(--t3); }
+.fork li.took { color: var(--t1); font-weight: 600; font-size: 15.5px; padding-bottom: 6px; }
+.fork li::before { content: ""; position: absolute; left: 13px; top: 50%; width: 15px; border-top: 1px dashed rgba(209, 217, 255, .28); }
+.fork li::after { content: ""; position: absolute; left: 29px; top: 50%; width: 5px; height: 5px; margin-top: -3px; border-radius: 50%; border: 1px solid rgba(209, 217, 255, .4); }
+.fork li.took::before { left: 6px; width: 26px; border-top: 1.5px solid var(--sig); margin-top: -4px; }
+.fork li.took::after { left: 0; width: 11px; height: 11px; margin-top: -9px; border: 0; background: var(--sig); box-shadow: 0 0 10px var(--sig); }
+.fork ul { position: relative; }
+.fork ul::before { content: ""; position: absolute; left: 5px; top: 20px; bottom: 13px; border-left: 1px dashed rgba(209, 217, 255, .28); }
+.fork p { font-size: 13.5px; color: var(--t2); margin: 14px 0 0; }
+
+.shot { margin-top: 44px; border-radius: 16px; overflow: hidden; border: 1px solid var(--hair2); box-shadow: 0 50px 120px -50px rgba(120, 90, 255, .35), 0 30px 80px -40px #000; background: #0A0B10; }
+.facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 34px; border-top: 1px solid var(--hair); }
+.facts div { padding: 20px 24px 0 0; }
+.facts h3 { font: 600 12px var(--mono); margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
+.facts h3 i { width: 2px; height: 12px; border-radius: 2px; }
+.facts p { font-size: 14px; line-height: 1.55; color: var(--t2); margin: 0; }
+
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; }
+.keys { width: 100%; border-collapse: collapse; margin-top: 30px; font-size: 14px; }
+.keys td { padding: 9px 0; border-top: 1px solid var(--hair); color: var(--t2); vertical-align: baseline; }
+.keys td:first-child { white-space: nowrap; padding-right: 22px; width: 1%; }
+kbd { font: 500 11.5px var(--mono); color: var(--t1); border: 1px solid var(--hair2); border-bottom-width: 2px; border-radius: 6px; padding: 2px 7px; background: rgba(209, 217, 255, .04); margin-right: 3px; }
+.hood { list-style: none; padding: 0; margin: 30px 0 0; }
+.hood li { padding: 13px 0; border-top: 1px solid var(--hair); font-size: 14.5px; color: var(--t2); display: grid; grid-template-columns: 112px 1fr; gap: 16px; }
+.hood b { font: 600 11.5px var(--mono); color: var(--t1); padding-top: 3px; }
+.hood code, .sub code, .steps code { font: 500 .88em var(--mono); color: var(--t1); background: rgba(209, 217, 255, .06); border-radius: 5px; padding: 1px 5px; }
+
+.install { margin-top: 120px; border: 1px solid var(--hair2); border-radius: 24px; padding: 56px; background: radial-gradient(700px 300px at 15% 0%, rgba(168, 140, 255, .12), transparent 70%), rgba(11, 12, 19, .6); }
+.steps { list-style: none; counter-reset: s; padding: 0; margin: 32px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+.steps li { counter-increment: s; font-size: 14.5px; color: var(--t2); border-top: 1px solid var(--hair); padding-top: 16px; }
+.steps li::before { content: "0" counter(s); display: block; font: 600 11.5px var(--mono); color: var(--sig); margin-bottom: 8px; }
+.steps b { color: var(--t1); font-weight: 600; }
+footer { padding: 70px 0 60px; font: 400 12px var(--mono); color: var(--t3); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; }
+footer a:hover { color: var(--t1); }
+footer .sp { margin-left: auto; }
+
+@media (max-width: 940px) {
+  .read { grid-template-columns: repeat(2, 1fr); } .read div { padding-bottom: 8px; }
+  .forks, .facts, .steps { grid-template-columns: 1fr; }
+  .two { grid-template-columns: 1fr; gap: 80px; }
+  .install { padding: 34px 24px; }
+  .pr .note { margin-left: 0; width: 100%; }
+}
+@media (max-width: 620px) {
+  .wrap { padding-left: 20px; padding-right: 20px; } .hero { padding-top: 54px; } section.block { padding-top: 90px; } .install { margin-top: 90px; }
+  .nav nav { display: none; } .nav .pill { margin-left: auto; }
+  .caption { flex-wrap: wrap; } .say { flex-basis: calc(100% - 54px); } .modes { margin-left: 54px; }
+  .brew { width: 100%; } .brew code { flex: 1; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition-duration: .01s !important; } }
+</style>
+</head>
+<body>
+
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="brand" href="#top"><img src="/tracer/assets/icon-64.png" alt="" width="24" height="24">Tracer</a>
+    <nav>
+      <a href="#read">the line</a>
+      <a href="#code">the code</a>
+      <a href="#keys">keys</a>
+      <a href="https://github.com/yask123/fathom">github</a>
+    </nav>
+    <a class="pill" href="#install">install</a>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero wrap">
+    <p class="eyebrow"><i></i>Pull requests, drawn</p>
+    <h1>Watch what a pull request does.</h1>
+    <p class="lede">Tracer draws a change as one line of light through your system: where the request goes, what's new, what's gone, and where it used to break. <b>It draws. You think.</b></p>
+    <div class="get">
+      <button class="brew" type="button" data-copy="brew install --cask yask123/tap/tracer" aria-label="Copy the Homebrew command"><span class="p">$</span><code>brew install --cask yask123/tap/tracer</code><span class="c">copy</span></button>
+      <a class="dl" href="https://github.com/yask123/fathom/releases/latest/download/Tracer.dmg"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8.5M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg>Download for Mac</a>
+    </div>
+    <p class="fine">macOS 26 · free · MIT · runs on your own gh and Claude Code</p>
+  </section>
+
+  <section class="demo wrap" aria-label="A live trace of a demo pull request">
+    <div class="pr"><span>acme/shop <b style="color:var(--t2)">#128</b></span><span>·</span><span class="k" id="pr-kind">fix</span><span>·</span><span><span class="a">+167</span> <span class="d">−31</span></span><span>·</span><span>8 files</span><span class="note">a demo pull request · traced by Tracer in 7.7 s · it's live, point at it</span></div>
+    <h2 class="headline" id="headline"></h2>
+    <div class="panel"><div class="scroller" id="scroller"><div class="sizer" id="sizer"><div class="stage" id="stage" tabindex="0" role="img" aria-label="The request drawn as one line through the browser, the API server, Redis, Stripe and Postgres"></div></div></div></div>
+    <div class="caption">
+      <button class="play" id="play" type="button" aria-label="Play the journey, a step at a time"></button>
+      <div class="say" id="say"></div>
+      <div class="modes" id="modes" role="group" aria-label="Which telling"><button data-m="before" type="button">before</button><button data-m="diff" type="button" class="on">diff</button><button data-m="after" type="button">after</button></div>
+    </div>
+    <p class="hint"><span class="desk">point to light a step · click to pin · <kbd>space</kbd> play · <kbd>←</kbd> <kbd>→</kbd> step · <kbd>b</kbd> <kbd>d</kbd> <kbd>a</kbd> before, diff, after</span><span class="touch">swipe the picture sideways · tap a step to pin it · press play to walk it</span></p>
+  </section>
+
+  <section class="block wrap" id="read">
+    <p class="kicker">The line</p>
+    <h2>One request. One line. The diff painted on it.</h2>
+    <p class="sub">Every part of the system is a rail, grouped by where it runs. Time runs left to right. The request is a single line that crosses from rail to rail, and its colour says what the pull request did to that step.</p>
+    <div class="read">
+      <div><svg viewBox="0 0 150 26"><path d="M4 7H52C70 7 70 20 88 20H146" fill="none" stroke="#EFEBFF" stroke-width="2.6" stroke-linecap="round"/></svg><h3 style="color:var(--line)">untouched</h3><p>The line as it already was. Context for everything else.</p></div>
+      <div><svg viewBox="0 0 150 26"><path d="M4 7H52C70 7 70 20 88 20H146" fill="none" stroke="#4DF0A8" stroke-width="7" stroke-linecap="round" opacity=".28" style="filter:blur(4px)"/><path d="M4 7H52C70 7 70 20 88 20H146" fill="none" stroke="#4DF0A8" stroke-width="2.6" stroke-linecap="round"/></svg><h3 style="color:var(--add)">new</h3><p>A step that didn't exist before this change.</p></div>
+      <div><svg viewBox="0 0 150 26"><path d="M4 7H52C70 7 70 20 88 20H146" fill="none" stroke="#FFC857" stroke-width="7" stroke-linecap="round" opacity=".26" style="filter:blur(4px)"/><path d="M4 7H52C70 7 70 20 88 20H146" fill="none" stroke="#FFC857" stroke-width="2.6" stroke-linecap="round"/></svg><h3 style="color:var(--chg)">changed</h3><p>Same step, done differently. What it used to do is struck through.</p></div>
+      <div><svg viewBox="0 0 150 26"><path d="M4 7H52C70 7 70 20 88 20H146" fill="none" stroke="#FF5D8F" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="5 5" opacity=".85"/></svg><h3 style="color:var(--del)">gone</h3><p>A dashed ghost where a step was removed.</p></div>
+      <div><svg viewBox="0 0 150 26"><path d="M4 13H118" fill="none" stroke="#FFC857" stroke-width="2.6" stroke-linecap="round"/><circle cx="130" cy="13" r="8.5" fill="#08090D" stroke="#FF5D8F" stroke-width="1.6"/><path d="M126.7 9.7l6.6 6.6M133.3 9.7l-6.6 6.6" stroke="#FF5D8F" stroke-width="1.7" stroke-linecap="round"/></svg><h3 style="color:var(--del)">where it broke</h3><p>The step that went wrong before, with what went wrong.</p></div>
+    </div>
+  </section>
+
+  <section class="block wrap">
+    <p class="kicker">Forks</p>
+    <h2>Every design decision, as a fork in the road.</h2>
+    <p class="sub">The branch the change took, the roads it passed up, and why in one line. No verdict, no list of risks, no advice: the judgement is yours.</p>
+    <div class="forks" id="forks"></div>
+  </section>
+
+  <section class="block wrap" id="code">
+    <p class="kicker">The code</p>
+    <h2>Then the diff, in the order it makes sense.</h2>
+    <p class="sub">The line carries on into the code: solid green beside what's new, dashed rose beside what's gone. Chapters sort the change into what to read, skim and skip.</p>
+    <div class="shot"><img src="/tracer/assets/code.webp" width="2400" height="1500" loading="lazy" alt="Tracer's Code tab: a diff in chapters, with a glowing green rail beside added lines and a dashed rose rail beside removed ones"></div>
+    <div class="facts">
+      <div><h3><i style="background:var(--add);box-shadow:0 0 8px var(--add)"></i>drawn, not laid out</h3><p>Lines are drawn with Core Text, two dozen at a time. A 14,000-point diff scrolls at 7,000 points a second without a late frame.</p></div>
+      <div><h3><i style="background:var(--sig);box-shadow:0 0 8px var(--sig)"></i>an editor's hands</h3><p>Drag to select, double-click a word, triple-click a line, <kbd>⌘C</kbd> the code as written. Click a line number to comment.</p></div>
+      <div><h3><i style="background:var(--chg);box-shadow:0 0 8px var(--chg)"></i>review from here</h3><p>Threads from GitHub sit on their lines. Your comments, replies and verdict post as you.</p></div>
+    </div>
+  </section>
+
+  <section class="block wrap" id="keys">
+    <div class="two">
+      <div>
+        <p class="kicker">Keys</p>
+        <h2>Hands on the keyboard.</h2>
+        <table class="keys">
+          <tr><td><kbd>space</kbd></td><td>play the journey, a step at a time</td></tr>
+          <tr><td><kbd>←</kbd><kbd>→</kbd></td><td>step through it like a debugger</td></tr>
+          <tr><td><kbd>↩</kbd></td><td>open the code behind the step</td></tr>
+          <tr><td><kbd>B</kbd><kbd>D</kbd><kbd>A</kbd></td><td>the line before, as a diff, after</td></tr>
+          <tr><td><kbd>⌘1</kbd><kbd>⌘2</kbd></td><td>trace, code</td></tr>
+          <tr><td><kbd>J</kbd><kbd>K</kbd> <kbd>N</kbd><kbd>P</kbd></td><td>next and previous change, chapter</td></tr>
+          <tr><td><kbd>⌘K</kbd></td><td>ask Claude about the pull request</td></tr>
+          <tr><td><kbd>⇧⌘F</kbd></td><td>focus: nothing on screen but the page</td></tr>
+          <tr><td><kbd>⌘↩</kbd></td><td>review</td></tr>
+        </table>
+      </div>
+      <div>
+        <p class="kicker">Under the hood</p>
+        <h2>Your tools. Nothing else.</h2>
+        <ul class="hood">
+          <li><b>no account</b><span>It runs on the <code>gh</code> and <code>claude</code> you already have. No server, no API key, no sign-up.</span></li>
+          <li><b>~8 seconds</b><span>First words in about two, the whole trace in about eight (Claude Sonnet, a 400-line change). A pull request you've opened before opens at once.</span></li>
+          <li><b>what leaves</b><span>The diff goes to Claude through Claude Code on your plan; GitHub is reached through your own login. No analytics.</span></li>
+          <li><b>open</b><span>MIT. Native SwiftUI, built with <code>swiftc</code> straight from <code>Sources/</code>. <a href="https://github.com/yask123/fathom" style="color:var(--sig)">Read it →</a></span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <section class="install" id="install">
+      <p class="kicker">Install</p>
+      <h2>On your Mac in a minute.</h2>
+      <div class="get">
+        <button class="brew" type="button" data-copy="brew install --cask yask123/tap/tracer" aria-label="Copy the Homebrew command"><span class="p">$</span><code>brew install --cask yask123/tap/tracer</code><span class="c">copy</span></button>
+        <a class="dl" href="https://github.com/yask123/fathom/releases/latest/download/Tracer.dmg"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8.5M4.5 7.5 8 11l3.5-3.5M3 13.5h10"/></svg>Download for Mac</a>
+      </div>
+      <ol class="steps">
+        <li><b>Install and open Tracer.</b> Signed and notarized. macOS 26 or later, Apple silicon or Intel.</li>
+        <li><b>It checks its two tools</b> and walks you through what's missing: <code>brew install gh</code>, and Claude Code.</li>
+        <li><b>Paste a pull request link</b>, or pick one from your inbox. Bookmark <code>tracer://</code> to jump in from GitHub.</li>
+      </ol>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Tracer</span><span>·</span><a href="https://github.com/yask123/fathom">source</a><a href="https://github.com/yask123/fathom/releases">releases</a><a href="https://github.com/yask123/fathom/blob/main/LICENSE">MIT</a>
+    <span class="sp">by <a href="https://yask.dev" style="color:var(--t2)">yask</a></span>
+  </div>
+</footer>
+
+<script id="stage-data" type="application/json">{"breaks":4,"cast":[{"id":"you","name":"You"},{"id":"btn","name":"CheckoutButton"},{"id":"route","name":"checkout.ts"},{"id":"idem","name":"idempotency"},{"id":"redis","name":"redis"},{"id":"stripe","name":"stripe"},{"id":"orders","name":"orders"}],"forks":[{"chose":"Redis claim plus Stripe key","over":["DB unique index only","Stripe key only"],"step":2,"title":"Where to dedupe retries?","why":"Redis replays answers and gives 409; Stripe covers crashes."},{"chose":"Browser, per attempt","over":["Server-derived from cart"],"step":1,"title":"Who generates the key?","why":"One key per attempt lets 'Try again' reuse it."},{"chose":"Refuse with 400","over":["Generate key server-side"],"step":1,"title":"Missing key handling?","why":"Requests without a key are refused with 400."}],"headline":"Add idempotency keys to prevent double checkout charges","how":"Claim a per-attempt key in Redis, and pass it to Stripe and the order.","kind":"fix","now":"A retry with the same key replays the first answer.","steps":[{"data":"","does":"click pay / Try again","from":"you","id":0,"status":"same","to":"btn","was":""},{"data":"cartId, Idempotency-Key","does":"POST /checkout","from":"btn","id":1,"status":"changed","to":"route","was":"sent cartId only"},{"data":"userId, key","does":"claim key","from":"route","id":2,"status":"added","to":"idem","was":""},{"data":"claim state","does":"set NX or read","from":"idem","id":3,"status":"added","to":"redis","was":""},{"data":"amount, idempotencyKey","does":"create charge","from":"route","id":4,"status":"changed","to":"stripe","was":"charged with no key"},{"data":"order, key","does":"insert order","from":"route","id":5,"status":"changed","to":"orders","was":"inserted without key"},{"data":"201, order","does":"save answer","from":"route","id":6,"status":"added","to":"idem","was":""},{"data":"order","does":"return order","from":"route","id":7,"status":"same","to":"btn","was":""}],"tellings":{"after":{"columns":[{"dot":263.2,"number":1,"status":"same","step":0,"x0":224.7},{"dot":376.3,"number":2,"status":"changed","step":1,"x0":337.9},{"dot":489.5,"number":3,"status":"added","step":2,"x0":451},{"dot":602.7,"number":4,"status":"added","step":3,"x0":564.2},{"dot":715.8,"number":5,"status":"changed","step":4,"x0":677.4},{"dot":829,"number":6,"status":"changed","step":5,"x0":790.5},{"dot":942.2,"number":7,"status":"added","step":6,"x0":903.7},{"dot":1055.3,"number":8,"status":"same","step":7,"x0":1016.8}],"colW":113.2,"dots":[{"at":-0.7,"color":"#efebff","kind":"start","step":-1,"x":198.7,"y":70},{"at":0.55,"color":"#efebff","kind":"stop","step":0,"x":263.2,"y":126},{"at":1.55,"color":"#ffc857","kind":"stop","step":1,"x":376.3,"y":182},{"at":2.55,"color":"#4df0a8","kind":"stop","step":2,"x":489.5,"y":238},{"at":3.55,"color":"#4df0a8","kind":"stop","step":3,"x":602.7,"y":294},{"at":4.6,"color":"#ffc857","kind":"stop","step":4,"x":715.8,"y":350},{"at":5.6,"color":"#ffc857","kind":"stop","step":5,"x":829,"y":406},{"at":6.6,"color":"#4df0a8","kind":"stop","step":6,"x":942.2,"y":238},{"at":7.55,"color":"#efebff","kind":"stop","step":7,"x":1055.3,"y":126},{"at":8.3,"color":"#a88cff","kind":"end","step":-1,"x":1111.9,"y":126}],"headerW":194.7,"height":498,"labels":[{"at":0.55,"color":"#efebff","data":"","does":"click pay / Try again","ghost":false,"id":0,"side":"above","width":99.2,"x":265.2,"y":126},{"at":1.55,"color":"#ffc857","data":"cartId, Idempotency-Key","does":"POST /checkout","ghost":false,"id":1,"side":"above","width":99.2,"x":378.3,"y":182},{"at":2.55,"color":"#4df0a8","data":"userId, key","does":"claim key","ghost":false,"id":2,"side":"above","width":99.2,"x":491.5,"y":238},{"at":3.55,"color":"#4df0a8","data":"claim state","does":"set NX or read","ghost":false,"id":3,"side":"below","width":58.7,"x":604.7,"y":294},{"at":4.55,"color":"#ffc857","data":"amount, idempotencyKey","does":"create charge","ghost":false,"id":4,"side":"beside","width":54.7,"x":725.8,"y":350},{"at":5.55,"color":"#ffc857","data":"order, key","does":"insert order","ghost":false,"id":5,"side":"beside","width":95.2,"x":839,"y":406},{"at":6.55,"color":"#4df0a8","data":"201, order","does":"save answer","ghost":false,"id":6,"side":"beside","width":95.2,"x":952.2,"y":238},{"at":7.55,"color":"#efebff","data":"order","does":"return order","ghost":false,"id":7,"side":"above","width":99.2,"x":1057.3,"y":126}],"lanes":[{"h":50,"hue":"#a88cff","name":"Browser","w":1168,"x":6,"y":101},{"h":106,"hue":"#6fb6ff","name":"API server","w":1168,"x":6,"y":157},{"h":50,"hue":"#5ee0e6","name":"Redis","w":1168,"x":6,"y":269},{"h":50,"hue":"#f58ad8","name":"Stripe","w":1168,"x":6,"y":325},{"h":50,"hue":"#8c9bff","name":"Postgres","w":1168,"x":6,"y":381}],"lead":30,"pain":null,"rows":[{"hue":"#9ca2b2","id":"you","inLane":false,"kind":"person","name":"You","person":true,"role":"shopper","sign":"","signColor":"#5f6577","y":70},{"hue":"#a88cff","id":"btn","inLane":true,"kind":"ui","name":"CheckoutButton","person":false,"role":"sends key","sign":"~","signColor":"#ffc857","y":126},{"hue":"#6fb6ff","id":"route","inLane":true,"kind":"api","name":"checkout.ts","person":false,"role":"checkout route","sign":"~","signColor":"#ffc857","y":182},{"hue":"#6fb6ff","id":"idem","inLane":false,"kind":"library","name":"idempotency","person":false,"role":"claims keys","sign":"+","signColor":"#4df0a8","y":238},{"hue":"#5ee0e6","id":"redis","inLane":true,"kind":"store","name":"redis","person":false,"role":"key state","sign":"","signColor":"#5f6577","y":294},{"hue":"#f58ad8","id":"stripe","inLane":true,"kind":"external","name":"stripe","person":false,"role":"charges card","sign":"","signColor":"#5f6577","y":350},{"hue":"#8c9bff","id":"orders","inLane":true,"kind":"store","name":"orders","person":false,"role":"order rows","sign":"~","signColor":"#ffc857","y":406}],"segs":[{"at":-0.7,"color":"#efebff","d":"M198.7 70.0L224.7 70.0","glow":"#a88cff","span":0.7,"step":-1,"style":"live"},{"at":0,"color":"#efebff","d":"M224.7 70.0C243.9 70.0 243.9 126.0 263.2 126.0L337.9 126.0","glow":"#a88cff","span":1,"step":0,"style":"live"},{"at":1,"color":"#ffc857","d":"M337.9 126.0C357.1 126.0 357.1 182.0 376.3 182.0L451.0 182.0","glow":"#ffc857","span":1,"step":1,"style":"live"},{"at":2,"color":"#4df0a8","d":"M451.0 182.0C470.3 182.0 470.3 238.0 489.5 238.0L564.2 238.0","glow":"#4df0a8","span":1,"step":2,"style":"live"},{"at":3,"color":"#4df0a8","d":"M564.2 238.0C583.4 238.0 583.4 294.0 602.7 294.0L641.3 294.0","glow":"#4df0a8","span":1,"step":3,"style":"live"},{"at":3.7,"color":"#efebff","d":"M641.3 294.0C654.7 294.0 654.7 182.0 668.2 182.0","glow":"#a88cff","span":0.3,"step":-1,"style":"handoff"},{"at":4,"color":"#efebff","d":"M668.2 182.0L677.3 182.0","glow":"#a88cff","span":0.05,"step":-1,"style":"live"},{"at":4,"color":"#ffc857","d":"M677.3 182.0C696.6 182.0 696.6 350.0 715.8 350.0","glow":"#ffc857","span":0.7,"step":4,"style":"live"},{"at":4,"color":"#efebff","d":"M677.3 182.0L790.5 182.0","glow":"#a88cff","span":1,"step":-1,"style":"live"},{"at":5,"color":"#ffc857","d":"M790.5 182.0C809.8 182.0 809.8 406.0 829.0 406.0","glow":"#ffc857","span":0.7,"step":5,"style":"live"},{"at":5,"color":"#efebff","d":"M790.5 182.0L903.7 182.0","glow":"#a88cff","span":1,"step":-1,"style":"live"},{"at":6,"color":"#4df0a8","d":"M903.7 182.0C922.9 182.0 922.9 238.0 942.2 238.0","glow":"#4df0a8","span":0.7,"step":6,"style":"live"},{"at":6,"color":"#efebff","d":"M903.7 182.0L1016.8 182.0","glow":"#a88cff","span":1,"step":-1,"style":"live"},{"at":7,"color":"#efebff","d":"M1016.8 182.0C1036.1 182.0 1036.1 126.0 1055.3 126.0L1111.9 126.0","glow":"#a88cff","span":1,"step":7,"style":"live"}],"whole":9.6,"width":1180},"before":{"columns":[{"dot":274.7,"number":1,"status":"same","step":0,"x0":224.7},{"dot":455.8,"number":2,"status":"changed","step":1,"x0":405.8},{"dot":636.8,"number":3,"status":"changed","step":4,"x0":586.8},{"dot":817.9,"number":4,"status":"changed","step":5,"x0":767.9},{"dot":998.9,"number":5,"status":"same","step":7,"x0":948.9}],"colW":181.1,"dots":[{"at":-0.7,"color":"#efebff","kind":"start","step":-1,"x":198.7,"y":70},{"at":0.55,"color":"#efebff","kind":"stop","step":0,"x":274.7,"y":126},{"at":1.55,"color":"#efebff","kind":"stop","step":1,"x":455.8,"y":182},{"at":2.6,"color":"#ff5d8f","kind":"broken","step":4,"x":636.8,"y":350},{"at":3.6,"color":"#efebff","kind":"stop","step":5,"x":817.9,"y":406},{"at":4.55,"color":"#efebff","kind":"stop","step":7,"x":998.9,"y":126},{"at":5.3,"color":"#efebff","kind":"end","step":-1,"x":1068.9,"y":126}],"headerW":194.7,"height":498,"labels":[{"at":0.55,"color":"#efebff","data":"","does":"click pay / Try again","ghost":false,"id":0,"side":"above","width":167.1,"x":276.7,"y":126},{"at":1.55,"color":"#efebff","data":"cartId, Idempotency-Key","does":"sent cartId only","ghost":false,"id":1,"side":"above","width":167.1,"x":457.8,"y":182},{"at":2.55,"color":"#ff5d8f","data":"amount, idempotencyKey","does":"charged with no key","ghost":false,"id":4,"side":"beside","width":111.1,"x":646.8,"y":350},{"at":3.55,"color":"#efebff","data":"order, key","does":"inserted without key","ghost":false,"id":5,"side":"beside","width":163.1,"x":827.9,"y":406},{"at":4.55,"color":"#efebff","data":"order","does":"return order","ghost":false,"id":7,"side":"above","width":167.1,"x":1000.9,"y":126}],"lanes":[{"h":50,"hue":"#a88cff","name":"Browser","w":1168,"x":6,"y":101},{"h":106,"hue":"#6fb6ff","name":"API server","w":1168,"x":6,"y":157},{"h":50,"hue":"#5ee0e6","name":"Redis","w":1168,"x":6,"y":269},{"h":50,"hue":"#f58ad8","name":"Stripe","w":1168,"x":6,"y":325},{"h":50,"hue":"#8c9bff","name":"Postgres","w":1168,"x":6,"y":381}],"lead":30,"pain":{"at":2.8,"text":"Retry created a second charge","x":666.8,"y":390},"rows":[{"hue":"#9ca2b2","id":"you","inLane":false,"kind":"person","name":"You","person":true,"role":"shopper","sign":"","signColor":"#5f6577","y":70},{"hue":"#a88cff","id":"btn","inLane":true,"kind":"ui","name":"CheckoutButton","person":false,"role":"sends key","sign":"~","signColor":"#ffc857","y":126},{"hue":"#6fb6ff","id":"route","inLane":true,"kind":"api","name":"checkout.ts","person":false,"role":"checkout route","sign":"~","signColor":"#ffc857","y":182},{"hue":"#6fb6ff","id":"idem","inLane":false,"kind":"library","name":"idempotency","person":false,"role":"claims keys","sign":"+","signColor":"#4df0a8","y":238},{"hue":"#5ee0e6","id":"redis","inLane":true,"kind":"store","name":"redis","person":false,"role":"key state","sign":"","signColor":"#5f6577","y":294},{"hue":"#f58ad8","id":"stripe","inLane":true,"kind":"external","name":"stripe","person":false,"role":"charges card","sign":"","signColor":"#5f6577","y":350},{"hue":"#8c9bff","id":"orders","inLane":true,"kind":"store","name":"orders","person":false,"role":"order rows","sign":"~","signColor":"#ffc857","y":406}],"segs":[{"at":-0.7,"color":"#efebff","d":"M198.7 70.0L224.7 70.0","glow":"#a88cff","span":0.7,"step":-1,"style":"live"},{"at":0,"color":"#efebff","d":"M224.7 70.0C249.7 70.0 249.7 126.0 274.7 126.0L405.8 126.0","glow":"#a88cff","span":1,"step":0,"style":"live"},{"at":1,"color":"#efebff","d":"M405.8 126.0C430.8 126.0 430.8 182.0 455.8 182.0L586.8 182.0","glow":"#a88cff","span":1,"step":1,"style":"live"},{"at":2,"color":"#ff5d8f","d":"M586.8 182.0C611.8 182.0 611.8 350.0 636.8 350.0","glow":"#ff5d8f","span":0.7,"step":4,"style":"live"},{"at":2,"color":"#efebff","d":"M586.8 182.0L767.9 182.0","glow":"#a88cff","span":1,"step":-1,"style":"live"},{"at":3,"color":"#efebff","d":"M767.9 182.0C792.9 182.0 792.9 406.0 817.9 406.0","glow":"#a88cff","span":0.7,"step":5,"style":"live"},{"at":3,"color":"#efebff","d":"M767.9 182.0L948.9 182.0","glow":"#a88cff","span":1,"step":-1,"style":"live"},{"at":4,"color":"#efebff","d":"M948.9 182.0C973.9 182.0 973.9 126.0 998.9 126.0L1068.9 126.0","glow":"#a88cff","span":1,"step":7,"style":"live"}],"whole":6.6,"width":1180},"diff":{"columns":[{"dot":263.2,"number":1,"status":"same","step":0,"x0":224.7},{"dot":376.3,"number":2,"status":"changed","step":1,"x0":337.9},{"dot":489.5,"number":3,"status":"added","step":2,"x0":451},{"dot":602.7,"number":4,"status":"added","step":3,"x0":564.2},{"dot":715.8,"number":5,"status":"changed","step":4,"x0":677.4},{"dot":829,"number":6,"status":"changed","step":5,"x0":790.5},{"dot":942.2,"number":7,"status":"added","step":6,"x0":903.7},{"dot":1055.3,"number":8,"status":"same","step":7,"x0":1016.8}],"colW":113.2,"dots":[{"at":-0.7,"color":"#efebff","kind":"start","step":-1,"x":198.7,"y":70},{"at":0.55,"color":"#efebff","kind":"stop","step":0,"x":263.2,"y":126},{"at":1.55,"color":"#ffc857","kind":"stop","step":1,"x":376.3,"y":182},{"at":2.55,"color":"#4df0a8","kind":"stop","step":2,"x":489.5,"y":238},{"at":3.55,"color":"#4df0a8","kind":"stop","step":3,"x":602.7,"y":294},{"at":4.6,"color":"#ffc857","kind":"broken","step":4,"x":715.8,"y":350},{"at":5.6,"color":"#ffc857","kind":"stop","step":5,"x":829,"y":406},{"at":6.6,"color":"#4df0a8","kind":"stop","step":6,"x":942.2,"y":238},{"at":7.55,"color":"#efebff","kind":"stop","step":7,"x":1055.3,"y":126},{"at":8.3,"color":"#a88cff","kind":"end","step":-1,"x":1111.9,"y":126}],"headerW":194.7,"height":498,"labels":[{"at":0.55,"color":"#efebff","data":"","does":"click pay / Try again","ghost":false,"id":0,"side":"above","width":99.2,"x":265.2,"y":126},{"at":1.55,"color":"#ffc857","data":"cartId, Idempotency-Key","does":"POST /checkout","ghost":false,"id":1,"side":"above","width":99.2,"x":378.3,"y":182},{"at":2.55,"color":"#4df0a8","data":"userId, key","does":"claim key","ghost":false,"id":2,"side":"above","width":99.2,"x":491.5,"y":238},{"at":3.55,"color":"#4df0a8","data":"claim state","does":"set NX or read","ghost":false,"id":3,"side":"below","width":58.7,"x":604.7,"y":294},{"at":4.55,"color":"#ffc857","data":"amount, idempotencyKey","does":"create charge","ghost":false,"id":4,"side":"beside","width":54.7,"x":725.8,"y":350},{"at":5.55,"color":"#ffc857","data":"order, key","does":"insert order","ghost":false,"id":5,"side":"beside","width":95.2,"x":839,"y":406},{"at":6.55,"color":"#4df0a8","data":"201, order","does":"save answer","ghost":false,"id":6,"side":"beside","width":95.2,"x":952.2,"y":238},{"at":7.55,"color":"#efebff","data":"order","does":"return order","ghost":false,"id":7,"side":"above","width":99.2,"x":1057.3,"y":126}],"lanes":[{"h":50,"hue":"#a88cff","name":"Browser","w":1168,"x":6,"y":101},{"h":106,"hue":"#6fb6ff","name":"API server","w":1168,"x":6,"y":157},{"h":50,"hue":"#5ee0e6","name":"Redis","w":1168,"x":6,"y":269},{"h":50,"hue":"#f58ad8","name":"Stripe","w":1168,"x":6,"y":325},{"h":50,"hue":"#8c9bff","name":"Postgres","w":1168,"x":6,"y":381}],"lead":30,"pain":{"at":4.8,"text":"Retry created a second charge","x":604.7,"y":390},"rows":[{"hue":"#9ca2b2","id":"you","inLane":false,"kind":"person","name":"You","person":true,"role":"shopper","sign":"","signColor":"#5f6577","y":70},{"hue":"#a88cff","id":"btn","inLane":true,"kind":"ui","name":"CheckoutButton","person":false,"role":"sends key","sign":"~","signColor":"#ffc857","y":126},{"hue":"#6fb6ff","id":"route","inLane":true,"kind":"api","name":"checkout.ts","person":false,"role":"checkout route","sign":"~","signColor":"#ffc857","y":182},{"hue":"#6fb6ff","id":"idem","inLane":false,"kind":"library","name":"idempotency","person":false,"role":"claims keys","sign":"+","signColor":"#4df0a8","y":238},{"hue":"#5ee0e6","id":"redis","inLane":true,"kind":"store","name":"redis","person":false,"role":"key state","sign":"","signColor":"#5f6577","y":294},{"hue":"#f58ad8","id":"stripe","inLane":true,"kind":"external","name":"stripe","person":false,"role":"charges card","sign":"","signColor":"#5f6577","y":350},{"hue":"#8c9bff","id":"orders","inLane":true,"kind":"store","name":"orders","person":false,"role":"order rows","sign":"~","signColor":"#ffc857","y":406}],"segs":[{"at":-0.7,"color":"#efebff","d":"M198.7 70.0L224.7 70.0","glow":"#a88cff","span":0.7,"step":-1,"style":"live"},{"at":0,"color":"#efebff","d":"M224.7 70.0C243.9 70.0 243.9 126.0 263.2 126.0L337.9 126.0","glow":"#a88cff","span":1,"step":0,"style":"live"},{"at":1,"color":"#ffc857","d":"M337.9 126.0C357.1 126.0 357.1 182.0 376.3 182.0L451.0 182.0","glow":"#ffc857","span":1,"step":1,"style":"live"},{"at":2,"color":"#4df0a8","d":"M451.0 182.0C470.3 182.0 470.3 238.0 489.5 238.0L564.2 238.0","glow":"#4df0a8","span":1,"step":2,"style":"live"},{"at":3,"color":"#4df0a8","d":"M564.2 238.0C583.4 238.0 583.4 294.0 602.7 294.0L641.3 294.0","glow":"#4df0a8","span":1,"step":3,"style":"live"},{"at":3.7,"color":"#efebff","d":"M641.3 294.0C654.7 294.0 654.7 182.0 668.2 182.0","glow":"#a88cff","span":0.3,"step":-1,"style":"handoff"},{"at":4,"color":"#efebff","d":"M668.2 182.0L677.3 182.0","glow":"#a88cff","span":0.05,"step":-1,"style":"live"},{"at":4,"color":"#ffc857","d":"M677.3 182.0C696.6 182.0 696.6 350.0 715.8 350.0","glow":"#ffc857","span":0.7,"step":4,"style":"live"},{"at":4,"color":"#efebff","d":"M677.3 182.0L790.5 182.0","glow":"#a88cff","span":1,"step":-1,"style":"live"},{"at":5,"color":"#ffc857","d":"M790.5 182.0C809.8 182.0 809.8 406.0 829.0 406.0","glow":"#ffc857","span":0.7,"step":5,"style":"live"},{"at":5,"color":"#efebff","d":"M790.5 182.0L903.7 182.0","glow":"#a88cff","span":1,"step":-1,"style":"live"},{"at":6,"color":"#4df0a8","d":"M903.7 182.0C922.9 182.0 922.9 238.0 942.2 238.0","glow":"#4df0a8","span":0.7,"step":6,"style":"live"},{"at":6,"color":"#efebff","d":"M903.7 182.0L1016.8 182.0","glow":"#a88cff","span":1,"step":-1,"style":"live"},{"at":7,"color":"#efebff","d":"M1016.8 182.0C1036.1 182.0 1036.1 126.0 1055.3 126.0L1111.9 126.0","glow":"#a88cff","span":1,"step":7,"style":"live"}],"whole":9.6,"width":1180}},"was":"Retrying a timed-out checkout sent a second request and charged twice."}</script>
+<script>
+(() => {
+  const DOC = JSON.parse(document.getElementById('stage-data').textContent);
+  const NS = 'http://www.w3.org/2000/svg';
+  const $ = id => document.getElementById(id);
+  const stage = $('stage'), sizer = $('sizer'), scroller = $('scroller'), say = $('say'), playBtn = $('play');
+  const svgEl = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+  const div = (cls, html, parent) => { const e = document.createElement('div'); e.className = cls; if (html != null) e.innerHTML = html; (parent || stage).appendChild(e); return e; };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const rgba = (hex, a) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+  const BG = '#08090D', COL = { added: '#4DF0A8', changed: '#FFC857', removed: '#FF5D8F' };
+  const ICON = {
+    person: '<circle cx="7" cy="4.6" r="2.4"/><path d="M2.4 12.2c.5-2.4 2.4-3.6 4.6-3.6s4.1 1.2 4.6 3.6"/>',
+    ui: '<rect x="1.8" y="2.6" width="10.4" height="8.8" rx="2"/><path d="M1.8 5.4h10.4"/>',
+    service: '<path d="M7 1.6 12 4.3v5.4L7 12.4 2 9.7V4.3z"/><path d="M2 4.3 7 7l5-2.7M7 7v5.4"/>',
+    library: '<path d="M7 1.6 12 4.3v5.4L7 12.4 2 9.7V4.3z"/><path d="M2 4.3 7 7l5-2.7M7 7v5.4"/>',
+    api: '<circle cx="3.2" cy="4" r="1.5"/><circle cx="10.8" cy="4" r="1.5"/><circle cx="7" cy="10.6" r="1.5"/><path d="M4.7 4h4.6M3.9 5.3 6.3 9.3M10.1 5.3 7.7 9.3"/>',
+    store: '<ellipse cx="7" cy="3.6" rx="4.4" ry="1.9"/><path d="M2.6 3.6v6.8c0 1 2 1.9 4.4 1.9s4.4-.9 4.4-1.9V3.6M2.6 7c0 1 2 1.9 4.4 1.9s4.4-.9 4.4-1.9"/>',
+    external: '<path d="M4 11.2a2.9 2.9 0 0 1-.4-5.8 3.6 3.6 0 0 1 7-.6 2.7 2.7 0 0 1-.4 6.4z"/>',
+    job: '<circle cx="7" cy="7" r="5"/><path d="M7 4.2V7l2 1.4"/>',
+    config: '<path d="M2 4h6M11 4h1M2 10h1M6 10h6"/><circle cx="9.5" cy="4" r="1.5"/><circle cx="4.5" cy="10" r="1.5"/>',
+  };
+
+  let mode = 'diff', hover = null, pinned = null, playing = false, player = null, reveal = 1e3, raf = 0, k = 1;
+  let T, parts = {};
+  const focus = () => pinned != null ? pinned : hover;
+  const step = id => DOC.steps.find(s => s.id === id);
+  const visible = () => DOC.steps.filter(s => mode === 'before' ? s.status !== 'added' : mode === 'after' ? s.status !== 'removed' : true);
+  const castName = id => (DOC.cast.find(c => c.id === id) || {}).name || id;
+
+  function build() {
+    T = DOC.tellings[mode];
+    stage.innerHTML = '';
+    stage.style.width = T.width + 'px';
+    stage.style.height = T.height + 'px';
+    parts = { segs: [], glows: [], dots: [], labels: [], rules: [], chips: [] };
+
+    parts.beam = div('beam');
+    parts.beam.style.width = (T.colW + 8) + 'px';
+    parts.beam.style.height = (T.height - 34) + 'px';
+
+    const svg = svgEl('svg', { viewBox: `0 0 ${T.width} ${T.height}`, width: T.width, height: T.height, 'aria-hidden': 'true' }, stage);
+    const defs = svgEl('defs', {}, svg);
+    const blur = svgEl('filter', { id: 'glow', x: '-20%', y: '-60%', width: '140%', height: '220%', 'color-interpolation-filters': 'sRGB' }, defs);
+    svgEl('feGaussianBlur', { stdDeviation: 8 }, blur);
+
+    T.lanes.forEach((l, i) => {
+      const g = svgEl('linearGradient', { id: 'lane' + i, gradientUnits: 'userSpaceOnUse', x1: l.x, y1: 0, x2: (l.x + l.w) * 0.7, y2: 0 }, defs);
+      svgEl('stop', { offset: 0, 'stop-color': l.hue, 'stop-opacity': .1 }, g);
+      svgEl('stop', { offset: 1, 'stop-color': l.hue, 'stop-opacity': .025 }, g);
+      svgEl('rect', { x: l.x, y: l.y, width: l.w, height: l.h, rx: 13, fill: `url(#lane${i})`, stroke: rgba(l.hue, .16), 'stroke-width': .75 }, svg);
+      const n = div('lane-name', esc(l.name));
+      n.style.cssText = `left:${l.x + 12}px;top:${l.y + 6}px;color:${l.hue}`;
+    });
+    T.rows.forEach(r => {
+      svgEl('path', { d: `M${T.headerW} ${r.y}H${T.width - 20}`, fill: 'none', stroke: rgba(r.hue, .24), 'stroke-width': 1, 'stroke-linecap': 'round', 'stroke-dasharray': '1 6' }, svg);
+      svgEl('circle', { cx: T.headerW, cy: r.y, r: 3, fill: BG, stroke: rgba(r.hue, .5), 'stroke-width': 1 }, svg);
+      const c = div('chip' + (r.person ? ' person' : ''),
+        `<span class="ic" style="background:${rgba(r.hue, .13)};box-shadow:inset 0 0 0 .8px ${rgba(r.hue, .34)}"><svg viewBox="0 0 14 14" fill="none" stroke="${r.hue}" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">${ICON[r.kind] || ICON.service}</svg></span>` +
+        `<span class="tx"><span class="nm">${r.sign ? `<span class="sg" style="color:${r.signColor}">${esc(r.sign)}</span>` : ''}<span>${esc(r.name)}</span></span><span class="rl" style="display:block">${esc(r.role)}</span></span>`);
+      c.style.top = (r.y + (r.inLane ? 5 : 0)) + 'px';
+      c.style.width = (T.headerW - 28) + 'px';
+      parts.chips.push({ el: c, id: r.id });
+    });
+
+    const under = svgEl('g', {}, svg), glow = svgEl('g', { filter: 'url(#glow)' }, svg), over = svgEl('g', {}, svg), dots = svgEl('g', {}, svg);
+    T.segs.forEach(s => {
+      if (s.style === 'live') {
+        const g = svgEl('path', { d: s.d, class: 'gl', stroke: s.glow, 'stroke-width': 6, pathLength: 1 }, glow);
+        const p = svgEl('path', { d: s.d, class: 'seg', stroke: s.color, 'stroke-width': 2.8, pathLength: 1 }, over);
+        parts.segs.push({ s, el: p, glow: g });
+      } else {
+        const ghost = s.style === 'ghost';
+        const p = svgEl('path', { d: s.d, class: 'seg', stroke: ghost ? rgba(s.color, .8) : 'rgba(239,235,255,.45)', 'stroke-width': ghost ? 1.6 : 1.2, 'stroke-dasharray': ghost ? '5 5' : '1 4.5' }, under);
+        parts.segs.push({ s, el: p, dashed: true });
+      }
+    });
+    T.dots.forEach(d => {
+      const g = svgEl('g', { class: 'dot' }, dots), c = (r, a) => svgEl('circle', Object.assign({ cx: d.x, cy: d.y, r }, a), g);
+      if (d.kind === 'start') c(6.5, { fill: BG, stroke: d.color, 'stroke-width': 2.4 });
+      else if (d.kind === 'stop') c(4.6, { fill: BG, stroke: d.color, 'stroke-width': 2.2 });
+      else if (d.kind === 'knot') { c(5.5, { fill: BG, stroke: d.color, 'stroke-width': 2.2 }); c(1.8, { fill: d.color }); }
+      else if (d.kind === 'end') { c(13, { fill: rgba(d.color, .75), filter: 'url(#glow)' }); c(7, { fill: d.color }); c(2.8, { fill: 'rgba(255,255,255,.9)' }); }
+      else if (d.kind === 'ghost') c(3.8, { fill: BG, stroke: rgba(d.color, .8), 'stroke-width': 1.4 });
+      else { c(12, { fill: 'rgba(255,93,143,.55)', filter: 'url(#glow)' }); c(8.5, { fill: BG, stroke: COL.removed, 'stroke-width': 1.6 });
+        svgEl('path', { d: `M${d.x - 3.3} ${d.y - 3.3}l6.6 6.6M${d.x + 3.3} ${d.y - 3.3}l-6.6 6.6`, stroke: COL.removed, 'stroke-width': 1.7, 'stroke-linecap': 'round' }, g); }
+      parts.dots.push({ d, el: g });
+    });
+    parts.spark = svgEl('g', { style: 'display:none' }, svg);
+    parts.sparkGlow = svgEl('circle', { r: 11, filter: 'url(#glow)' }, parts.spark);
+    svgEl('circle', { r: 3.5, fill: '#fff' }, parts.spark);
+
+    T.labels.forEach(l => {
+      const e = div('lab ' + l.side + (l.ghost ? ' ghost' : ''), `<span class="does">${esc(l.does)}</span>` +
+        (l.data && !l.ghost ? `<span class="pk" style="color:${l.color};background:${rgba(l.color, .1)};box-shadow:inset 0 0 0 .6px ${rgba(l.color, .32)}">${esc(l.data)}</span>` : ''));
+      e.style.left = l.x + 'px';
+      e.style.width = l.width + 'px';
+      if (l.side === 'above') e.style.bottom = (T.height - (l.y - 11)) + 'px';
+      else if (l.side === 'below') e.style.top = (l.y + 11) + 'px';
+      else e.style.top = l.y + 'px';
+      parts.labels.push({ l, el: e });
+    });
+    if (T.pain) {
+      parts.pain = div('pain', '✕&nbsp; ' + esc((mode === 'diff' ? 'before: ' : '') + T.pain.text));
+      parts.pain.style.left = T.pain.x + 'px';
+      parts.pain.style.top = T.pain.y + 'px';
+    } else parts.pain = null;
+    if (mode === 'diff') div('legend', `<span><i style="background:${COL.added}"></i>new</span><span><i style="background:${COL.changed}"></i>changed</span><span><i class="g"></i>gone</span>`);
+    T.columns.forEach(c => {
+      const mark = mode === 'diff' && c.status !== 'same' ? `<b style="color:${COL[c.status]}">${c.status === 'added' ? '+' : c.status === 'removed' ? '−' : '~'}</b>` : '';
+      const e = div('rule', String(c.number).padStart(2, '0') + mark);
+      e.style.left = c.dot + 'px';
+      e.style.top = (T.height - 22) + 'px';
+      parts.rules.push({ c, el: e });
+    });
+    fit();
+  }
+
+  // How much of the line is drawn, in steps: each piece knows when it starts and how long it takes.
+  function draw() {
+    for (const { s, el, glow, dashed } of parts.segs) {
+      const f = Math.min(Math.max((reveal - s.at) / Math.max(s.span, .01), 0), 1);
+      if (dashed) { el.style.visibility = f > 0 ? 'visible' : 'hidden'; continue; }
+      for (const p of [el, glow]) {
+        p.style.visibility = f > 0 ? 'visible' : 'hidden';
+        p.style.strokeDasharray = f >= 1 ? 'none' : `${f} 2`;
+      }
+    }
+    for (const { d, el } of parts.dots) el.style.visibility = reveal >= d.at ? 'visible' : 'hidden';
+    for (const { l, el } of parts.labels) el.classList.toggle('on', reveal >= l.at);
+    if (parts.pain) parts.pain.classList.toggle('on', reveal >= T.pain.at);
+  }
+
+  function animate(from) {
+    cancelAnimationFrame(raf);
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { reveal = 1e3; draw(); return; }
+    const to = T.whole, t0 = performance.now(), dur = (to - from) * 125;
+    const tick = now => {
+      const t = Math.min((now - t0) / dur, 1);
+      reveal = from + (to - from) * (1 - Math.pow(1 - t, 1.6));
+      draw();
+      if (t < 1) raf = requestAnimationFrame(tick); else { reveal = 1e3; draw(); }
+    };
+    raf = requestAnimationFrame(tick);
+  }
+
+  // Which step has the light: everything else dims.
+  let lastSpark = null;
+  function paint() {
+    const f = focus(), fs = f != null ? step(f) : null;
+    const lit = id => f == null ? true : id === f;
+    for (const { s, el, glow, dashed } of parts.segs) {
+      const on = lit(s.step), strong = f != null && s.step === f;
+      el.style.opacity = on ? 1 : dashed ? .3 : .28;
+      if (glow) { glow.style.opacity = on ? (strong ? 1 : .8) : .14; glow.style.strokeWidth = strong ? 9 : 6; }
+    }
+    for (const { d, el } of parts.dots) el.style.opacity = lit(d.step) ? 1 : .3;
+    for (const { l, el } of parts.labels) el.classList.toggle('dim', !lit(l.id));
+    for (const { el, id } of parts.chips) el.style.opacity = fs && fs.from !== id && fs.to !== id ? .4 : 1;
+    for (const { c, el } of parts.rules) { el.classList.toggle('on', c.step === f); el.classList.toggle('pin', c.step === pinned); }
+    if (parts.pain) parts.pain.classList.toggle('dim', f != null && f !== DOC.breaks);
+    const col = f != null ? T.columns.find(c => c.step === f) : null;
+    parts.beam.style.opacity = col ? (pinned === f ? 1 : .6) : 0;
+    if (col) parts.beam.style.left = (col.x0 - 10) + 'px';
+    caption(fs);
+    spark(pinned);
+  }
+
+  function spark(id) {
+    if (id === lastSpark) return;
+    lastSpark = id;
+    const seg = id == null ? null : parts.segs.find(p => p.s.step === id && !p.dashed);
+    if (!seg) { parts.spark.style.display = 'none'; return; }
+    parts.sparkGlow.setAttribute('fill', seg.s.glow);
+    parts.spark.style.display = '';
+    const len = seg.el.getTotalLength(), t0 = performance.now(), mine = id;
+    const tick = now => {
+      if (lastSpark !== mine) return;
+      const t = Math.min((now - t0) / 700, 1), e = t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      const p = seg.el.getPointAtLength(len * e);
+      parts.spark.setAttribute('transform', `translate(${p.x} ${p.y})`);
+      if (t < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  function caption(s) {
+    if (!s) {
+      const [tag, text] = mode === 'before' ? ['before', DOC.was] : mode === 'after' ? ['after', DOC.now] : ['the idea', DOC.how];
+      say.innerHTML = `<span class="tag">${tag}</span><span class="txt">${esc(text)}</span>`;
+      return;
+    }
+    const n = DOC.steps.indexOf(s) + 1, tint = mode === 'diff' && COL[s.status] || '#EFEBFF';
+    const does = mode === 'before' && s.status === 'changed' && s.was ? s.was : s.does;
+    say.innerHTML = `<span class="n" style="color:${tint}">${String(n).padStart(2, '0')}</span>` +
+      `<span class="route">${esc(castName(s.from))}<i>→</i>${esc(castName(s.to))}</span><span class="txt">${esc(does)}</span>` +
+      (mode === 'diff' && s.status === 'changed' && s.was ? `<span class="was">${esc(s.was)}</span>` : '') +
+      (s.data ? `<span class="pk" style="color:${tint};background:${rgba(tint, .1)};box-shadow:inset 0 0 0 .6px ${rgba(tint, .32)}">${esc(s.data)}</span>` : '');
+  }
+
+  function fit() {
+    const w = scroller.clientWidth;
+    k = Math.max(Math.min(w / T.width, 1.12), .74);
+    stage.style.transform = `scale(${k})`;
+    sizer.style.width = (T.width * k) + 'px';
+    sizer.style.height = (T.height * k) + 'px';
+  }
+
+  function stop() { clearTimeout(player); player = null; playing = false; icon(); }
+  function icon() {
+    playBtn.classList.toggle('on', playing);
+    playBtn.innerHTML = playing ? '<svg viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="1.5" width="3" height="9" rx="1"/><rect x="7" y="1.5" width="3" height="9" rx="1"/></svg>'
+                                : '<svg viewBox="0 0 12 12" fill="currentColor"><path d="M3 1.3v9.4a.6.6 0 0 0 .9.5l7.3-4.7a.6.6 0 0 0 0-1L3.9.8a.6.6 0 0 0-.9.5z"/></svg>';
+  }
+  function togglePlay() {
+    if (playing) return stop();
+    const steps = visible();
+    let i = pinned == null ? 0 : steps.findIndex(s => s.id === pinned) + 1;
+    if (i >= steps.length) i = 0;
+    playing = true; icon();
+    const next = () => {
+      if (i >= steps.length) { player = setTimeout(() => { pinned = null; stop(); paint(); }, 500); return; }
+      pinned = steps[i++].id; paint();
+      player = setTimeout(next, 1250);
+    };
+    next();
+  }
+  function move(delta) {
+    stop();
+    const steps = visible(), here = steps.findIndex(s => s.id === pinned);
+    const i = here < 0 ? (delta > 0 ? 0 : steps.length - 1) : Math.min(Math.max(here + delta, 0), steps.length - 1);
+    pinned = steps[i].id; paint();
+  }
+  function setMode(m) {
+    if (m === mode) return;
+    stop();
+    mode = m;
+    if (pinned != null && !visible().some(s => s.id === pinned)) pinned = null;
+    hover = null; lastSpark = null;
+    document.querySelectorAll('#modes button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+    build(); animate(0); paint();
+  }
+  const columnAt = e => {
+    const r = stage.getBoundingClientRect(), x = (e.clientX - r.left) / k, y = (e.clientY - r.top) / k;
+    if (y > T.height - 4 || x < T.headerW + T.lead) return null;
+    const c = T.columns[Math.floor((x - T.headerW - T.lead) / T.colW)];
+    return c ? c.step : null;
+  };
+
+  stage.addEventListener('pointermove', e => { if (e.pointerType === 'touch') return; const s = columnAt(e); if (s !== hover) { hover = s; paint(); } });
+  stage.addEventListener('pointerleave', () => { if (hover != null) { hover = null; paint(); } });
+  stage.addEventListener('click', e => { const s = columnAt(e); stop(); pinned = s == null || s === pinned ? null : s; paint(); });
+  playBtn.addEventListener('click', togglePlay);
+  $('modes').addEventListener('click', e => { const m = e.target.dataset && e.target.dataset.m; if (m) setMode(m); });
+  addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey || /input|textarea|select/i.test(e.target.tagName)) return;
+    const r = stage.getBoundingClientRect();
+    if (r.bottom < 80 || r.top > innerHeight - 80) return;   // only while the stage is on screen
+    if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); move(1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); move(-1); }
+    else if (e.key === 'Escape') { stop(); pinned = null; paint(); }
+    else if (e.key === 'b') setMode('before'); else if (e.key === 'd') setMode('diff'); else if (e.key === 'a') setMode('after');
+  });
+  addEventListener('resize', fit);
+
+  $('headline').textContent = DOC.headline;
+  $('pr-kind').textContent = DOC.kind;
+  $('forks').innerHTML = DOC.forks.map(f => `<div class="fork"><h3>${esc(f.title)}</h3><ul><li class="took">${esc(f.chose)}</li>${f.over.map(o => `<li>${esc(o)}</li>`).join('')}</ul><p>${esc(f.why)}</p></div>`).join('');
+  icon(); build(); reveal = -1; draw(); paint();
+  // The line draws itself the first time the stage comes into view.
+  new IntersectionObserver((entries, io) => { if (entries.some(e => e.isIntersecting)) { io.disconnect(); animate(-0.7); } }, { threshold: .25 }).observe(stage);
+
+  document.querySelectorAll('.brew').forEach(b => b.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); } catch (e) { return; }
+    const c = b.querySelector('.c'); b.classList.add('done'); c.textContent = 'copied';
+    setTimeout(() => { b.classList.remove('done'); c.textContent = 'copy'; }, 1600);
+  }));
+  const nav = $('nav'); const rule = () => nav.classList.toggle('ruled', scrollY > 8); addEventListener('scroll', rule, { passive: true }); rule();
+})();
+</script>
+</body>
+</html>

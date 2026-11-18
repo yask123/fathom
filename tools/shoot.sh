@@ -1,15 +1,15 @@
 #!/bin/zsh
-# QA screenshot of a test instance of Fathom: tools/shoot.sh out.png [VAR=value ...]
-# Runs build/Fathom.app as its own process and only ever touches that process, so a Fathom you're using stays put.
-# e.g. tools/shoot.sh /tmp/overview.png FATHOM_OPEN=yask123/walkai#49 FATHOM_HOME=/tmp/fathom-home
+# QA screenshot of a test instance of Tracer: tools/shoot.sh out.png [VAR=value ...]
+# Runs build/Tracer.app as its own process and only ever touches that process, so a copy you're using stays put.
+# e.g. tools/shoot.sh /tmp/overview.png "FATHOM_OPEN=owner/repo#12" FATHOM_HOME=/tmp/fathom-home
 # SHOOT_QUIET=1 never pulls the window to the front (it's captured wherever it is), for when someone's using the Mac.
 set -euo pipefail
 cd "${0:A:h}/.."
 out=$1; shift
 mkdir -p build/tmp
 [[ -x build/tmp/winid && build/tmp/winid -nt tools/winid.swift ]] || swiftc -O tools/winid.swift -o build/tmp/winid
-pkill -f "$PWD/build/Fathom.app/Contents/MacOS/Fathom" 2>/dev/null && sleep 0.6 || true
-env "$@" "$PWD/build/Fathom.app/Contents/MacOS/Fathom" >/dev/null 2>&1 &
+pkill -f "$PWD/build/Tracer.app/Contents/MacOS/Tracer" 2>/dev/null && sleep 0.6 || true
+env "$@" "$PWD/build/Tracer.app/Contents/MacOS/Tracer" >/dev/null 2>&1 &
 pid=$!
 for i in {1..60}; do
   sleep 0.25

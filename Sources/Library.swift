@@ -1,5 +1,5 @@
-// Where Fathom keeps things: soundings (Claude's brief + map per PR commit), recent PRs, review progress,
-// and shallow checkouts that Claude reads while it draws the map.
+// Where the app keeps things: readings (the trace, verdict and outline per PR commit), recent PRs, review progress,
+// and shallow checkouts that Claude looks around in when you ask it a question.
 
 import Foundation
 
@@ -20,19 +20,22 @@ struct Sounding: Codable, Sendable {
     var version: Int?
 
     /// Bumped when the prompts change shape; older readings are read again.
-    static let current = 5
+    /// 7: `story` holds the trace (with its forks) and `brief` the outline; `critique` is no longer written.
+    static let current = 7
 }
 
 /// Small state that survives relaunches.
 struct SavedState: Codable {
     var recents: [PRSummary] = []
     var reviewed: [String: [Int]] = [:]          // "owner/repo#n@sha" → chapter ids marked understood
-    var settled: [String: [Int]] = [:]           // "owner/repo#n@sha" → the reading's questions you've settled
     var pending: [String: [PendingComment]] = [:] // "owner/repo#n" → unsent review comments
-    var model = "opus"
+    var model = "sonnet"
     var ping = true
     var autoRead = false
-    var appearance = "system"
+    var appearance = "dark"
+    /// Which look the saved appearance was chosen under; the neon one starts in the dark.
+    var look = 0
+    static let currentLook = 2
     var inbox: CachedInbox?
     var repo: String?                             // the repository open in the sidebar
     var repoPulls: [String: [PRSummary]] = [:]    // its open PRs as last seen, for an instant list
@@ -43,12 +46,12 @@ struct SavedState: Codable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         recents = try c.decodeIfPresent([PRSummary].self, forKey: .recents) ?? []
         reviewed = try c.decodeIfPresent([String: [Int]].self, forKey: .reviewed) ?? [:]
-        settled = (try? c.decodeIfPresent([String: [Int]].self, forKey: .settled)) ?? [:]
         pending = try c.decodeIfPresent([String: [PendingComment]].self, forKey: .pending) ?? [:]
-        model = try c.decodeIfPresent(String.self, forKey: .model) ?? "opus"
+        model = try c.decodeIfPresent(String.self, forKey: .model) ?? "sonnet"
         ping = try c.decodeIfPresent(Bool.self, forKey: .ping) ?? true
         autoRead = try c.decodeIfPresent(Bool.self, forKey: .autoRead) ?? false
-        appearance = (try? c.decodeIfPresent(String.self, forKey: .appearance)) ?? "system"
+        appearance = (try? c.decodeIfPresent(String.self, forKey: .appearance)) ?? "dark"
+        look = (try? c.decodeIfPresent(Int.self, forKey: .look)) ?? 0
         inbox = try? c.decodeIfPresent(CachedInbox.self, forKey: .inbox)
         repo = try? c.decodeIfPresent(String.self, forKey: .repo)
         repoPulls = (try? c.decodeIfPresent([String: [PRSummary]].self, forKey: .repoPulls)) ?? [:]
@@ -75,8 +78,24 @@ enum Library {
         if let custom = ProcessInfo.processInfo.environment["FATHOM_HOME"] {
             return URL(fileURLWithPath: (custom as NSString).expandingTildeInPath, isDirectory: true)
         }
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appending(path: "Fathom", directoryHint: .isDirectory)
+        let fm = FileManager.default
+        let base = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let home = base.appending(path: Brand.name, directoryHint: .isDirectory)
+        // The first launch under the new name starts from what Fathom knew: the inbox, recent pull requests and
+        // their diffs. Its readings stay behind (they're in the old shape), and so do unsent comments, so nothing
+        // can be posted twice from two apps.
+        let old = base.appending(path: "Fathom", directoryHint: .isDirectory)
+        if !fm.fileExists(atPath: home.path), fm.fileExists(atPath: old.path) {
+            try? fm.createDirectory(at: home, withIntermediateDirectories: true)
+            if let data = try? Data(contentsOf: old.appending(path: "state.json")),
+               var state = try? JSONDecoder.iso.decode(SavedState.self, from: data) {
+                state.pending = [:]
+                state.reviewed = [:]
+                if let out = try? JSONEncoder.iso.encode(state) { try? out.write(to: home.appending(path: "state.json")) }
+            }
+            try? fm.copyItem(at: old.appending(path: "prs"), to: home.appending(path: "prs"))
+        }
+        return home
     }()
 
     static var soundings: URL { root.appending(path: "soundings", directoryHint: .isDirectory) }
@@ -161,17 +180,24 @@ enum Library {
         try? data.write(to: stateFile, options: .atomic)
     }
 
-    static let encoder: JSONEncoder = {
+    static let encoder = JSONEncoder.iso
+    static let decoder = JSONDecoder.iso
+}
+
+extension JSONEncoder {
+    static var iso: JSONEncoder {
         let e = JSONEncoder()
         e.dateEncodingStrategy = .iso8601
         return e
-    }()
+    }
+}
 
-    static let decoder: JSONDecoder = {
+extension JSONDecoder {
+    static var iso: JSONDecoder {
         let d = JSONDecoder()
         d.dateDecodingStrategy = .iso8601
         return d
-    }()
+    }
 }
 
 /// Shallow, read-only checkouts of PR heads, one git worktree per PR sharing one object store per repo.

@@ -13,7 +13,7 @@ struct ReviewSheet: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Your review")
-                        .font(.serif(26))
+                        .font(.display(21))
                         .foregroundStyle(Color.text1)
                     Text("\(session.ref.id) · \(session.detail?.title ?? "")")
                         .font(.system(size: 12))
@@ -99,9 +99,9 @@ struct ReviewSheet: View {
 
     private var verdictTint: Color {
         switch verdict {
-        case .comment: Color(hex: 0x1F6F6B)
-        case .approve: Color(hex: 0x2E7D4F)
-        case .requestChanges: Color(hex: 0x8A5A1C)
+        case .comment: Color(hex: 0x5B45C9)
+        case .approve: Color(hex: 0x1D8A5E)
+        case .requestChanges: Color(hex: 0x9A6A12)
         }
     }
 
@@ -171,7 +171,7 @@ struct ReviewSheet: View {
 
     private func option(_ v: GitHub.Verdict, _ title: String, _ icon: String, _ detail: String) -> some View {
         let on = verdict == v
-        let tint: Color = v == .approve ? .added : v == .requestChanges ? .changed : .sonar
+        let tint: Color = v == .approve ? .added : v == .requestChanges ? .changed : .signal
         return Button {
             withAnimation(Motion.snappy) { verdict = v }
         } label: {
@@ -199,7 +199,7 @@ struct ReviewSheet: View {
                 .foregroundStyle(Color.added)
                 .symbolEffect(.bounce, value: url)
             Text("Review sent")
-                .font(.serif(22))
+                .font(.display(19))
                 .foregroundStyle(Color.text1)
             HStack(spacing: 10) {
                 Button("Open on GitHub") { NSWorkspace.shared.open(url) }
@@ -228,7 +228,7 @@ struct PendingRow: View {
             HStack(spacing: 7) {
                 Image(systemName: comment.replyTo == nil ? "text.bubble" : "arrowshape.turn.up.left")
                     .font(.system(size: 10.5, weight: .semibold))
-                    .foregroundStyle(Color.sonar)
+                    .foregroundStyle(Color.signal)
                 Text("\((comment.path as NSString).lastPathComponent):\(comment.line)")
                     .font(.mono(11, .medium))
                     .foregroundStyle(Color.text2)

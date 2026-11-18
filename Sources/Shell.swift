@@ -1,4 +1,4 @@
-// Runs the tools Fathom stands on (gh, git, claude) as child processes, with the environment a Terminal window
+// Runs the tools Tracer stands on (gh, git, claude) as child processes, with the environment a Terminal window
 // would give them, which a Finder-launched app lacks.
 
 import Foundation

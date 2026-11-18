@@ -49,7 +49,7 @@ enum ClaudeEvent: Sendable {
 enum Claude {
     static var executable: String? { Shell.which("claude") }
 
-    /// Flags Fathom can't read a PR without. Anything else it uses is left out when an older Claude Code lacks it.
+    /// Flags Tracer can't read a PR without. Anything else it uses is left out when an older Claude Code lacks it.
     static let required: Set<String> = ["--print", "--model", "--output-format", "--verbose", "--include-partial-messages",
                                         "--json-schema", "--system-prompt", "--tools"]
 
@@ -99,7 +99,7 @@ enum Claude {
     static func run(_ prompt: String, _ o: Options) -> AsyncThrowingStream<ClaudeEvent, Error> {
         AsyncThrowingStream { continuation in
             guard let exe = executable else {
-                continuation.finish(throwing: ShellError(message: "Install Claude Code to let Fathom read PRs. Open Settings (⌘,) to set it up."))
+                continuation.finish(throwing: ShellError(message: "Install Claude Code to let Tracer read PRs. Open Settings (⌘,) to set it up."))
                 return
             }
 
@@ -107,7 +107,7 @@ enum Claude {
             let task = Task.detached {
                 let can = await abilities(exe)
                 guard can.isCurrent else {
-                    continuation.finish(throwing: ShellError(message: "This Claude Code is too old for Fathom. Run `claude update` in Terminal."))
+                    continuation.finish(throwing: ShellError(message: "This Claude Code is too old for Tracer. Run `claude update` in Terminal."))
                     return
                 }
                 var args = ["-p", "--model", o.model, "--output-format", "stream-json", "--verbose", "--include-partial-messages",

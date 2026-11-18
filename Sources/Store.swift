@@ -1,4 +1,4 @@
-// App state: the inbox, and one open pull request being sounded.
+// App state: the inbox, and one open pull request being traced.
 
 import AppKit
 import Foundation
@@ -19,7 +19,7 @@ enum RunState: Equatable {
 enum PRTab: String, CaseIterable, Identifiable {
     case brief, changes
     var id: String { rawValue }
-    var title: String { self == .brief ? "Story" : "Changes" }
+    var title: String { self == .brief ? "Trace" : "Code" }
 }
 
 @MainActor
@@ -41,10 +41,12 @@ final class AppStore {
     var inboxError: String?
     var session: PRSession?
     var sidebarShown = true
+    /// Nothing on screen but the pull request: no sidebar, no bar, no rail.
+    var focus = false
     var windowWidth: CGFloat = 1500
     var model: String { didSet { state.model = model; persist() } }
     var ping: Bool { didSet { state.ping = ping; persist() } }
-    /// Paper by day, water by night, or whatever the Mac is set to.
+    /// Neon on black, ink on paper, or whatever the Mac is set to.
     var appearance: Appearance { didSet { state.appearance = appearance.rawValue; persist(); appearance.apply() } }
     var sounded: Set<String> = []
     var autoRead: Bool { didSet { state.autoRead = autoRead; persist(); if autoRead { readAhead() } } }
@@ -65,8 +67,14 @@ final class AppStore {
         model = state.model
         ping = state.ping
         autoRead = state.autoRead
+        // The neon look is drawn for the dark: the first launch with it starts there, whatever was saved before.
+        if state.look < SavedState.currentLook {
+            state.look = SavedState.currentLook
+            state.appearance = Appearance.dark.rawValue
+            Library.saveState(state)
+        }
         // FATHOM_APPEARANCE=light|dark shows one for screenshots without changing the saved choice.
-        appearance = Appearance(rawValue: env["FATHOM_APPEARANCE"] ?? state.appearance) ?? .system
+        appearance = Appearance(rawValue: env["FATHOM_APPEARANCE"] ?? state.appearance) ?? .dark
         recents = state.recents
         repo = state.repo
         if let r = state.repo { repoPulls = state.repoPulls[r] ?? [] }
@@ -211,7 +219,7 @@ final class AppStore {
             s.onSounded = nil
             withAnimation(Motion.spring) {
                 session = s
-                if windowWidth < 1440 { sidebarShown = false }
+                sidebarShown = false
             }
             if let d = s.detail { remember(d.summary) }
             return
@@ -219,14 +227,26 @@ final class AppStore {
         let s = PRSession(ref: ref, store: self)
         withAnimation(Motion.spring) {
             session = s
-            if windowWidth < 1440 { sidebarShown = false }
+            sidebarShown = false
         }
         s.start()
     }
 
     func close() {
         session?.stop()
-        withAnimation(Motion.spring) { session = nil }
+        withAnimation(Motion.spring) {
+            session = nil
+            focus = false
+            sidebarShown = true
+        }
+    }
+
+    func toggleFocus() {
+        guard session != nil else { return }
+        withAnimation(Motion.spring) {
+            focus.toggle()
+            if focus { sidebarShown = false }
+        }
     }
 
     func isSounded(_ pr: PRSummary) -> Bool {
@@ -288,12 +308,6 @@ final class AppStore {
 
     // MARK: Per-PR saved bits
 
-    func settled(_ key: String) -> Set<Int> { Set(state.settled[key] ?? []) }
-    func setSettled(_ key: String, _ ids: Set<Int>) {
-        state.settled[key] = ids.isEmpty ? nil : ids.sorted()
-        persist()
-    }
-
     func reviewed(_ key: String) -> Set<Int> { Set(state.reviewed[key] ?? []) }
     func setReviewed(_ key: String, _ ids: Set<Int>) {
         state.reviewed[key] = ids.sorted()
@@ -324,20 +338,6 @@ struct AskMessage: Identifiable {
     var failed = false
 }
 
-/// Lets exactly one of several racers through.
-final class Once: @unchecked Sendable {
-    private let lock = NSLock()
-    private var taken = false
-
-    func claim() -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        if taken { return false }
-        taken = true
-        return true
-    }
-}
-
 enum Appearance: String, CaseIterable, Identifiable {
     case system, light, dark
     var id: String { rawValue }
@@ -345,8 +345,8 @@ enum Appearance: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .system: "Match the Mac"
-        case .light: "Light"
-        case .dark: "Dark"
+        case .light: "Paper"
+        case .dark: "Neon"
         }
     }
 
@@ -377,30 +377,38 @@ final class PRSession {
     var detail: PRDetail?
     var diff: ParsedDiff?
     var loadError: String?
-    var lines: [String: AttributedString] = [:]     // "f3h2:17" → coloured line
+    /// Every line of the diff, coloured, for the Code tab's canvases; nil until the colouring is done.
+    var code: CodeLines? { didSet { codeStamp &+= 1 } }
+    @ObservationIgnored var codeStamp = 0
 
-    // Claude
+    // Claude: the trace (what it does, drawn, with its forks) and the outline (the diff in reading order, for the
+    // Code tab).
+    var trace = Trace()
+    var traceState: RunState = .idle
     var brief = Brief() { didSet { briefVersion &+= 1 } }
     var briefState: RunState = .idle
-    var story = Story()
-    var storyState: RunState = .idle
-    var critique = Critique()
-    var critiqueState: RunState = .idle
     @ObservationIgnored var briefVersion = 0
+    /// When the first words of the trace landed, for the reading clock.
+    var firstPaint: Double?
     var checkoutState: RunState = .idle
     var checkout: URL?
-    var activity: [Activity] = []
     var soundedAt: Date?
     var soundedModel: String?
 
     // Looking around
     var tab: PRTab = .brief
-    var scrollTarget: String?
+    /// A row of the Code tab to jump to. A line ("line:f3h2:17") becomes the start of its own run of lines, so
+    /// the jump lands on it rather than on the top of whatever run it was drawn in.
+    var scrollTarget: String? {
+        didSet {
+            if let t = scrollTarget, t.hasPrefix("line:") { lineSplits.insert(String(t.dropFirst(5))) }
+        }
+    }
+    var lineSplits: Set<String> = []
     var fileFilter: Set<String>?   // limit Changes to these files
     var filterLabel = ""
     var expandedSkips: Set<Int> = []
     var reviewed: Set<Int> = []
-    var settled: Set<Int> = []     // the reading's questions you've settled
     var byFile = false
 
     // Review
@@ -427,10 +435,11 @@ final class PRSession {
     @ObservationIgnored private var checkoutTask: Task<URL?, Never>?
     @ObservationIgnored private var soundTasks: [Task<Void, Never>] = []
     @ObservationIgnored private var briefJSON: Data?
-    @ObservationIgnored private var storyJSON: Data?
-    @ObservationIgnored private var critiqueJSON: Data?
+    @ObservationIgnored private var traceJSON: Data?
 
     @ObservationIgnored var rowsCache: RowsCache?
+    /// What's selected in the Code tab.
+    @ObservationIgnored let selection = CodeSelection()
     @ObservationIgnored private var colouringTask: Task<Void, Never>?
     @ObservationIgnored private var diffGeneration = 0
     @ObservationIgnored private var demoApplied = false
@@ -442,10 +451,11 @@ final class PRSession {
         self.store = store
         self.background = background
         pending = store.pending(ref)
+        selection.session = self
     }
 
     var reviewKey: String { "\(ref.id)@\((detail?.headSha ?? "").prefix(12))" }
-    var model: String { store?.model ?? "opus" }
+    var model: String { store?.model ?? "sonnet" }
 
     // MARK: Lifecycle
 
@@ -463,8 +473,9 @@ final class PRSession {
         checkoutTask?.cancel()
     }
 
-    /// The PR head on disk, fetched once per session and shared by the map and by questions.
-    /// Nil for very large repos, where Claude works from the diff alone.
+    /// The PR head on disk, fetched the first time you ask a question, so Claude can look around the code.
+    /// Opening a pull request never waits for it: the trace is read from the diff alone.
+    /// Nil for very large repos, where questions are answered from the diff too.
     @discardableResult
     func ensureCheckout() -> Task<URL?, Never>? {
         if let t = checkoutTask { return t }
@@ -524,6 +535,20 @@ final class PRSession {
         }
     }
 
+    /// The pull request as it was last saved, with its reading if there is one, and nothing asked of GitHub: for a
+    /// picture drawn off screen. False when there's no copy on disk.
+    func showCached() -> Bool {
+        guard let cached = Library.loadPR(ref), let d = try? GitHub.parseDetail(ref, data: cached.detail) else { return false }
+        let parsed = DiffParser.parse(cached.diff)
+        if let path = store?.env["FATHOM_DUMP_PROMPT"] {
+            try? Analyst.prompt(d, parsed).write(toFile: path, atomically: true, encoding: .utf8)
+        }
+        detail = d
+        diff = parsed
+        if let saved = Library.loadSounding(ref, sha: d.headSha), (saved.version ?? 1) >= Sounding.current { adopt(saved) }
+        return true
+    }
+
     /// Puts a PR on screen and adopts its saved reading; with `read`, starts one when there's none.
     /// Returns whether a saved reading was adopted.
     @discardableResult
@@ -538,7 +563,6 @@ final class PRSession {
         }
         if !background { store?.remember(detail.summary) }
         reviewed = store?.reviewed(reviewKey) ?? []
-        settled = store?.settled(reviewKey) ?? []
         // Line colours are keyed by position, so a slow colouring of an older diff must not land on this one.
         diffGeneration &+= 1
         let generation = diffGeneration
@@ -547,7 +571,7 @@ final class PRSession {
             let colored = Self.colour(parsed)
             guard !Task.isCancelled else { return }
             await MainActor.run {
-                if self.diffGeneration == generation { self.lines = colored }
+                if self.diffGeneration == generation { self.code = colored }
             }
         }
         colouringTask = Task { await withTaskCancellationHandler { await colouring.value } onCancel: { colouring.cancel() } }
@@ -555,7 +579,6 @@ final class PRSession {
             demoApplied = true
             applyDemoState()
         }
-        ensureCheckout()
         let saved = Library.loadSounding(ref, sha: detail.headSha)
         if let s = saved, (s.version ?? 1) >= Sounding.current || store?.env["FATHOM_NO_AI"] == "1" {
             adopt(s)
@@ -586,19 +609,19 @@ final class PRSession {
         checkout = nil
         checkoutState = .idle
         briefJSON = nil
-        storyJSON = nil
-        critiqueJSON = nil
+        traceJSON = nil
         brief = Brief()
-        story = Story()
-        critique = Critique()
+        trace = Trace()
         briefState = .idle
-        storyState = .idle
-        critiqueState = .idle
-        lines = [:]
+        traceState = .idle
+        firstPaint = nil
+        code = nil
+        lineSplits = []
         askSession = nil
         soundedAt = nil
         // These point at the old diff's hunks and lines.
         compose = nil
+        selection.clear()
         expandedSkips = []
         fileFilter = nil
         filterLabel = ""
@@ -607,146 +630,99 @@ final class PRSession {
 
     private func adopt(_ s: Sounding) {
         briefJSON = s.brief
-        storyJSON = s.story
-        critiqueJSON = s.critique
+        traceJSON = s.story
         withAnimation(Motion.spring) {
             if let b = s.brief { brief = Brief(J(data: b)) }
-            if let t = s.story { story = Story(J(data: t)) }
-            if let c = s.critique { critique = Critique(J(data: c)) }
+            if let t = s.story { trace = Trace(J(data: t)) }
             briefState = s.brief == nil ? .failed("No outline saved") : .done(s.briefSeconds ?? 0)
-            storyState = s.story == nil ? .failed("No story saved") : .done(s.storySeconds ?? 0)
-            critiqueState = s.critique == nil ? .failed("No critique saved") : .done(s.critiqueSeconds ?? 0)
+            traceState = s.story == nil ? .failed("No trace saved") : .done(s.storySeconds ?? 0)
         }
         soundedAt = s.createdAt
         soundedModel = s.model
     }
 
-    /// Runs the three readings side by side: the outline (diff only, fast; it groups the Changes), the story (how it
-    /// works, drawn) and the critique (what a referee would want). The last two may look around the repo.
+    /// The two readings, side by side, each from the diff alone so nothing waits on a checkout or a lookup: the
+    /// trace (drawn as it's written) and the outline that puts the Code tab in reading order.
     func sound() {
         guard let detail, let diff else { return }
         guard Claude.executable != nil else {
-            briefState = .failed("Install Claude Code so Fathom can read PRs. Open Settings (⌘,) to set it up.")
-            storyState = briefState
-            critiqueState = briefState
+            traceState = .failed("Install Claude Code so \(Brand.name) can read pull requests. Open Settings (⌘,) to set it up.")
+            briefState = traceState
             return
         }
         briefJSON = nil
-        storyJSON = nil
-        critiqueJSON = nil
+        traceJSON = nil
         brief = Brief()
-        story = Story()
-        critique = Critique()
-        activity = []
+        trace = Trace()
         soundedAt = nil
+        firstPaint = nil
         let prompt = Analyst.prompt(detail, diff)
         let model = self.model
         let started = Date()
+        traceState = .running(started)
         briefState = .running(started)
-        storyState = .running(started)
-        critiqueState = .running(started)
 
-        // A second sounding replaces the first.
+        // A second reading replaces the first.
         soundTasks.forEach { $0.cancel() }
-        soundTasks = [
-            Task { await runBrief(prompt: prompt, model: model, started: started) },
-            Task { await runDrawn(.story, prompt: prompt, model: model, started: started) },
-            Task { await runDrawn(.critique, prompt: prompt, model: model, started: started) },
-        ]
+        soundTasks = Reading.allCases.map { which in
+            Task { await run(which, prompt: prompt, model: model, started: started) }
+        }
     }
 
-    private func runBrief(prompt: String, model: String, started: Date) async {
+    enum Reading: CaseIterable {
+        case trace, outline
+
+        var name: String { self == .trace ? "trace" : "outline" }
+    }
+
+    private func state(_ which: Reading) -> RunState { which == .trace ? traceState : briefState }
+
+    /// One reading. What Claude has written so far goes on screen a few times a second.
+    private func run(_ which: Reading, prompt: String, model: String, started: Date) async {
         let scratch = Library.root.appending(path: "scratch", directoryHint: .isDirectory)
         Library.ensure(scratch)
-        let options = Claude.Options(model: model, effort: "medium", system: Analyst.briefSystem, schema: Analyst.briefSchema,
-                                     tools: [], cwd: scratch)
+        let (system, schema) = which == .trace ? (Analyst.traceSystem, Analyst.traceSchema) : (Analyst.outlineSystem, Analyst.outlineSchema)
+        // Low effort: these are short, structured answers, and thinking first only delays the first word.
+        let options = Claude.Options(model: model, effort: "low", system: system, schema: schema, tools: [], cwd: scratch)
         var lastPaint = Date.distantPast
         do {
             for try await event in Claude.run(prompt, options) {
                 switch event {
                 case .structured(let text):
-                    guard Date().timeIntervalSince(lastPaint) > 0.15 else { continue }
-                    lastPaint = Date()
-                    if let obj = PartialJSON.parse(text) {
-                        let next = Brief(J(obj))
-                        withAnimation(Motion.soft) { brief = next }
-                    }
-                case .finished(let f):
-                    if f.isError || f.structured == nil {
-                        briefState = .failed(f.isError ? f.message : "Claude didn't return a brief")
-                    } else if let data = f.structured {
-                        briefJSON = data
-                        withAnimation(Motion.spring) {
-                            brief = Brief(J(data: data))
-                            briefState = .done(Date().timeIntervalSince(started))
-                        }
-                    }
-                default: break
-                }
-            }
-        } catch is CancellationError {
-        } catch {
-            if !Task.isCancelled { briefState = .failed(error.localizedDescription) }
-        }
-        if briefState.isRunning && !Task.isCancelled { briefState = .failed("Claude stopped before finishing the brief") }
-        settle()
-    }
-
-    enum Drawn { case story, critique }
-
-    /// The story or the critique. Each may look around a checkout of the PR; pages fill in as Claude writes them.
-    private func runDrawn(_ which: Drawn, prompt: String, model: String, started: Date) async {
-        // A checkout lets Claude see how the changed code is called; the diff alone is enough to answer.
-        var cwd = Library.root.appending(path: "scratch", directoryHint: .isDirectory)
-        Library.ensure(cwd)
-        var tools: [String] = []
-        if let checkout = ensureCheckout(), let dir = await Self.value(of: checkout, within: 1.5) {
-            cwd = dir
-            tools = ["Read", "Grep", "Glob"]
-        }
-        if Task.isCancelled { return }
-        let options = Claude.Options(model: model, effort: "medium",
-                                     system: which == .story ? Analyst.storySystem : Analyst.critiqueSystem,
-                                     schema: which == .story ? Analyst.storySchema : Analyst.critiqueSchema,
-                                     tools: tools, cwd: cwd)
-        var lastPaint = Date.distantPast
-        do {
-            for try await event in Claude.run(prompt, options) {
-                switch event {
-                case .activity(let a):
-                    withAnimation(Motion.soft) { activity.append(a) }
-                case .structured(let text):
-                    guard Date().timeIntervalSince(lastPaint) > 0.25 else { continue }
+                    guard Date().timeIntervalSince(lastPaint) > 0.12 else { continue }
                     lastPaint = Date()
                     guard let obj = PartialJSON.parse(text) else { continue }
                     switch which {
-                    case .story:
-                        let next = Story(J(obj))
-                        if !next.isEmpty { withAnimation(Motion.soft) { story = next } }
-                    case .critique:
-                        let next = Critique(J(obj))
-                        if !next.isEmpty { withAnimation(Motion.soft) { critique = next } }
+                    // Words are set as they come, with no animation (a sentence cross-fading into its own next
+                    // word smears); only a new part, step or fork eases in.
+                    case .trace:
+                        let next = Trace(J(obj), partial: true)
+                        guard !next.isEmpty else { continue }
+                        if firstPaint == nil { firstPaint = Date().timeIntervalSince(started) }
+                        if next.cast.count != trace.cast.count || next.flow.count != trace.flow.count || next.forks.count != trace.forks.count {
+                            withAnimation(Motion.soft) { trace = next }
+                        } else {
+                            trace = next
+                        }
+                    case .outline:
+                        brief = Brief(J(obj))
                     }
                 case .finished(let f):
                     guard !f.isError, let data = f.structured else {
-                        fail(which, f.isError ? f.message : "Claude didn't return a \(which == .story ? "story" : "critique")")
+                        fail(which, f.isError ? f.message : "Claude didn't return the \(which.name)")
                         continue
                     }
                     let seconds = Date().timeIntervalSince(started)
-                    switch which {
-                    case .story:
-                        storyJSON = data
-                        let next = Story(J(data: data))
-                        withAnimation(.smooth(duration: 0.6)) {
-                            story = next
-                            storyState = .done(seconds)
-                        }
-                    case .critique:
-                        critiqueJSON = data
-                        let next = Critique(J(data: data))
-                        withAnimation(.smooth(duration: 0.6)) {
-                            critique = next
-                            critiqueState = .done(seconds)
+                    withAnimation(.smooth(duration: 0.5)) {
+                        switch which {
+                        case .trace:
+                            traceJSON = data
+                            trace = Trace(J(data: data))
+                            traceState = .done(seconds)
+                        case .outline:
+                            briefJSON = data
+                            brief = Brief(J(data: data))
+                            briefState = .done(seconds)
                         }
                     }
                 default: break
@@ -756,66 +732,51 @@ final class PRSession {
         } catch {
             if !Task.isCancelled { fail(which, error.localizedDescription) }
         }
-        let running = which == .story ? storyState.isRunning : critiqueState.isRunning
-        if running && !Task.isCancelled { fail(which, "Claude stopped before finishing the \(which == .story ? "story" : "critique")") }
+        if state(which).isRunning && !Task.isCancelled { fail(which, "Claude stopped before finishing the \(which.name)") }
         settle()
     }
 
-    private func fail(_ which: Drawn, _ message: String) {
+    private func fail(_ which: Reading, _ message: String) {
         withAnimation(Motion.soft) {
             switch which {
-            case .story:
-                if storyJSON == nil { story = Story() }
-                storyState = .failed(message)
-            case .critique:
-                if critiqueJSON == nil { critique = Critique() }
-                critiqueState = .failed(message)
-            }
-        }
-    }
-
-    /// A task's result if it arrives in time, else nil. The task itself keeps running.
-    /// (A task group won't do: it waits for every child, and awaiting another task's value ignores cancellation.)
-    nonisolated static func value<T: Sendable>(of task: Task<T?, Never>, within seconds: Double) async -> T? {
-        await withCheckedContinuation { (done: CheckedContinuation<T?, Never>) in
-            let once = Once()
-            Task { let v = await task.value; if once.claim() { done.resume(returning: v) } }
-            Task {
-                try? await Task.sleep(for: .seconds(seconds))
-                if once.claim() { done.resume(returning: nil) }
+            case .trace:
+                if traceJSON == nil { trace = Trace() }
+                traceState = .failed(message)
+            case .outline:
+                if briefJSON == nil { brief = Brief() }
+                briefState = .failed(message)
             }
         }
     }
 
     /// When both readings are over, keep what came back; a background reading then hands over to the next one.
     private func settle() {
-        guard !briefState.isRunning, !storyState.isRunning, !critiqueState.isRunning, !Task.isCancelled else { return }
-        if briefJSON != nil || storyJSON != nil || critiqueJSON != nil { save() }
+        guard !isSounding, !Task.isCancelled else { return }
+        if briefJSON != nil || traceJSON != nil { save() }
         if background { onSounded?() }
     }
 
     private func save() {
         guard let detail else { return }
-        var briefSeconds: Double?, storySeconds: Double?, critiqueSeconds: Double?
+        var briefSeconds: Double?, traceSeconds: Double?
         if case .done(let s) = briefState { briefSeconds = s }
-        if case .done(let s) = storyState { storySeconds = s }
-        if case .done(let s) = critiqueState { critiqueSeconds = s }
-        Library.saveSounding(Sounding(ref: ref, headSha: detail.headSha, model: model, brief: briefJSON, map: nil, story: storyJSON,
-                                      critique: critiqueJSON, briefSeconds: briefSeconds, mapSeconds: nil, storySeconds: storySeconds,
-                                      critiqueSeconds: critiqueSeconds, createdAt: Date(), version: Sounding.current))
+        if case .done(let s) = traceState { traceSeconds = s }
+        Library.saveSounding(Sounding(ref: ref, headSha: detail.headSha, model: model, brief: briefJSON, map: nil, story: traceJSON,
+                                      critique: nil, briefSeconds: briefSeconds, mapSeconds: nil, storySeconds: traceSeconds,
+                                      critiqueSeconds: nil, createdAt: Date(), version: Sounding.current))
         soundedAt = Date()
         soundedModel = model
         store?.markSounded(ref, sha: detail.headSha)
         guard !background else { return }
-        if store?.ping == true, store?.env["FATHOM_MUTE"] != "1", let sound = NSSound(named: "Submarine") {
-            sound.volume = 0.22
+        if store?.ping == true, store?.env["FATHOM_MUTE"] != "1", let sound = NSSound(named: "Tink") {
+            sound.volume = 0.18
             sound.play()
         }
         if NSApp.isActive == false { NSApp.requestUserAttention(.informationalRequest) }
     }
 
-    nonisolated static func colour(_ diff: ParsedDiff) -> [String: AttributedString] {
-        var out: [String: AttributedString] = [:]
+    nonisolated static func colour(_ diff: ParsedDiff) -> CodeLines {
+        var out: [String: NSAttributedString] = [:]
         for f in diff.files where !f.isBinary && f.noise == nil {
             if Task.isCancelled { break }
             for h in f.hunks {
@@ -833,18 +794,18 @@ final class PRSession {
                 let spans = Intraline.spans(for: h.lines)
                 for (i, var a) in coloured {
                     if let s = spans[i] {
-                        Highlighter.mark(&a, spans: s, color: h.lines[i].kind == .add ? Color.added.opacity(0.28) : Color.removed.opacity(0.3))
+                        Highlighter.mark(&a, spans: s, color: h.lines[i].kind == .add ? CodeInk.addMark : CodeInk.delMark)
                     }
-                    out["\(h.id):\(i)"] = a
+                    out["\(h.id):\(i)"] = Highlighter.ns(a)
                 }
             }
         }
-        return out
+        return CodeLines(out)
     }
 
     // MARK: Derived
 
-    var isSounding: Bool { briefState.isRunning || storyState.isRunning || critiqueState.isRunning }
+    var isSounding: Bool { briefState.isRunning || traceState.isRunning }
 
     /// Lines worth reading vs. lines you can skip, from the chapters (or file noise before they arrive).
     var reading: (focus: Int, skim: Int, skip: Int) {
@@ -916,36 +877,6 @@ final class PRSession {
             if reviewed.contains(chapter) { reviewed.remove(chapter) } else { reviewed.insert(chapter) }
         }
         store?.setReviewed(reviewKey, reviewed)
-    }
-
-    func toggleSettled(_ question: Int) {
-        withAnimation(Motion.snappy) {
-            if settled.contains(question) { settled.remove(question) } else { settled.insert(question) }
-        }
-        store?.setSettled(reviewKey, settled)
-    }
-
-    /// Puts a question to the author: a comment box on the hunk's first new line in Changes, the question written in.
-    func askAuthor(_ question: String, hunk id: String) {
-        guard let diff, let h = diff.hunk(id), let f = diff.file(ofHunk: id),
-              let i = h.lines.firstIndex(where: { $0.kind == .add }) ?? h.lines.firstIndex(where: { $0.kind != .del }),
-              let n = h.lines[i].new else {
-            go(toHunk: id)
-            return
-        }
-        let c = Compose(kind: .new, path: f.path, line: n, side: "RIGHT", hunk: h.id)
-        if (drafts[c.draftKey] ?? "").isEmpty { drafts[c.draftKey] = question }
-        withAnimation(Motion.spring) {
-            if let ch = brief.chapters.first(where: { $0.hunks.contains(id) }), ch.attention == .skip { expandedSkips.insert(ch.id) }
-            fileFilter = nil
-            tab = .changes
-        }
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(140))
-            scrollTarget = "line:\(h.id):\(max(i - 3, 0))"
-            try? await Task.sleep(for: .milliseconds(260))
-            startComposing(c)
-        }
     }
 
     // MARK: Review comments
@@ -1105,7 +1036,7 @@ final class PRSession {
         let first = askSession == nil
         let session = askSession ?? UUID()
         askSession = session
-        let prompt = first ? Analyst.askOpening(detail, diff, brief: brief, question: q) : q
+        let prompt = first ? Analyst.askOpening(detail, diff, headline: trace.headline, question: q) : q
         let model = self.model
         let checkoutTask = ensureCheckout()
         tasks.append(Task {
@@ -1153,23 +1084,24 @@ final class PRSession {
 
     // MARK: QA
 
-    /// FATHOM_TAB, FATHOM_FLOW, FATHOM_SELECT, FATHOM_ASK put the window in a given state for screenshots.
+    /// FATHOM_TAB, FATHOM_FLOW, FATHOM_FOCUS, FATHOM_ASK put the window in a given state for screenshots.
     private func applyDemoState() {
         guard let env = store?.env else { return }
         tasks.append(Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(400))
             if env["FATHOM_TAB"] == "changes" { tab = .changes }
             if env["FATHOM_BY_FILE"] == "1" { byFile = true }
-            for _ in 0..<600 where (story.isEmpty || brief.isEmpty) && env["FATHOM_NO_AI"] != "1" {
+            for _ in 0..<600 where (trace.isEmpty || brief.isEmpty) && env["FATHOM_NO_AI"] != "1" {
                 try? await Task.sleep(for: .milliseconds(200))
             }
             if let q = env["FATHOM_ASK"] {
                 if q.isEmpty { withAnimation(Motion.spring) { askOpen = true } } else { ask(q) }
             }
             if env["FATHOM_REVIEW"] == "1" { reviewOpen = true }
-            // FATHOM_QUESTION=1 puts the reading's second question to the author, as its button does.
-            if let n = env["FATHOM_QUESTION"].flatMap(Int.init), critique.questions.indices.contains(n) {
-                askAuthor(critique.questions[n].q, hunk: critique.questions[n].hunk)
+            if env["FATHOM_FOCUS"] == "1" {
+                // On its own turn: a change made in the same turn as the tab switch above can be missed.
+                try? await Task.sleep(for: .milliseconds(700))
+                store?.toggleFocus()
             }
             if let h = env["FATHOM_GO"] { go(toHunk: h) }
             // FATHOM_COMMENT=path:line opens a comment box there (FATHOM_DRAFT fills it, FATHOM_ADD=1 adds it);
@@ -1196,6 +1128,62 @@ final class PRSession {
                 let c = Compose(kind: .reply(to), path: t.path, line: n, side: t.side, hunk: h.id, thread: id)
                 if let d = env["FATHOM_DRAFT"] { drafts[c.draftKey] = d.replacingOccurrences(of: "\\n", with: "\n") }
                 startComposing(c)
+            }
+            // FATHOM_STAGETEST=3 clicks the trace's third column the way a pointer would, to check that a click pins a
+            // step; FATHOM_STAGETEST=play clicks the play button. FATHOM_BENCH_OUT gets a line when it's done.
+            if let what = env["FATHOM_STAGETEST"] {
+                try? await Task.sleep(for: .seconds(2.6))
+                var line = "no stage"
+                if let w = NSApp.windows.first(where: { $0.contentView != nil }), let content = w.contentView {
+                    var spot: CGPoint?
+                    if what == "play", !StageProbe.play.isEmpty {
+                        spot = CGPoint(x: StageProbe.play.midX, y: StageProbe.play.midY)
+                    } else if let n = Int(what), StageProbe.columns.indices.contains(n - 1) {
+                        spot = CGPoint(x: StageProbe.frame.minX + StageProbe.columns[n - 1].x, y: StageProbe.frame.minY + StageProbe.columns[n - 1].y)
+                    }
+                    if let spot {
+                        let at = NSPoint(x: spot.x, y: content.bounds.height - spot.y)
+                        // A click on a window that isn't in front only brings it forward, and this window must not
+                        // come forward (the Mac may be in use). So, for this test only, the views under the point are
+                        // told to take that first click, and the press and release go through the app as real ones do.
+                        let hit = content.superview?.hitTest(at)
+                        let sel = #selector(NSView.acceptsFirstMouse(for:))
+                        let yes: @convention(block) (AnyObject, NSEvent?) -> Bool = { _, _ in true }
+                        if let m = class_getInstanceMethod(NSView.self, sel) {
+                            var view: NSView? = hit
+                            while let v = view {
+                                if type(of: v) != NSView.self { class_replaceMethod(type(of: v), sel, imp_implementationWithBlock(yes), method_getTypeEncoding(m)) }
+                                view = v.superview
+                            }
+                        }
+                        let ignoring = w.ignoresMouseEvents
+                        w.ignoresMouseEvents = false
+                        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                            if let e = NSEvent.mouseEvent(with: type, location: at, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                                          windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1) {
+                                NSApp.sendEvent(e)
+                            }
+                            try? await Task.sleep(for: .milliseconds(60))
+                        }
+                        w.ignoresMouseEvents = ignoring
+                        try? await Task.sleep(for: .milliseconds(300))
+                        line = "clicked \(what) at \(Int(at.x)),\(Int(at.y)); pinned step \(StageProbe.picked.map(String.init) ?? "none"); stage \(StageProbe.frame.integral); columns \(StageProbe.columns.count)"
+                    }
+                }
+                if let path = env["FATHOM_BENCH_OUT"] { try? line.write(toFile: path, atomically: true, encoding: .utf8) }
+            }
+            if env["FATHOM_SELECTTEST"] == "1" {
+                withAnimation(Motion.spring) { tab = .changes }
+                for _ in 0..<100 where code == nil { try? await Task.sleep(for: .milliseconds(100)) }
+                try? await Task.sleep(for: .seconds(1.5))
+                await SelectTest.run(self)
+            }
+            // FATHOM_SCROLLBENCH=2400,7000 scrolls the Code tab by itself at those speeds and reports late frames.
+            if let spec = env["FATHOM_SCROLLBENCH"] {
+                withAnimation(Motion.spring) { tab = .changes }
+                for _ in 0..<100 where code == nil { try? await Task.sleep(for: .milliseconds(100)) }
+                try? await Task.sleep(for: .seconds(2))
+                ScrollBench.shared.run(spec)
             }
             if let row = env["FATHOM_SCROLL"] {
                 withAnimation(Motion.spring) { tab = .changes }

@@ -1,4 +1,4 @@
-// Fathom has no account of its own. It borrows two: the GitHub CLI's login, and Claude Code's.
+// Tracer has no account of its own. It borrows two: the GitHub CLI's login, and Claude Code's.
 // This file checks both, signs in to GitHub without leaving the app, and shows what's missing.
 
 import AppKit
@@ -110,7 +110,7 @@ final class Setup {
         let printed = (try? await Shell.run(exe, ["--version"], timeout: 15))?.text ?? ""
         let version = printed.split(separator: " ").first.map(String.init) ?? ""
         guard can.isCurrent else { return .outdated(version) }
-        // `claude auth status` came later than everything else Fathom uses. Without it, the first reading tells.
+        // `claude auth status` came later than everything else Tracer uses. Without it, the first reading tells.
         if can.commands.contains("auth"), let out = try? await Shell.run(exe, ["auth", "status"], timeout: 20) {
             let j = J(data: out.stdout)
             if j["loggedIn"].exists {
@@ -179,7 +179,7 @@ final class GitHubSignIn {
         p.executableURL = URL(fileURLWithPath: gh)
         p.arguments = ["auth", "login", "--hostname", "github.com", "--git-protocol", "https", "--web"]
         var env = Shell.environment
-        env["GH_BROWSER"] = "/usr/bin/true"   // Fathom opens the page itself, once the code is on screen
+        env["GH_BROWSER"] = "/usr/bin/true"   // Tracer opens the page itself, once the code is on screen
         p.environment = env
         p.standardInput = FileHandle.nullDevice
         let pipe = Pipe()
@@ -255,7 +255,7 @@ final class GitHubSignIn {
 enum Terminal {
     /// Runs a command in a new Terminal window: a .command file, so no automation permission is needed.
     static func run(_ command: String, title: String) {
-        let dir = FileManager.default.temporaryDirectory.appending(path: "Fathom", directoryHint: .isDirectory)
+        let dir = FileManager.default.temporaryDirectory.appending(path: "Tracer", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let file = dir.appending(path: "\(title).command")
         let script = """
@@ -263,7 +263,7 @@ enum Terminal {
         clear
         printf '%s\\n\\n' \(quote(title))
         \(command)
-        printf '\\nDone. Go back to Fathom; it checks again by itself. You can close this window.\\n'
+        printf '\\nDone. Go back to Tracer; it checks again by itself. You can close this window.\\n'
 
         """
         do {
@@ -290,10 +290,10 @@ struct SetupCard: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Fathom runs on your own tools")
-                        .font(.serif(25))
+                    Text("Tracer runs on your own tools")
+                        .font(.display(21))
                         .foregroundStyle(Color.text1)
-                    Text("There's no Fathom account. It reads GitHub through the GitHub CLI and thinks with your Claude plan through Claude Code.")
+                    Text("There's no Tracer account. It reads GitHub through the GitHub CLI and thinks with your Claude plan through Claude Code.")
                         .font(.system(size: 12.5))
                         .foregroundStyle(Color.text2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -389,14 +389,14 @@ struct SetupRows: View {
                 CommandChip(command: "curl -fsSL https://claude.ai/install.sh | bash")
             case .outdated(let version):
                 ToolRow(symbol: "sparkle", name: "Claude Code",
-                        status: version.isEmpty ? "Too old for Fathom" : "Version \(version) is too old for Fathom", tone: .attention) {
+                        status: version.isEmpty ? "Too old for Tracer" : "Version \(version) is too old for Tracer", tone: .attention) {
                     Button("Update in Terminal") { setup.updateClaude() }
                         .buttonStyle(.glass)
                         .controlSize(.small)
                 }
             case .signedOut:
                 ToolRow(symbol: "sparkle", name: "Claude Code", status: "Installed, not signed in", tone: .attention,
-                        detail: "Sign in once in Terminal. Fathom notices when you come back.") {
+                        detail: "Sign in once in Terminal. Tracer notices when you come back.") {
                     Button("Open Terminal to Sign In") { setup.signInToClaude() }
                         .buttonStyle(.glass)
                         .controlSize(.small)
@@ -422,7 +422,7 @@ struct ToolRow<Actions: View>: View {
         HStack(alignment: .center, spacing: 13) {
             Image(systemName: symbol)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(tone == .ready ? Color.sonar : Color.text2)
+                .foregroundStyle(tone == .ready ? Color.signal : Color.text2)
                 .frame(width: 34, height: 34)
                 .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.wash(0.06)))
             VStack(alignment: .leading, spacing: 3) {
@@ -536,8 +536,8 @@ struct SignInPanel: View {
                 .controlSize(.regular)
                 HStack(spacing: 7) {
                     ProgressView().controlSize(.mini)
-                    Text(flow.copied ? "Paste the code on github.com and approve. Fathom finishes by itself."
-                                     : "Then paste it on github.com and approve. Fathom finishes by itself.")
+                    Text(flow.copied ? "Paste the code on github.com and approve. Tracer finishes by itself."
+                                     : "Then paste it on github.com and approve. Tracer finishes by itself.")
                         .font(.system(size: 11.5))
                         .foregroundStyle(Color.text3)
                 }
@@ -559,7 +559,7 @@ struct SignInPanel: View {
     }
 }
 
-/// ⌘, — the accounts, how Claude reads, and where Fathom keeps things.
+/// ⌘, — the accounts, how Claude reads, and where Tracer keeps things.
 struct SettingsView: View {
     @Environment(AppStore.self) private var store
 
@@ -576,17 +576,17 @@ struct SettingsView: View {
                     CheckAgainButton()
                 }
             } footer: {
-                Text("Fathom has no servers and no account of its own. Pull requests come through your GitHub CLI login; readings run on your Claude plan through Claude Code.")
+                Text("Tracer has no servers and no account of its own. Pull requests come through your GitHub CLI login; readings run on your Claude plan through Claude Code.")
                     .font(.system(size: 11.5))
                     .foregroundStyle(Color.text3)
             }
             Section("Reading") {
                 Picker("Model", selection: $store.model) {
-                    Text("Claude Opus (deepest)").tag("opus")
-                    Text("Claude Sonnet (quicker)").tag("sonnet")
+                    Text("Claude Sonnet (quickest)").tag("sonnet")
+                    Text("Claude Opus (deeper, slower)").tag("opus")
                 }
-                Toggle("Read new review requests in the background", isOn: $store.autoRead)
-                Toggle("Play a sonar ping when a reading is done", isOn: $store.ping)
+                Toggle("Trace new review requests in the background", isOn: $store.autoRead)
+                Toggle("Play a sound when a trace is ready", isOn: $store.ping)
             }
             Section("Look") {
                 Picker("Appearance", selection: $store.appearance) {

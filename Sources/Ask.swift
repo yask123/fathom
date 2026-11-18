@@ -1,5 +1,5 @@
 // Ask: a glass bar at the bottom of every PR. Claude answers with the PR and the repo in front of it,
-// and any `file:line` it mentions jumps to that line in Changes.
+// and any `file:line` it mentions jumps to that line in the Code tab.
 
 import SwiftUI
 
@@ -51,7 +51,7 @@ struct AskPanel: View {
         HStack(spacing: 10) {
             Image(systemName: "sparkle")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.sonar)
+                .foregroundStyle(Color.signal)
                 .symbolEffect(.pulse, isActive: session.askRunning)
             TextField("Ask anything about this pull request", text: $text, axis: .vertical)
                 .textFieldStyle(.plain)
@@ -73,7 +73,7 @@ struct AskPanel: View {
                         .font(.system(size: 11, weight: .heavy))
                         .foregroundStyle(Color.ink)
                         .frame(width: 24, height: 24)
-                        .background(Circle().fill(session.askRunning ? Color.text3 : Color.sonar))
+                        .background(Circle().fill(session.askRunning ? Color.text3 : Color.signal))
                 }
                 .buttonStyle(.plain)
                 .disabled(session.askRunning)
@@ -83,9 +83,9 @@ struct AskPanel: View {
         .padding(.trailing, 10)
         .padding(.vertical, 9)
         .frame(maxWidth: 620)
-        .glassEffect(.regular.tint(Color.adaptive(light: 0xFFFFFF, dark: 0x0E141D, lightAlpha: 0.6, darkAlpha: 0.6)).interactive(), in: .capsule)
+        .glassEffect(.regular.tint(Color.adaptive(light: 0xFFFFFF, dark: 0x10121B, lightAlpha: 0.6, darkAlpha: 0.62)).interactive(), in: .capsule)
         .overlay {
-            Capsule().strokeBorder(Color.sonar.opacity(focused ? 0.4 : 0.1), lineWidth: 0.75)
+            Capsule().strokeBorder(Color.signal.opacity(focused ? 0.4 : 0.1), lineWidth: 0.75)
                 .allowsHitTesting(false)
         }
         .shadow(color: .black.opacity(0.35), radius: 18, y: 8)
@@ -152,7 +152,7 @@ struct Conversation: View {
         }
         .frame(maxHeight: 440)
         .fixedSize(horizontal: false, vertical: true)
-        .glassEffect(.regular.tint(Color.adaptive(light: 0xFAF8F2, dark: 0x0B1018, lightAlpha: 0.78, darkAlpha: 0.72)), in: .rect(cornerRadius: 24, style: .continuous))
+        .glassEffect(.regular.tint(Color.adaptive(light: 0xFAFAFC, dark: 0x0C0D14, lightAlpha: 0.8, darkAlpha: 0.76)), in: .rect(cornerRadius: 24, style: .continuous))
         .shadow(color: .black.opacity(0.4), radius: 30, y: 14)
     }
 }
@@ -170,8 +170,8 @@ struct MessageView: View {
                     .foregroundStyle(Color.text1)
                     .padding(.horizontal, 13)
                     .padding(.vertical, 9)
-                    .background(RoundedRectangle(cornerRadius: 15, style: .continuous).fill(Color.sonar.opacity(0.13)))
-                    .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).strokeBorder(Color.sonar.opacity(0.2), lineWidth: 0.5))
+                    .background(RoundedRectangle(cornerRadius: 15, style: .continuous).fill(Color.signal.opacity(0.13)))
+                    .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).strokeBorder(Color.signal.opacity(0.2), lineWidth: 0.5))
                     .textSelection(.enabled)
             }
         } else {
@@ -181,7 +181,7 @@ struct MessageView: View {
                 }
                 if message.text.isEmpty && !message.done {
                     HStack(spacing: 8) {
-                        SonarPip().frame(width: 14, height: 14)
+                        Pip().frame(width: 14, height: 14)
                         Text(message.activity.isEmpty ? "Thinking…" : "Looking through the code…")
                             .font(.system(size: 12.5))
                             .foregroundStyle(Color.text3)
@@ -220,7 +220,7 @@ struct ActivityLine: View {
                 VStack(alignment: .leading, spacing: 3) {
                     ForEach(open ? activity : Array(activity.suffix(2))) { a in
                         HStack(spacing: 6) {
-                            Image(systemName: a.icon).font(.system(size: 9.5)).foregroundStyle(Color.sonar.opacity(0.7))
+                            Image(systemName: a.icon).font(.system(size: 9.5)).foregroundStyle(Color.signal.opacity(0.7))
                             Text(a.verb).foregroundStyle(Color.text3)
                             Text(a.target).font(.mono(10.5)).foregroundStyle(Color.text2).lineLimit(1).truncationMode(.head)
                         }
@@ -267,7 +267,7 @@ struct MarkdownText: View {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(ordered ?? "•")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Color.sonar.opacity(0.8))
+                            .foregroundStyle(Color.signal.opacity(0.8))
                             .frame(minWidth: 10, alignment: .trailing)
                         Text(linked(s))
                             .font(.system(size: 13))
@@ -358,7 +358,7 @@ struct MarkdownText: View {
 
     /// Inline markdown, with `path/file.ext:12` code spans turned into jump links.
     private func linked(_ s: String) -> AttributedString {
-        var a = md(s, base: failed ? .changed : .text1.opacity(0.92), code: Color.adaptive(light: 0x155E59, dark: 0xBFE9E4), size: 13)
+        var a = md(s, base: failed ? .changed : .text1.opacity(0.92), code: Color.adaptive(light: 0x4A34C4, dark: 0xCFC2FF), size: 13)
         for run in a.runs {
             guard let intent = run.inlinePresentationIntent, intent.contains(.code) else { continue }
             let code = String(a[run.range].characters)
