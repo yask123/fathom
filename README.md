@@ -51,9 +51,9 @@ as it's read, and the whole trace is there in about eight (Claude Sonnet, a 400-
    brew install --cask yask123/tap/tracer
    ```
 
-   or download [Tracer.dmg](https://github.com/yask123/fathom/releases/latest/download/Tracer.dmg) and drag Tracer to
+   or download [Tracer.dmg](https://github.com/yask123/tracer/releases/latest/download/Tracer.dmg) and drag Tracer to
    Applications. Signed and notarized; needs macOS 26 or later, Apple silicon or Intel. (Releases up to 0.7.0 on the
-   [Releases](https://github.com/yask123/fathom/releases) page are the earlier app, Fathom.)
+   [Releases](https://github.com/yask123/tracer/releases) page are the earlier app, Fathom.)
 2. Open it. The first screen checks the two tools Tracer runs on and walks you through what's missing:
    - **GitHub CLI**: `brew install gh` ([other ways](https://cli.github.com)). Then press **Sign In to GitHub** in
      Tracer: it shows a one-time code, opens github.com, and finishes by itself. Already signed in with `gh auth login`?

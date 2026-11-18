@@ -11,7 +11,7 @@ TAP=$(brew --repository yask123/tap)
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-curl -fsSL -o "$TMP/Tracer.dmg" "https://github.com/yask123/fathom/releases/download/v$VERSION/Tracer.dmg"
+curl -fsSL -o "$TMP/Tracer.dmg" "https://github.com/yask123/tracer/releases/download/v$VERSION/Tracer.dmg"
 SHA=$(shasum -a 256 "$TMP/Tracer.dmg" | cut -c1-64)
 
 cd "$TAP"
